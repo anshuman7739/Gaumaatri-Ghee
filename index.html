@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gaumaatri - Pure Desi Cow Ghee</title>
+<meta name="description" content="Buy 100% Pure Desi Cow Ghee online. Lab tested, free delivery. Authentic Bilona ghee.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+<style>
+:root{--gold:#C9922A;--gold-light:#E8B84B;--gold-dark:#8B6914;--cream:#FDF8F0;--cream-dark:#F5ECD7;--brown:#3D2B1F;--brown-light:#6B4C3B;--white:#FFFFFF;--text:#2C1810;--shadow:0 4px 24px rgba(61,43,31,0.12);}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{font-family:'Inter',sans-serif;background:var(--cream);color:var(--text);overflow-x:hidden;}
+h1,h2,h3,h4{font-family:'Playfair Display',serif;}
+
+/* LOADER */
+#loader{position:fixed;inset:0;background:var(--brown);display:flex;align-items:center;justify-content:center;z-index:9999;transition:opacity 0.6s ease;}
+#loader.hidden{opacity:0;pointer-events:none;}
+.loader-inner{text-align:center;color:var(--gold-light);}
+.loader-logo{font-family:'Playfair Display',serif;font-size:2.5rem;font-weight:700;letter-spacing:4px;animation:pulse 1.5s ease-in-out infinite;}
+.loader-sub{font-size:0.85rem;letter-spacing:6px;opacity:0.7;margin-top:8px;}
+.loader-bar{width:200px;height:2px;background:rgba(255,255,255,0.2);margin:20px auto 0;border-radius:2px;overflow:hidden;}
+.loader-fill{width:0;height:100%;background:var(--gold-light);animation:load 1.8s ease forwards;}
+@keyframes load{to{width:100%;}}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.5;}}
+
+/* TOAST */
+#toast-container{position:fixed;top:20px;right:20px;z-index:8000;display:flex;flex-direction:column;gap:10px;}
+.toast{background:var(--brown);color:var(--cream);padding:14px 20px;border-radius:12px;font-size:0.9rem;box-shadow:var(--shadow);border-left:4px solid var(--gold);transform:translateX(120%);transition:transform 0.4s ease;max-width:320px;}
+.toast.show{transform:translateX(0);}
+.toast.success{border-left-color:#4CAF50;}
+.toast.error{border-left-color:#f44336;}
+
+/* HEADER */
+header{position:fixed;top:0;left:0;right:0;z-index:1000;transition:all 0.4s ease;padding:16px 0;}
+header.scrolled{background:rgba(253,248,240,0.97);backdrop-filter:blur(20px);box-shadow:0 2px 20px rgba(61,43,31,0.1);padding:10px 0;}
+nav{max-width:1200px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none;}
+.logo-icon{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-dark));display:flex;align-items:center;justify-content:center;font-size:1.2rem;}
+.logo-text{font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:700;color:var(--brown);line-height:1;}
+.logo-sub{font-size:0.6rem;letter-spacing:3px;color:var(--gold);font-family:'Inter',sans-serif;font-weight:500;}
+.nav-links{display:flex;align-items:center;gap:32px;list-style:none;}
+.nav-links a{text-decoration:none;color:var(--brown-light);font-size:0.9rem;font-weight:500;transition:color 0.3s;}
+.nav-links a:hover{color:var(--gold);}
+.nav-cta{background:linear-gradient(135deg,var(--gold),var(--gold-dark));color:var(--white)!important;padding:10px 24px;border-radius:50px;font-weight:600!important;transition:transform 0.3s,box-shadow 0.3s!important;}
+.nav-cta:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(201,146,42,0.4)!important;}
+.hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;background:none;border:none;padding:4px;}
+.hamburger span{width:24px;height:2px;background:var(--brown);border-radius:2px;transition:all 0.3s;}
+.mobile-menu{display:none;position:fixed;inset:0;background:var(--cream);z-index:999;flex-direction:column;align-items:center;justify-content:center;gap:32px;}
+.mobile-menu.open{display:flex;}
+.mobile-menu a{font-family:'Playfair Display',serif;font-size:1.8rem;color:var(--brown);text-decoration:none;}
+.mobile-close{position:absolute;top:24px;right:24px;font-size:1.5rem;background:none;border:none;cursor:pointer;color:var(--brown);}
+
+/* HERO */
+#hero{min-height:100vh;display:flex;align-items:center;position:relative;overflow:hidden;background:linear-gradient(135deg,#2C1810 0%,#3D2B1F 40%,#5C3A28 100%);}
+.hero-bg{position:absolute;inset:0;background-image:url('hero.png');background-size:cover;background-position:center;opacity:0.25;}
+.hero-overlay{position:absolute;inset:0;background:linear-gradient(135deg,rgba(44,24,16,0.9) 0%,rgba(61,43,31,0.7) 50%,rgba(92,58,40,0.5) 100%);}
+.hero-content{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:100px 24px 60px;display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(201,146,42,0.2);border:1px solid rgba(201,146,42,0.4);padding:8px 16px;border-radius:50px;font-size:0.8rem;letter-spacing:3px;color:var(--gold-light);font-weight:600;margin-bottom:24px;text-transform:uppercase;}
+.hero-title{font-size:clamp(2.5rem,5vw,4rem);font-weight:700;color:var(--white);line-height:1.15;margin-bottom:16px;}
+.hero-title span{color:var(--gold-light);}
+.hero-subtitle{font-size:1.1rem;color:rgba(255,255,255,0.75);line-height:1.7;margin-bottom:32px;max-width:480px;}
+.hero-btns{display:flex;gap:16px;flex-wrap:wrap;}
+.btn-primary{background:linear-gradient(135deg,var(--gold),var(--gold-dark));color:var(--white);padding:14px 32px;border-radius:50px;text-decoration:none;font-weight:600;font-size:1rem;transition:all 0.3s;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:8px;}
+.btn-primary:hover{transform:translateY(-3px);box-shadow:0 12px 32px rgba(201,146,42,0.5);}
+.btn-outline{background:transparent;color:var(--white);padding:14px 32px;border-radius:50px;text-decoration:none;font-weight:600;font-size:1rem;border:2px solid rgba(255,255,255,0.4);transition:all 0.3s;cursor:pointer;display:inline-flex;align-items:center;gap:8px;}
+.btn-outline:hover{background:rgba(255,255,255,0.1);border-color:var(--white);}
+.hero-img{position:relative;}
+.hero-img img{width:100%;max-width:480px;border-radius:24px;box-shadow:0 32px 80px rgba(0,0,0,0.4);}
+.hero-stats{display:flex;gap:24px;margin-top:40px;}
+.stat{text-align:center;}
+.stat-num{font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:700;color:var(--gold-light);}
+.stat-label{font-size:0.75rem;color:rgba(255,255,255,0.6);letter-spacing:2px;text-transform:uppercase;}
+
+/* TRUST BADGES */
+#trust{background:var(--brown);padding:24px 0;}
+.trust-inner{max-width:1200px;margin:0 auto;padding:0 24px;display:flex;justify-content:center;gap:40px;flex-wrap:wrap;}
+.badge{display:flex;align-items:center;gap:10px;color:var(--gold-light);}
+.badge-icon{font-size:1.4rem;}
+.badge-text{font-size:0.85rem;font-weight:600;letter-spacing:1px;}
+
+/* SECTIONS */
+section{padding:80px 24px;}
+.container{max-width:1200px;margin:0 auto;}
+.section-label{font-size:0.8rem;letter-spacing:4px;text-transform:uppercase;color:var(--gold);font-weight:600;margin-bottom:12px;}
+.section-title{font-size:clamp(1.8rem,4vw,2.8rem);font-weight:700;color:var(--brown);line-height:1.2;margin-bottom:16px;}
+.section-sub{font-size:1.05rem;color:var(--brown-light);line-height:1.7;max-width:580px;}
+.text-center{text-align:center;}
+.text-center .section-sub{margin:0 auto;}
+
+/* ABOUT */
+#about{background:var(--white);}
+.about-grid{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;margin-top:48px;}
+.about-img img{width:100%;border-radius:20px;box-shadow:var(--shadow);}
+.about-text p{font-size:1rem;color:var(--brown-light);line-height:1.8;margin-bottom:16px;}
+.about-features{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px;}
+.feature-card{background:var(--cream);padding:16px;border-radius:12px;border-left:3px solid var(--gold);}
+.feature-card h4{font-size:0.95rem;color:var(--brown);margin-bottom:4px;}
+.feature-card p{font-size:0.82rem;color:var(--brown-light);}
+
+/* PRODUCTS */
+#products{background:var(--cream-dark);}
+.products-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;margin-top:48px;}
+.product-card{background:var(--white);border-radius:24px;overflow:hidden;box-shadow:var(--shadow);transition:transform 0.3s,box-shadow 0.3s;position:relative;}
+.product-card:hover{transform:translateY(-8px);box-shadow:0 20px 60px rgba(61,43,31,0.15);}
+.product-card.featured{border:2px solid var(--gold);}
+.popular-badge{position:absolute;top:16px;right:16px;background:var(--gold);color:var(--white);font-size:0.75rem;font-weight:700;padding:4px 12px;border-radius:50px;letter-spacing:1px;}
+.product-img{height:220px;overflow:hidden;}
+.product-img img{width:100%;height:100%;object-fit:cover;}
+.product-body{padding:24px;}
+.product-name{font-size:1.3rem;font-weight:700;color:var(--brown);margin-bottom:4px;}
+.product-size{font-size:0.85rem;color:var(--gold);font-weight:600;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;}
+.product-price{font-family:'Playfair Display',serif;font-size:2rem;font-weight:700;color:var(--brown);}
+.product-price span{font-size:1rem;color:var(--brown-light);font-family:'Inter',sans-serif;font-weight:400;}
+.product-features{list-style:none;margin:16px 0 20px;}
+.product-features li{font-size:0.85rem;color:var(--brown-light);padding:4px 0;display:flex;align-items:center;gap:8px;}
+.product-features li::before{content:"✓";color:var(--gold);font-weight:700;}
+.order-btn{width:100%;padding:13px;background:linear-gradient(135deg,var(--gold),var(--gold-dark));color:var(--white);border:none;border-radius:12px;font-size:1rem;font-weight:600;cursor:pointer;transition:all 0.3s;}
+.order-btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(201,146,42,0.4);}
+
+/* BENEFITS */
+#benefits{background:var(--white);}
+.benefits-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;margin-top:48px;}
+.benefit-card{background:var(--cream);padding:28px;border-radius:20px;text-align:center;transition:transform 0.3s;}
+.benefit-card:hover{transform:translateY(-6px);}
+.benefit-icon{font-size:2.5rem;margin-bottom:16px;}
+.benefit-card h3{font-size:1.1rem;color:var(--brown);margin-bottom:8px;}
+.benefit-card p{font-size:0.88rem;color:var(--brown-light);line-height:1.6;}
+
+/* HOW TO ORDER */
+#how-to-order{background:var(--cream-dark);}
+.steps-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-top:48px;}
+.step-card{text-align:center;padding:24px 16px;}
+.step-num{width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-dark));color:var(--white);font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
+.step-card h3{font-size:1rem;color:var(--brown);margin-bottom:8px;}
+.step-card p{font-size:0.85rem;color:var(--brown-light);}
+.steps-connector{display:none;}
+
+/* REVIEWS */
+#reviews{background:var(--brown);}
+#reviews .section-title{color:var(--white);}
+#reviews .section-label{color:var(--gold-light);}
+.reviews-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:48px;}
+.review-card{background:rgba(255,255,255,0.07);padding:28px;border-radius:20px;border:1px solid rgba(201,146,42,0.2);}
+.stars{color:var(--gold-light);font-size:1.1rem;margin-bottom:12px;}
+.review-text{color:rgba(255,255,255,0.8);font-size:0.92rem;line-height:1.7;margin-bottom:16px;}
+.reviewer{display:flex;align-items:center;gap:12px;}
+.reviewer-avatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-dark));display:flex;align-items:center;justify-content:center;color:var(--white);font-weight:700;}
+.reviewer-name{font-weight:600;color:var(--white);font-size:0.9rem;}
+.reviewer-loc{font-size:0.78rem;color:rgba(255,255,255,0.5);}
+
+/* TRACKING */
+#tracking{background:var(--cream);}
+.track-box{background:var(--white);border-radius:24px;padding:40px;box-shadow:var(--shadow);max-width:600px;margin:40px auto 0;}
+.track-box h3{font-family:'Playfair Display',serif;font-size:1.5rem;color:var(--brown);margin-bottom:24px;text-align:center;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+.form-group{display:flex;flex-direction:column;gap:6px;}
+.form-group label{font-size:0.85rem;font-weight:600;color:var(--brown);}
+.form-group input,.form-group select,.form-group textarea{padding:12px 16px;border:2px solid var(--cream-dark);border-radius:10px;font-size:0.95rem;font-family:'Inter',sans-serif;color:var(--brown);background:var(--cream);transition:border-color 0.3s;outline:none;}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--gold);}
+.form-group input.error,.form-group select.error{border-color:#f44336;}
+.error-msg{font-size:0.78rem;color:#f44336;display:none;}
+.error-msg.show{display:block;}
+.track-btn{width:100%;padding:14px;background:linear-gradient(135deg,var(--gold),var(--gold-dark));color:var(--white);border:none;border-radius:12px;font-size:1rem;font-weight:600;cursor:pointer;margin-top:8px;transition:all 0.3s;}
+.track-btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(201,146,42,0.4);}
+.tracking-result{display:none;margin-top:28px;}
+.tracking-result.show{display:block;}
+.timeline{list-style:none;position:relative;padding-left:32px;}
+.timeline::before{content:'';position:absolute;left:10px;top:0;bottom:0;width:2px;background:var(--cream-dark);}
+.timeline li{position:relative;padding:0 0 24px 20px;}
+.timeline li::before{content:'';position:absolute;left:-22px;top:4px;width:16px;height:16px;border-radius:50%;border:3px solid var(--cream-dark);background:var(--white);transition:all 0.4s;}
+.timeline li.done::before{border-color:var(--gold);background:var(--gold);}
+.timeline li.active::before{border-color:var(--gold-dark);background:var(--white);box-shadow:0 0 0 4px rgba(201,146,42,0.2);}
+.tl-title{font-weight:600;font-size:0.95rem;color:var(--brown);}
+.tl-desc{font-size:0.82rem;color:var(--brown-light);margin-top:2px;}
+
+/* FAQ */
+#faq{background:var(--white);}
+.faq-list{max-width:720px;margin:40px auto 0;}
+.faq-item{border-bottom:1px solid var(--cream-dark);overflow:hidden;}
+.faq-q{width:100%;background:none;border:none;text-align:left;padding:20px 0;font-family:'Playfair Display',serif;font-size:1.05rem;color:var(--brown);cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:16px;}
+.faq-icon{font-size:1.2rem;color:var(--gold);transition:transform 0.3s;flex-shrink:0;}
+.faq-a{max-height:0;overflow:hidden;transition:max-height 0.4s ease,padding 0.3s;}
+.faq-a p{font-size:0.92rem;color:var(--brown-light);line-height:1.7;padding-bottom:16px;}
+.faq-item.open .faq-icon{transform:rotate(45deg);}
+.faq-item.open .faq-a{max-height:200px;}
+
+/* FOOTER */
+footer{background:var(--brown);color:var(--white);padding:48px 24px 24px;}
+.footer-inner{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:2fr 1fr 1fr;gap:40px;}
+.footer-brand .logo-text{color:var(--white);}
+.footer-brand p{font-size:0.88rem;color:rgba(255,255,255,0.6);margin-top:12px;line-height:1.7;}
+.footer-col h4{font-family:'Playfair Display',serif;font-size:1.1rem;color:var(--gold-light);margin-bottom:16px;}
+.footer-col ul{list-style:none;}
+.footer-col ul li{margin-bottom:10px;}
+.footer-col ul li a{color:rgba(255,255,255,0.65);text-decoration:none;font-size:0.88rem;transition:color 0.3s;}
+.footer-col ul li a:hover{color:var(--gold-light);}
+.footer-bottom{max-width:1200px;margin:32px auto 0;padding-top:24px;border-top:1px solid rgba(255,255,255,0.1);text-align:center;color:rgba(255,255,255,0.4);font-size:0.82rem;}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:5000;display:none;align-items:center;justify-content:center;padding:20px;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--white);border-radius:24px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;padding:32px;position:relative;animation:modalIn 0.4s ease;}
+@keyframes modalIn{from{transform:translateY(30px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+.modal-close{position:absolute;top:16px;right:16px;width:36px;height:36px;border-radius:50%;background:var(--cream-dark);border:none;cursor:pointer;font-size:1.1rem;color:var(--brown);}
+.modal-title{font-family:'Playfair Display',serif;font-size:1.5rem;color:var(--brown);margin-bottom:4px;}
+.modal-sub{font-size:0.88rem;color:var(--brown-light);margin-bottom:24px;}
+.variant-pills{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;}
+.variant-pill{padding:8px 18px;border-radius:50px;border:2px solid var(--cream-dark);background:var(--cream);color:var(--brown);cursor:pointer;font-size:0.88rem;font-weight:600;transition:all 0.3s;}
+.variant-pill.active{border-color:var(--gold);background:rgba(201,146,42,0.1);color:var(--gold-dark);}
+.qty-control{display:flex;align-items:center;gap:12px;}
+.qty-btn{width:36px;height:36px;border-radius:50%;border:2px solid var(--cream-dark);background:var(--cream);cursor:pointer;font-size:1.1rem;color:var(--brown);transition:all 0.3s;}
+.qty-btn:hover{border-color:var(--gold);color:var(--gold);}
+.qty-display{font-size:1.1rem;font-weight:700;color:var(--brown);width:32px;text-align:center;}
+.payment-options{display:flex;gap:12px;margin-bottom:16px;}
+.pay-btn{flex:1;padding:12px;border:2px solid var(--cream-dark);background:var(--cream);border-radius:10px;cursor:pointer;font-size:0.9rem;font-weight:600;color:var(--brown);transition:all 0.3s;}
+.pay-btn.active{border-color:var(--gold);background:rgba(201,146,42,0.1);color:var(--gold-dark);}
+.coupon-row{display:flex;gap:10px;margin-bottom:20px;}
+.coupon-row input{flex:1;padding:11px 14px;border:2px solid var(--cream-dark);border-radius:10px;font-size:0.9rem;font-family:'Inter',sans-serif;outline:none;}
+.coupon-row input:focus{border-color:var(--gold);}
+.apply-coupon{padding:11px 18px;background:var(--brown);color:var(--white);border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:0.85rem;white-space:nowrap;}
+.price-summary{background:var(--cream);padding:16px;border-radius:12px;margin-bottom:20px;}
+.price-row{display:flex;justify-content:space-between;font-size:0.9rem;color:var(--brown-light);margin-bottom:6px;}
+.price-row.total{font-weight:700;color:var(--brown);font-size:1.05rem;border-top:1px solid var(--cream-dark);padding-top:8px;margin-top:6px;}
+.price-row.discount{color:#4CAF50;}
+.submit-order{width:100%;padding:15px;background:linear-gradient(135deg,var(--gold),var(--gold-dark));color:var(--white);border:none;border-radius:12px;font-size:1.05rem;font-weight:700;cursor:pointer;transition:all 0.3s;margin-top:8px;}
+.submit-order:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(201,146,42,0.5);}
+
+/* CONFIRMATION */
+.confirm-screen{display:none;text-align:center;}
+.confirm-screen.show{display:block;}
+.confirm-icon{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#4CAF50,#2E7D32);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:2rem;}
+.order-id-box{background:var(--cream-dark);padding:16px 24px;border-radius:12px;margin:20px 0;border:1px dashed var(--gold);}
+.order-id-label{font-size:0.8rem;letter-spacing:2px;color:var(--gold);text-transform:uppercase;font-weight:600;}
+.order-id-val{font-family:'Playfair Display',serif;font-size:1.6rem;font-weight:700;color:var(--brown);}
+.confirm-details{text-align:left;background:var(--cream);padding:16px;border-radius:12px;margin:16px 0;font-size:0.88rem;color:var(--brown-light);line-height:1.8;}
+
+/* WHATSAPP */
+.whatsapp-btn{position:fixed;bottom:28px;right:28px;z-index:4000;width:56px;height:56px;border-radius:50%;background:#25D366;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(37,211,102,0.5);text-decoration:none;font-size:1.5rem;transition:transform 0.3s;}
+.whatsapp-btn:hover{transform:scale(1.1);}
+
+/* BACK TO TOP */
+#back-top{position:fixed;bottom:96px;right:28px;z-index:4000;width:44px;height:44px;border-radius:50%;background:var(--brown);color:var(--white);border:none;display:none;align-items:center;justify-content:center;cursor:pointer;box-shadow:var(--shadow);font-size:1.1rem;transition:all 0.3s;}
+#back-top.show{display:flex;}
+#back-top:hover{background:var(--gold-dark);}
+
+/* ANIMATIONS */
+.fade-in{opacity:0;transform:translateY(30px);transition:opacity 0.6s ease,transform 0.6s ease;}
+.fade-in.visible{opacity:1;transform:translateY(0);}
+
+@media(max-width:900px){
+.hero-content{grid-template-columns:1fr;text-align:center;}
+.hero-img{display:none;}
+.hero-stats{justify-content:center;}
+.nav-links{display:none;}
+.hamburger{display:flex;}
+.products-grid,.benefits-grid,.footer-inner{grid-template-columns:1fr;}
+.reviews-grid{grid-template-columns:1fr;}
+.steps-grid{grid-template-columns:1fr 1fr;}
+.about-grid{grid-template-columns:1fr;}
+.form-row{grid-template-columns:1fr;}
+}
+@media(max-width:600px){
+.trust-inner{gap:20px;}
+.steps-grid{grid-template-columns:1fr;}
+.footer-inner{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+<!-- LOADER -->
+<div id="loader"><div class="loader-inner"><div class="loader-logo">🐄 GAUMAATRI</div><div class="loader-sub">PURE DESI COW GHEE</div><div class="loader-bar"><div class="loader-fill"></div></div></div></div>
+<div id="toast-container"></div>
+
+<!-- HEADER -->
+<header id="header">
+<nav>
+  <a href="#hero" class="logo"><div class="logo-icon">🐄</div><div><div class="logo-text">Gaumaatri</div><div class="logo-sub">PURE DESI COW GHEE</div></div></a>
+  <ul class="nav-links">
+    <li><a href="#about">About</a></li>
+    <li><a href="#products">Products</a></li>
+    <li><a href="#benefits">Benefits</a></li>
+    <li><a href="#reviews">Reviews</a></li>
+    <li><a href="#faq">FAQ</a></li>
+    <li><a href="#tracking">Track Order</a></li>
+    <li><a href="#products" class="nav-cta" id="nav-order-btn">Order Now</a></li>
+  </ul>
+  <button class="hamburger" id="hamburger" aria-label="Menu"><span></span><span></span><span></span></button>
+</nav>
+</header>
+
+<!-- MOBILE MENU -->
+<div class="mobile-menu" id="mobileMenu">
+  <button class="mobile-close" id="mobileClose">✕</button>
+  <a href="#about" class="mobile-link">About</a>
+  <a href="#products" class="mobile-link">Products</a>
+  <a href="#benefits" class="mobile-link">Benefits</a>
+  <a href="#reviews" class="mobile-link">Reviews</a>
+  <a href="#tracking" class="mobile-link">Track Order</a>
+  <a href="#products" class="mobile-link" style="color:var(--gold)">Order Now →</a>
+</div>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-overlay"></div>
+  <div class="hero-content">
+    <div class="hero-left">
+      <div class="hero-badge">⭐ India's Most Trusted Ghee Brand</div>
+      <h1 class="hero-title">Pure Desi Cow<br><span>Ghee — Crafted</span><br>with Love</h1>
+      <p class="hero-subtitle">Made using the ancient Bilona method from the milk of desi Gir cows. No additives, no preservatives — just pure, golden goodness your family deserves.</p>
+      <div class="hero-btns">
+        <button class="btn-primary" onclick="openModal('1L')">🛒 Order Now — Free Delivery</button>
+        <a href="#about" class="btn-outline">Learn More ↓</a>
+      </div>
+      <div class="hero-stats">
+        <div class="stat"><div class="stat-num">5000+</div><div class="stat-label">Happy Families</div></div>
+        <div class="stat"><div class="stat-num">100%</div><div class="stat-label">Pure & Natural</div></div>
+        <div class="stat"><div class="stat-num">A2</div><div class="stat-label">Gir Cow Milk</div></div>
+      </div>
+    </div>
+    <div class="hero-img"><img src="hero.png" alt="Gaumaatri Pure Desi Cow Ghee" loading="eager"></div>
+  </div>
+</section>
+
+<!-- TRUST BADGES -->
+<div id="trust">
+  <div class="trust-inner">
+    <div class="badge"><span class="badge-icon">🌿</span><span class="badge-text">100% Pure</span></div>
+    <div class="badge"><span class="badge-icon">🚫</span><span class="badge-text">No Additives</span></div>
+    <div class="badge"><span class="badge-icon">🚚</span><span class="badge-text">Free Delivery</span></div>
+    <div class="badge"><span class="badge-icon">🧪</span><span class="badge-text">Lab Tested</span></div>
+    <div class="badge"><span class="badge-icon">🐄</span><span class="badge-text">A2 Gir Cow Milk</span></div>
+    <div class="badge"><span class="badge-icon">🕉️</span><span class="badge-text">Vedic Bilona Method</span></div>
+  </div>
+</div>
+
+<!-- ABOUT -->
+<section id="about">
+  <div class="container">
+    <div class="about-grid">
+      <div class="about-img fade-in"><img src="products.png" alt="Gaumaatri Ghee Products"></div>
+      <div class="about-text fade-in">
+        <div class="section-label">Our Story</div>
+        <h2 class="section-title">Crafted with Ancient Wisdom, Delivered to Your Door</h2>
+        <p>At Gaumaatri, we believe food is medicine. Founded on the principles of Ayurveda, we bring you ghee made exactly how our ancestors made it — slowly, with care, using the traditional Bilona (hand-churning) method.</p>
+        <p>Our desi Gir cows roam freely on natural pastures, fed on organic fodder. Their A2 milk is boiled, cultured into yogurt, churned into butter, and then slow-cooked into liquid gold. No shortcuts. Ever.</p>
+        <div class="about-features">
+          <div class="feature-card"><h4>🐄 Gir Cow Sourced</h4><p>A2 beta-casein milk from indigenous Gir cows</p></div>
+          <div class="feature-card"><h4>🔥 Bilona Method</h4><p>Traditional hand-churned for maximum nutrition</p></div>
+          <div class="feature-card"><h4>🧪 Lab Certified</h4><p>Third-party tested for purity and quality</p></div>
+          <div class="feature-card"><h4>📦 Glass Jar</h4><p>Packed in premium glass to retain freshness</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRODUCTS -->
+<section id="products">
+  <div class="container">
+    <div class="text-center fade-in">
+      <div class="section-label">Our Products</div>
+      <h2 class="section-title">Choose Your Pack</h2>
+      <p class="section-sub">All packs come with FREE delivery pan-India. Minimum order 1, maximum 10 jars.</p>
+    </div>
+    <div class="products-grid">
+      <div class="product-card fade-in">
+        <div class="product-img"><img src="products.png" alt="200ml Ghee"></div>
+        <div class="product-body">
+          <div class="product-size">200 ML</div>
+          <div class="product-name">Starter Pack</div>
+          <div class="product-price">₹356 <span>/ jar</span></div>
+          <ul class="product-features">
+            <li>Perfect for trying first time</li>
+            <li>200ml premium glass jar</li>
+            <li>Free delivery included</li>
+            <li>Lab tested & certified</li>
+          </ul>
+          <button class="order-btn" onclick="openModal('200ml')">Order Now →</button>
+        </div>
+      </div>
+      <div class="product-card featured fade-in">
+        <div class="popular-badge">⭐ Most Popular</div>
+        <div class="product-img"><img src="products.png" alt="500ml Ghee"></div>
+        <div class="product-body">
+          <div class="product-size">500 ML</div>
+          <div class="product-name">Family Pack</div>
+          <div class="product-price">₹789 <span>/ jar</span></div>
+          <ul class="product-features">
+            <li>Best value for families</li>
+            <li>500ml premium glass jar</li>
+            <li>Free priority delivery</li>
+            <li>Lab tested & certified</li>
+          </ul>
+          <button class="order-btn" onclick="openModal('500ml')">Order Now →</button>
+        </div>
+      </div>
+      <div class="product-card fade-in">
+        <div class="product-img"><img src="products.png" alt="1 Litre Ghee"></div>
+        <div class="product-body">
+          <div class="product-size">1 LITRE</div>
+          <div class="product-name">Bulk Pack</div>
+          <div class="product-price">₹1,599 <span>/ jar</span></div>
+          <ul class="product-features">
+            <li>Ideal for large families</li>
+            <li>1 Litre premium glass jar</li>
+            <li>Free express delivery</li>
+            <li>Lab tested & certified</li>
+          </ul>
+          <button class="order-btn" onclick="openModal('1L')">Order Now →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BENEFITS -->
+<section id="benefits">
+  <div class="container">
+    <div class="text-center fade-in">
+      <div class="section-label">Why Gaumaatri</div>
+      <h2 class="section-title">Ancient Benefits, Modern Science</h2>
+      <p class="section-sub">Desi cow ghee has been used in Ayurveda for thousands of years. Here's why it's a superfood.</p>
+    </div>
+    <div class="benefits-grid">
+      <div class="benefit-card fade-in"><div class="benefit-icon">🧠</div><h3>Boosts Brain Function</h3><p>Rich in omega-3 fatty acids that support cognitive health, memory, and mental clarity.</p></div>
+      <div class="benefit-card fade-in"><div class="benefit-icon">🔥</div><h3>Improves Digestion</h3><p>Contains butyric acid that nourishes the gut lining and promotes healthy digestion.</p></div>
+      <div class="benefit-card fade-in"><div class="benefit-icon">💪</div><h3>Builds Immunity</h3><p>Packed with fat-soluble vitamins A, D, E & K that strengthen your immune system naturally.</p></div>
+      <div class="benefit-card fade-in"><div class="benefit-icon">✨</div><h3>Glowing Skin & Hair</h3><p>Applied topically or consumed daily, ghee nourishes skin and adds natural shine to hair.</p></div>
+      <div class="benefit-card fade-in"><div class="benefit-icon">🏃</div><h3>Energy & Stamina</h3><p>Medium-chain fatty acids provide sustained energy without blood-sugar spikes.</p></div>
+      <div class="benefit-card fade-in"><div class="benefit-icon">❤️</div><h3>Heart Healthy</h3><p>Unlike refined oils, A2 desi cow ghee supports healthy cholesterol balance when consumed in moderation.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW TO ORDER -->
+<section id="how-to-order">
+  <div class="container">
+    <div class="text-center fade-in">
+      <div class="section-label">Simple Process</div>
+      <h2 class="section-title">Order in 4 Easy Steps</h2>
+    </div>
+    <div class="steps-grid">
+      <div class="step-card fade-in"><div class="step-num">1</div><h3>Choose Your Pack</h3><p>Select 200ml, 500ml or 1L based on your family's needs.</p></div>
+      <div class="step-card fade-in"><div class="step-num">2</div><h3>Fill Your Details</h3><p>Enter your name, address and preferred payment method.</p></div>
+      <div class="step-card fade-in"><div class="step-num">3</div><h3>Confirm Order</h3><p>Get your unique Order ID instantly via email confirmation.</p></div>
+      <div class="step-card fade-in"><div class="step-num">4</div><h3>Receive at Door</h3><p>Pure ghee delivered in 5–7 business days. Free of charge!</p></div>
+    </div>
+    <div class="text-center" style="margin-top:40px;"><button class="btn-primary" onclick="openModal('500ml')">🛒 Order Now — It's Free to Deliver!</button></div>
+  </div>
+</section>
+
+<!-- REVIEWS -->
+<section id="reviews">
+  <div class="container">
+    <div class="text-center fade-in">
+      <div class="section-label">Customer Love</div>
+      <h2 class="section-title">What Our Customers Say</h2>
+    </div>
+    <div class="reviews-grid">
+      <div class="review-card fade-in"><div class="stars">★★★★★</div><p class="review-text">"The ghee smells exactly like what my grandmother used to make. The golden colour, the grainy texture — it's 100% authentic. I've tried many brands but Gaumaatri is the best I've found in years!"</p><div class="reviewer"><div class="reviewer-avatar">P</div><div><div class="reviewer-name">Priya Sharma</div><div class="reviewer-loc">Delhi, NCR</div></div></div></div>
+      <div class="review-card fade-in"><div class="stars">★★★★★</div><p class="review-text">"My doctor recommended A2 ghee for my digestion issues. After 3 weeks of using Gaumaatri ghee daily, the difference is night and day. Lighter stomach, better energy. Absolutely worth every rupee!"</p><div class="reviewer"><div class="reviewer-avatar">R</div><div><div class="reviewer-name">Rahul Mehta</div><div class="reviewer-loc">Mumbai, Maharashtra</div></div></div></div>
+      <div class="review-card fade-in"><div class="stars">★★★★★</div><p class="review-text">"Ordered the 1L pack for my parents who are very particular about their food. They loved it so much, they asked me to order 3 more! The packaging is also super premium with glass jars. Hats off!"</p><div class="reviewer"><div class="reviewer-avatar">A</div><div><div class="reviewer-name">Ananya Gupta</div><div class="reviewer-loc">Jaipur, Rajasthan</div></div></div></div>
+      <div class="review-card fade-in"><div class="stars">★★★★★</div><p class="review-text">"As a fitness enthusiast, I put ghee in my morning coffee for energy. Gaumaatri ghee is so pure it melts perfectly with no weird taste. Been using it for 4 months and my performance has improved!"</p><div class="reviewer"><div class="reviewer-avatar">V</div><div><div class="reviewer-name">Vikram Singh</div><div class="reviewer-loc">Pune, Maharashtra</div></div></div></div>
+      <div class="review-card fade-in"><div class="stars">★★★★★</div><p class="review-text">"Switched from market ghee to Gaumaatri 6 months ago. My kids are healthier, my cooking tastes better and the whole house smells amazing when I cook with it. Will never go back to processed ghee!"</p><div class="reviewer"><div class="reviewer-avatar">S</div><div><div class="reviewer-name">Sunita Agarwal</div><div class="reviewer-loc">Lucknow, UP</div></div></div></div>
+      <div class="review-card fade-in"><div class="stars">★★★★★</div><p class="review-text">"Free delivery was the reason I tried it first, but the quality is the reason I keep coming back. On my 5th order now. Customer support via WhatsApp is also very responsive and helpful. 10/10 brand!"</p><div class="reviewer"><div class="reviewer-avatar">K</div><div><div class="reviewer-name">Karan Malhotra</div><div class="reviewer-loc">Bengaluru, Karnataka</div></div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- TRACKING -->
+<section id="tracking">
+  <div class="container">
+    <div class="text-center fade-in">
+      <div class="section-label">Track Your Order</div>
+      <h2 class="section-title">Where Is My Ghee?</h2>
+      <p class="section-sub">Enter your Order ID and email to see real-time delivery status.</p>
+    </div>
+    <div class="track-box fade-in">
+      <h3>🔍 Track My Order</h3>
+      <div class="form-group" style="margin-bottom:16px;"><label>Order ID</label><input type="text" id="trackOrderId" placeholder="e.g. GMT-2026-12345"></div>
+      <div class="form-group" style="margin-bottom:16px;"><label>Email Address</label><input type="email" id="trackEmail" placeholder="your@email.com"></div>
+      <button class="track-btn" onclick="trackOrder()">Track Order →</button>
+      <div class="tracking-result" id="trackingResult">
+        <h4 style="font-family:'Playfair Display',serif;color:var(--brown);margin-bottom:4px;" id="trackOrderTitle"></h4>
+        <p style="font-size:0.85rem;color:var(--brown-light);margin-bottom:20px;" id="trackOrderMeta"></p>
+        <ul class="timeline" id="trackTimeline"></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq">
+  <div class="container">
+    <div class="text-center fade-in">
+      <div class="section-label">Questions & Answers</div>
+      <h2 class="section-title">Frequently Asked Questions</h2>
+    </div>
+    <div class="faq-list">
+      <div class="faq-item"><button class="faq-q">Is the ghee really 100% pure? <span class="faq-icon">+</span></button><div class="faq-a"><p>Absolutely. Gaumaatri ghee is made purely from the milk of desi Gir cows using the traditional Bilona method. Every batch is third-party lab tested for purity and is free from any additives, preservatives, artificial colours or fragrances.</p></div></div>
+      <div class="faq-item"><button class="faq-q">What is the Bilona method? <span class="faq-icon">+</span></button><div class="faq-a"><p>The Bilona method is an ancient Vedic process where cow milk is first boiled, cooled, and set into curd. The curd is then hand-churned using a wooden churner to extract butter (makhan), which is then slow-cooked on low flame to produce pure ghee. This process preserves all nutrients and gives ghee its distinctive grainy texture.</p></div></div>
+      <div class="faq-item"><button class="faq-q">What is the shelf life of Gaumaatri Ghee? <span class="faq-icon">+</span></button><div class="faq-a"><p>When stored in a cool, dry place away from direct sunlight, our ghee stays fresh for up to 12 months. There's no need to refrigerate — in fact, ghee keeps better at room temperature. Always use a clean, dry spoon to scoop ghee to maintain freshness.</p></div></div>
+      <div class="faq-item"><button class="faq-q">Do you offer Cash on Delivery (COD)? <span class="faq-icon">+</span></button><div class="faq-a"><p>Yes! We offer both UPI (Instant payment) and Cash on Delivery (COD) options. For COD orders, please keep the exact amount ready at the time of delivery. COD is available across most pin codes in India.</p></div></div>
+      <div class="faq-item"><button class="faq-q">What is your return and refund policy? <span class="faq-icon">+</span></button><div class="faq-a"><p>We take great pride in our product quality. If you receive a damaged product or have any quality concerns, please contact us within 48 hours of delivery via WhatsApp at 9654270726 or email at gaumaatri@gmail.com with photos. We will arrange a replacement or full refund promptly.</p></div></div>
+      <div class="faq-item"><button class="faq-q">How long does delivery take? <span class="faq-icon">+</span></button><div class="faq-a"><p>We dispatch orders within 1-2 business days. Delivery typically takes 5-7 business days depending on your location. You will receive tracking updates via email after your order is dispatched. All deliveries are FREE, pan-India.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="logo"><div class="logo-icon">🐄</div><div><div class="logo-text">Gaumaatri</div><div class="logo-sub" style="color:var(--gold-light);">PURE DESI COW GHEE</div></div></div>
+      <p style="margin-top:16px;">Bringing ancient Ayurvedic wisdom to modern kitchens. Pure, natural, and made with love from our farm to your family.</p>
+      <p style="margin-top:12px;">📞 <a href="tel:9654270726" style="color:var(--gold-light);text-decoration:none;">9654270726</a></p>
+      <p>📧 <a href="mailto:gaumaatri@gmail.com" style="color:var(--gold-light);text-decoration:none;">gaumaatri@gmail.com</a></p>
+    </div>
+    <div class="footer-col"><h4>Quick Links</h4><ul><li><a href="#about">About Us</a></li><li><a href="#products">Our Products</a></li><li><a href="#benefits">Health Benefits</a></li><li><a href="#reviews">Testimonials</a></li><li><a href="#tracking">Track Order</a></li><li><a href="#faq">FAQ</a></li></ul></div>
+    <div class="footer-col"><h4>Our Promise</h4><ul><li><a href="#">100% Pure Ghee</a></li><li><a href="#">No Preservatives</a></li><li><a href="#">Lab Tested Quality</a></li><li><a href="#">Free Pan-India Delivery</a></li><li><a href="#">A2 Gir Cow Milk</a></li><li><a href="#">Traditional Bilona Method</a></li></ul></div>
+  </div>
+  <div class="footer-bottom"><p>© 2026 Gaumaatri. All rights reserved. | Pure Desi Cow Ghee | Made with 🧡 in India</p></div>
+</footer>
+
+<!-- WHATSAPP -->
+<a href="https://wa.me/919654270726?text=Hi%20Gaumaatri!%20I%20want%20to%20know%20more%20about%20your%20pure%20desi%20cow%20ghee." class="whatsapp-btn" target="_blank" title="Chat on WhatsApp">💬</a>
+<button id="back-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to top">↑</button>
+
+<!-- ORDER MODAL -->
+<div class="modal-overlay" id="orderModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div id="orderFormSection">
+      <h2 class="modal-title">Place Your Order</h2>
+      <p class="modal-sub">Free delivery across India • Dispatched within 48 hours</p>
+      <div style="margin-bottom:16px;">
+        <label style="font-size:0.85rem;font-weight:600;color:var(--brown);display:block;margin-bottom:8px;">Select Variant</label>
+        <div class="variant-pills">
+          <button class="variant-pill" id="pill-200ml" onclick="selectVariant('200ml')">200ml — ₹356</button>
+          <button class="variant-pill" id="pill-500ml" onclick="selectVariant('500ml')">500ml — ₹789</button>
+          <button class="variant-pill" id="pill-1L" onclick="selectVariant('1L')">1 Litre — ₹1,599</button>
+        </div>
+      </div>
+      <div style="margin-bottom:16px;">
+        <label style="font-size:0.85rem;font-weight:600;color:var(--brown);display:block;margin-bottom:8px;">Quantity</label>
+        <div class="qty-control"><button class="qty-btn" onclick="changeQty(-1)">−</button><span class="qty-display" id="qtyDisplay">1</span><button class="qty-btn" onclick="changeQty(1)">+</button><span style="font-size:0.85rem;color:var(--brown-light);margin-left:8px;">(max 10)</span></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Full Name *</label><input type="text" id="f-name" placeholder="Your full name"><span class="error-msg" id="err-name">Please enter your name</span></div>
+        <div class="form-group"><label>Phone Number *</label><input type="tel" id="f-phone" placeholder="10-digit mobile number"><span class="error-msg" id="err-phone">Enter valid 10-digit number</span></div>
+      </div>
+      <div class="form-group" style="margin-bottom:16px;"><label>Email Address *</label><input type="email" id="f-email" placeholder="your@email.com"><span class="error-msg" id="err-email">Please enter valid email</span></div>
+      <div class="form-group" style="margin-bottom:16px;"><label>Delivery Address *</label><textarea id="f-address" rows="2" placeholder="House/Flat No, Street, Area..." style="resize:none;"></textarea><span class="error-msg" id="err-address">Please enter your address</span></div>
+      <div class="form-row" style="margin-bottom:16px;">
+        <div class="form-group"><label>City *</label><input type="text" id="f-city" placeholder="Your city"><span class="error-msg" id="err-city">Enter city</span></div>
+        <div class="form-group"><label>State *</label><input type="text" id="f-state" placeholder="Your state"><span class="error-msg" id="err-state">Enter state</span></div>
+      </div>
+      <div class="form-group" style="margin-bottom:16px;"><label>Pincode *</label><input type="text" id="f-pincode" placeholder="6-digit pincode"><span class="error-msg" id="err-pincode">Enter valid 6-digit pincode</span></div>
+      <div style="margin-bottom:16px;">
+        <label style="font-size:0.85rem;font-weight:600;color:var(--brown);display:block;margin-bottom:8px;">Payment Method</label>
+        <div class="payment-options"><button class="pay-btn" id="pay-upi" onclick="selectPayment('UPI')">📱 UPI Payment</button><button class="pay-btn" id="pay-cod" onclick="selectPayment('COD')">💵 Cash on Delivery</button></div>
+      </div>
+      <div class="coupon-row"><input type="text" id="couponInput" placeholder="Coupon code (e.g. GAUMAATRI10)"><button class="apply-coupon" onclick="applyCoupon()">Apply</button></div>
+      <div class="price-summary" id="priceSummary">
+        <div class="price-row"><span>Product</span><span id="sumProduct">—</span></div>
+        <div class="price-row"><span>Quantity</span><span id="sumQty">1</span></div>
+        <div class="price-row"><span>Delivery</span><span style="color:#4CAF50;">FREE</span></div>
+        <div class="price-row discount" id="discountRow" style="display:none;"><span>Discount (10%)</span><span id="discountAmt">—</span></div>
+        <div class="price-row total"><span>Total Payable</span><span id="sumTotal">—</span></div>
+      </div>
+      <button class="submit-order" onclick="submitOrder()">🛒 Confirm Order</button>
+    </div>
+    <div class="confirm-screen" id="confirmScreen">
+      <div class="confirm-icon">✅</div>
+      <h2 class="modal-title">Order Confirmed!</h2>
+      <p style="color:var(--brown-light);font-size:0.95rem;margin-bottom:8px;">Thank you! We've received your order and will dispatch it within 48 hours.</p>
+      <div class="order-id-box"><div class="order-id-label">Your Order ID</div><div class="order-id-val" id="confirmedOrderId"></div></div>
+      <div class="confirm-details" id="confirmDetails"></div>
+      <p style="font-size:0.85rem;color:var(--brown-light);margin-bottom:16px;">📧 A confirmation email has been sent to your inbox.<br>🚚 Expected delivery: 5–7 business days</p>
+      <button class="submit-order" onclick="closeModal()">Done</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// --- CONFIG ---
+const PRICES = {'200ml':356,'500ml':789,'1L':1599};
+const VARIANTS = {'200ml':'200ml Starter Pack','500ml':'500ml Family Pack','1L':'1 Litre Bulk Pack'};
+const COUPONS = {'GAUMAATRI10':10,'GHEE10':10,'WELCOME10':10};
+let currentVariant='500ml', qty=1, paymentMethod='COD', discountPct=0, couponApplied=false;
+
+// --- LOADER ---
+window.addEventListener('load',()=>{
+  setTimeout(()=>{document.getElementById('loader').classList.add('hidden');},1800);
+});
+
+// --- SCROLL EFFECTS ---
+const header=document.getElementById('header');
+const backTop=document.getElementById('back-top');
+window.addEventListener('scroll',()=>{
+  header.classList.toggle('scrolled',window.scrollY>60);
+  backTop.classList.toggle('show',window.scrollY>400);
+  document.querySelectorAll('.fade-in').forEach(el=>{
+    const rect=el.getBoundingClientRect();
+    if(rect.top<window.innerHeight-80) el.classList.add('visible');
+  });
+});
+
+// Initial fade-in check
+setTimeout(()=>{
+  document.querySelectorAll('.fade-in').forEach(el=>{
+    const rect=el.getBoundingClientRect();
+    if(rect.top<window.innerHeight-80) el.classList.add('visible');
+  });
+},200);
+
+// --- HAMBURGER ---
+document.getElementById('hamburger').addEventListener('click',()=>{
+  document.getElementById('mobileMenu').classList.add('open');
+});
+document.getElementById('mobileClose').addEventListener('click',()=>{
+  document.getElementById('mobileMenu').classList.remove('open');
+});
+document.querySelectorAll('.mobile-link').forEach(a=>{
+  a.addEventListener('click',()=>document.getElementById('mobileMenu').classList.remove('open'));
+});
+
+// --- TOAST ---
+function showToast(msg,type='success'){
+  const t=document.createElement('div');
+  t.className='toast '+type;
+  t.textContent=msg;
+  document.getElementById('toast-container').appendChild(t);
+  setTimeout(()=>t.classList.add('show'),50);
+  setTimeout(()=>{t.classList.remove('show');setTimeout(()=>t.remove(),400);},3500);
+}
+
+// --- MODAL ---
+function openModal(variant){
+  currentVariant=variant||'500ml';
+  qty=1;
+  discountPct=0;
+  couponApplied=false;
+  document.getElementById('couponInput').value='';
+  document.getElementById('discountRow').style.display='none';
+  selectVariant(currentVariant);
+  selectPayment('COD');
+  document.getElementById('orderFormSection').style.display='block';
+  document.getElementById('confirmScreen').classList.remove('show');
+  clearErrors();
+  document.getElementById('orderModal').classList.add('open');
+  document.body.style.overflow='hidden';
+  updatePrice();
+}
+function closeModal(){
+  document.getElementById('orderModal').classList.remove('open');
+  document.body.style.overflow='';
+}
+document.getElementById('orderModal').addEventListener('click',function(e){
+  if(e.target===this) closeModal();
+});
+
+function selectVariant(v){
+  currentVariant=v;
+  document.querySelectorAll('.variant-pill').forEach(p=>p.classList.remove('active'));
+  document.getElementById('pill-'+v).classList.add('active');
+  updatePrice();
+}
+function changeQty(d){
+  qty=Math.min(10,Math.max(1,qty+d));
+  document.getElementById('qtyDisplay').textContent=qty;
+  updatePrice();
+}
+function selectPayment(m){
+  paymentMethod=m;
+  document.getElementById('pay-upi').classList.toggle('active',m==='UPI');
+  document.getElementById('pay-cod').classList.toggle('active',m==='COD');
+}
+function updatePrice(){
+  const base=PRICES[currentVariant]*qty;
+  const disc=couponApplied?Math.round(base*discountPct/100):0;
+  const total=base-disc;
+  document.getElementById('sumProduct').textContent='₹'+PRICES[currentVariant].toLocaleString()+' × '+qty;
+  document.getElementById('sumQty').textContent=qty;
+  document.getElementById('sumTotal').textContent='₹'+total.toLocaleString();
+  if(disc>0){
+    document.getElementById('discountRow').style.display='flex';
+    document.getElementById('discountAmt').textContent='−₹'+disc.toLocaleString();
+  }
+}
+function applyCoupon(){
+  const code=document.getElementById('couponInput').value.trim().toUpperCase();
+  if(couponApplied){showToast('Coupon already applied!','error');return;}
+  if(COUPONS[code]){
+    discountPct=COUPONS[code];
+    couponApplied=true;
+    updatePrice();
+    showToast('🎉 Coupon '+code+' applied! '+discountPct+'% off!','success');
+  } else {
+    showToast('Invalid coupon code. Try GAUMAATRI10','error');
+  }
+}
+
+// --- VALIDATION ---
+function clearErrors(){
+  document.querySelectorAll('.error-msg').forEach(e=>{e.classList.remove('show');});
+  document.querySelectorAll('.form-group input,.form-group textarea').forEach(i=>i.classList.remove('error'));
+}
+function setError(fieldId,errId){
+  document.getElementById(fieldId).classList.add('error');
+  document.getElementById(errId).classList.add('show');
+}
+function validateForm(){
+  clearErrors();
+  let valid=true;
+  const name=document.getElementById('f-name').value.trim();
+  const phone=document.getElementById('f-phone').value.trim();
+  const email=document.getElementById('f-email').value.trim();
+  const addr=document.getElementById('f-address').value.trim();
+  const city=document.getElementById('f-city').value.trim();
+  const state=document.getElementById('f-state').value.trim();
+  const pin=document.getElementById('f-pincode').value.trim();
+  if(!name){setError('f-name','err-name');valid=false;}
+  if(!/^[6-9]\d{9}$/.test(phone)){setError('f-phone','err-phone');valid=false;}
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){setError('f-email','err-email');valid=false;}
+  if(!addr){setError('f-address','err-address');valid=false;}
+  if(!city){setError('f-city','err-city');valid=false;}
+  if(!state){setError('f-state','err-state');valid=false;}
+  if(!/^\d{6}$/.test(pin)){setError('f-pincode','err-pincode');valid=false;}
+  return valid;
+}
+
+// --- ORDER ID GENERATOR ---
+function genOrderId(){
+  return 'GMT-2026-'+Math.random().toString(36).substr(2,5).toUpperCase();
+}
+
+// --- ORDER SUBMIT ---
+function submitOrder(){
+  if(!validateForm()) return;
+  const btn=document.querySelector('.submit-order');
+  btn.textContent='Processing...';btn.disabled=true;
+  const name=document.getElementById('f-name').value.trim();
+  const phone=document.getElementById('f-phone').value.trim();
+  const email=document.getElementById('f-email').value.trim();
+  const addr=document.getElementById('f-address').value.trim();
+  const city=document.getElementById('f-city').value.trim();
+  const state=document.getElementById('f-state').value.trim();
+  const pin=document.getElementById('f-pincode').value.trim();
+  const orderId=genOrderId();
+  const base=PRICES[currentVariant]*qty;
+  const disc=couponApplied?Math.round(base*discountPct/100):0;
+  const total=base-disc;
+  const orderDate=new Date().toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'});
+  const deliveryDate=new Date(Date.now()+7*24*60*60*1000).toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'});
+
+  // Save to localStorage
+  const orders=JSON.parse(localStorage.getItem('gaumaatriOrders')||'{}');
+  orders[orderId]={
+    id:orderId,name,phone,email,
+    address:addr+', '+city+', '+state+' - '+pin,
+    variant:VARIANTS[currentVariant],qty,total,paymentMethod,
+    date:orderDate,status:1,
+    emailMatch:email.toLowerCase()
+  };
+  localStorage.setItem('gaumaatriOrders',JSON.stringify(orders));
+
+  setTimeout(()=>{
+    // Show confirmation
+    document.getElementById('confirmedOrderId').textContent=orderId;
+    document.getElementById('confirmDetails').innerHTML=
+      '<b>Name:</b> '+name+'<br>'+
+      '<b>Product:</b> '+VARIANTS[currentVariant]+' × '+qty+'<br>'+
+      '<b>Total:</b> ₹'+total.toLocaleString()+(disc>0?' (incl. '+discountPct+'% off)':'')+'<br>'+
+      '<b>Payment:</b> '+paymentMethod+'<br>'+
+      '<b>Delivery Address:</b> '+addr+', '+city+', '+state+' - '+pin+'<br>'+
+      '<b>Expected Delivery:</b> By '+deliveryDate;
+    document.getElementById('orderFormSection').style.display='none';
+    document.getElementById('confirmScreen').classList.add('show');
+    showToast('🎉 Order placed successfully! ID: '+orderId);
+    btn.textContent='🛒 Confirm Order';btn.disabled=false;
+
+    // Attempt EmailJS (won't work without real keys, but structure is ready)
+    try{
+      emailjs.init('YOUR_EMAILJS_PUBLIC_KEY');
+      emailjs.send('YOUR_SERVICE_ID','YOUR_CUSTOMER_TEMPLATE',{
+        to_email:email,customer_name:name,order_id:orderId,
+        product:VARIANTS[currentVariant],quantity:qty,total:'₹'+total.toLocaleString(),
+        payment:paymentMethod,address:addr+', '+city+', '+state+' - '+pin,
+        delivery_date:deliveryDate
+      });
+      emailjs.send('YOUR_SERVICE_ID','YOUR_BUSINESS_TEMPLATE',{
+        to_email:'gaumaatri@gmail.com',customer_name:name,customer_phone:phone,
+        customer_email:email,order_id:orderId,product:VARIANTS[currentVariant],
+        quantity:qty,total:'₹'+total.toLocaleString(),payment:paymentMethod,
+        address:addr+', '+city+', '+state+' - '+pin
+      });
+    }catch(e){console.log('EmailJS not configured yet.')}
+  },1200);
+}
+
+// --- ORDER TRACKING ---
+const STATUSES=[
+  {icon:'✅',title:'Order Placed',desc:'Your order has been received'},
+  {icon:'📦',title:'Order Confirmed',desc:'We have confirmed your order and are preparing it'},
+  {icon:'🚚',title:'Shipped',desc:'Your ghee is on its way!'},
+  {icon:'🏠',title:'Out for Delivery',desc:'The delivery partner is near your address'},
+  {icon:'✔️',title:'Delivered',desc:'Order delivered successfully!'}
+];
+function trackOrder(){
+  const oid=document.getElementById('trackOrderId').value.trim().toUpperCase();
+  const email=document.getElementById('trackEmail').value.trim().toLowerCase();
+  if(!oid||!email){showToast('Please enter both Order ID and email','error');return;}
+  const orders=JSON.parse(localStorage.getItem('gaumaatriOrders')||'{}');
+  const order=orders[oid];
+  if(!order||order.emailMatch!==email){
+    showToast('Order not found. Check your Order ID and email.','error');
+    document.getElementById('trackingResult').classList.remove('show');
+    return;
+  }
+  const result=document.getElementById('trackingResult');
+  document.getElementById('trackOrderTitle').textContent='Order: '+oid;
+  document.getElementById('trackOrderMeta').textContent=order.variant+' × '+order.qty+' | ₹'+order.total.toLocaleString()+' | Placed on '+order.date;
+  const tl=document.getElementById('trackTimeline');
+  tl.innerHTML='';
+  STATUSES.forEach((s,i)=>{
+    const li=document.createElement('li');
+    li.className=i<order.status?'done':(i===order.status?'active':'');
+    li.innerHTML='<div class="tl-title">'+s.icon+' '+s.title+'</div><div class="tl-desc">'+s.desc+'</div>';
+    tl.appendChild(li);
+  });
+  result.classList.add('show');
+  showToast('Order found! Showing tracking details.','success');
+}
+
+// --- FAQ ACCORDION ---
+document.querySelectorAll('.faq-q').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const item=btn.parentElement;
+    const wasOpen=item.classList.contains('open');
+    document.querySelectorAll('.faq-item').forEach(i=>i.classList.remove('open'));
+    if(!wasOpen) item.classList.add('open');
+  });
+});
+
+// Prevent modal scroll on body
+document.querySelectorAll('.modal').forEach(m=>{
+  m.addEventListener('click',e=>e.stopPropagation());
+});
+</script>
+</body>
+</html>
