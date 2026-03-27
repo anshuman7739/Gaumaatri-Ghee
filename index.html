@@ -802,15 +802,24 @@ footer{background:var(--brown);color:var(--white);padding:48px 24px 24px;}
 </div>
 
 <script>
-// --- CONFIG ---
-const PRICES = {'200ml':356,'500ml':789,'1L':1599};
-const VARIANTS = {'200ml':'200ml Starter Pack','500ml':'500ml Family Pack','1L':'1 Litre Bulk Pack'};
-const COUPONS = {'GAUMAATRI10':10,'GHEE10':10,'WELCOME10':10};
+// ── CONFIG ────────────────────────────────────────────────────
+const PRICES   = {'200ml':356, '500ml':789, '1L':1599};
+const VARIANTS = {'200ml':'200ml Starter Pack', '500ml':'500ml Family Pack', '1L':'1 Litre Bulk Pack'};
+const COUPONS  = {'GAUMAATRI10':10, 'GHEE10':10, 'WELCOME10':10};
+
+// ── GOOGLE SHEETS API CONFIG ──────────────────────────────────
+// IMPORTANT: After deploying your Apps Script, paste the web app URL below.
+// Keep the SECRET_TOKEN identical to what you set in Apps Script (setSecretToken()).
+const SHEETS_API = {
+  URL:   'https://script.google.com/macros/s/YOUR_SCRIPT_ID_HERE/exec',
+  TOKEN: 'GAUMAATRI_SECRET_2026'  // Must match PropertiesService value in Code.gs
+};
+
 let currentVariant='500ml', qty=1, paymentMethod='COD', discountPct=0, couponApplied=false;
 
-// --- LOADER ---
-window.addEventListener('load',()=>{
-  setTimeout(()=>{document.getElementById('loader').classList.add('hidden');},1800);
+// ── LOADER ───────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  setTimeout(() => { document.getElementById('loader').classList.add('hidden'); }, 1800);
   checkAuth();
 });
 
@@ -978,87 +987,122 @@ function genOrderId(){
   return `GM-${dateStr}-${rand}`;
 }
 
-// --- ORDER SUBMIT ---
-let currentOrderId = '';
-let currentPaymentProof = null;
-let _orderCache = {}; // keep current order in memory for COD flow
+// ── API HELPER ───────────────────────────────────────────────
+async function apiPost(payload) {
+  const res = await fetch(SHEETS_API.URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' }, // text/plain avoids OPTIONS preflight
+    body: JSON.stringify({ ...payload, token: SHEETS_API.TOKEN })
+  });
+  return res.json();
+}
 
-function submitOrder(){
+async function apiGet(params) {
+  const qs  = new URLSearchParams({ ...params, token: SHEETS_API.TOKEN }).toString();
+  const res = await fetch(`${SHEETS_API.URL}?${qs}`);
+  return res.json();
+}
+
+// ── ORDER ID GENERATOR ───────────────────────────────────────
+function genOrderId(){
+  const d = new Date();
+  const dateStr = d.getFullYear() + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0');
+  const rand = Math.random().toString(36).substring(2,6).toUpperCase();
+  return `GM-${dateStr}-${rand}`;
+}
+
+// ── ORDER SUBMIT ─────────────────────────────────────────────
+let currentOrderId    = '';
+let currentPaymentProof = null;
+let _orderCache       = {};
+
+async function submitOrder(){
   if(!validateForm()) return;
 
-  const btn = document.getElementById('placeOrderBtn');
+  const btn    = document.getElementById('placeOrderBtn');
   const errBox = document.getElementById('orderSubmitError');
   errBox.style.display = 'none';
   btn.textContent = '🚀 Processing...';
-  btn.disabled = true;
+  btn.disabled    = true;
 
-  const name    = document.getElementById('f-name').value.trim();
-  const phone   = document.getElementById('f-phone').value.trim();
-  const email   = document.getElementById('f-email').value.trim();
-  const addr    = document.getElementById('f-address').value.trim();
-  const city    = document.getElementById('f-city').value.trim();
-  const state   = document.getElementById('f-state').value.trim();
-  const pin     = document.getElementById('f-pincode').value.trim();
-  const orderId = genOrderId();
-  currentOrderId = orderId;
+  const name   = document.getElementById('f-name').value.trim();
+  const phone  = document.getElementById('f-phone').value.trim();
+  const email  = document.getElementById('f-email').value.trim();
+  const addr   = document.getElementById('f-address').value.trim();
+  const city   = document.getElementById('f-city').value.trim();
+  const state  = document.getElementById('f-state').value.trim();
+  const pin    = document.getElementById('f-pincode').value.trim();
 
-  const base         = PRICES[currentVariant] * qty;
-  const disc         = couponApplied ? Math.round(base * discountPct / 100) : 0;
-  const total        = base - disc;
-  const fullAddress  = `${addr}, ${city}, ${state} - ${pin}`;
-  const orderDate    = new Date().toLocaleString('en-IN', { dateStyle: 'long', timeStyle: 'short' });
+  const orderId     = genOrderId();
+  currentOrderId    = orderId;
+  const base        = PRICES[currentVariant] * qty;
+  const disc        = couponApplied ? Math.round(base * discountPct / 100) : 0;
+  const total       = base - disc;
+  const fullAddress = `${addr}, ${city}, ${state} - ${pin}`;
+  const orderDate   = new Date().toLocaleString('en-IN', { dateStyle:'long', timeStyle:'short' });
 
   const orderData = {
-    id: orderId,
-    name, phone, email,
+    id: orderId, name, phone, email,
     address: fullAddress,
     variant: VARIANTS[currentVariant],
     qty, total, paymentMethod,
     date: orderDate,
-    status: 1,          // 1 = Pending Payment
+    status: 1,
     paymentStatus: 'Pending',
     emailMatch: email.toLowerCase(),
     timestamp: Date.now()
   };
 
-  // Save to localStorage
+  // ── Always save to localStorage first (instant, offline-safe) ──
   try {
-    const orders = JSON.parse(localStorage.getItem('gaumaatriOrders') || '{}');
-    orders[orderId] = orderData;
-    localStorage.setItem('gaumaatriOrders', JSON.stringify(orders));
+    const local = JSON.parse(localStorage.getItem('gaumaatriOrders') || '{}');
+    local[orderId] = orderData;
+    localStorage.setItem('gaumaatriOrders', JSON.stringify(local));
     _orderCache = orderData;
-  } catch(e) {
-    btn.textContent = '🛒 Place Order';
-    btn.disabled = false;
-    errBox.textContent = '❌ Failed to save order. Please try again.';
-    errBox.style.display = 'block';
-    return;
+  } catch(e) { console.warn('localStorage write failed:', e); }
+
+  // ── Send to Google Sheets ─────────────────────────────────
+  let sheetsOk = false;
+  if(SHEETS_API.URL !== 'https://script.google.com/macros/s/YOUR_SCRIPT_ID_HERE/exec'){
+    try {
+      const result = await apiPost({
+        action:        'submitOrder',
+        orderId,
+        name, email, phone,
+        address:       fullAddress,
+        product:       VARIANTS[currentVariant],
+        quantity:      qty,
+        total:         total,
+        paymentMethod
+      });
+      if(result.success) {
+        sheetsOk = true;
+        console.log('✅ Order saved to Google Sheets:', orderId);
+      } else {
+        console.warn('Sheets API error:', result.error);
+      }
+    } catch(err) {
+      console.warn('Google Sheets unreachable, using localStorage fallback:', err.message);
+    }
   }
 
-  // Log
-  try {
-    const logs = JSON.parse(localStorage.getItem('gaumaatriLogs') || '[]');
-    logs.push({ type: 'ORDER_PLACED', orderId, email, timestamp: new Date().toISOString() });
-    localStorage.setItem('gaumaatriLogs', JSON.stringify(logs.slice(-100)));
-  } catch(e) {}
+  btn.textContent = '🛒 Place Order';
+  btn.disabled    = false;
 
-  setTimeout(() => {
-    btn.textContent = '🛒 Place Order';
-    btn.disabled = false;
+  if(!sheetsOk && SHEETS_API.URL === 'https://script.google.com/macros/s/YOUR_SCRIPT_ID_HERE/exec'){
+    // Not configured yet — show info toast but still proceed
+    showToast('⚠️ Google Sheets not configured. Order saved locally.', 'error');
+  }
 
-    if(paymentMethod === 'UPI'){
-      // → Go to QR payment screen
-      document.getElementById('orderFormSection').style.display = 'none';
-      document.getElementById('paymentSection').style.display   = 'block';
-      document.getElementById('payAmount').textContent = '₹' + total.toLocaleString();
-    } else {
-      // → COD: go straight to success screen
-      showSuccessScreen(orderId, orderData, 'COD');
-      sendOrderEmails(orderId, 'COD');
-    }
+  if(paymentMethod === 'UPI'){
+    document.getElementById('orderFormSection').style.display = 'none';
+    document.getElementById('paymentSection').style.display   = 'block';
+    document.getElementById('payAmount').textContent = '₹' + total.toLocaleString();
+  } else {
+    showSuccessScreen(orderId, orderData, 'COD');
+  }
 
-    if(typeof populateOrders === 'function' && currentUser) populateOrders();
-  }, 800);
+  if(typeof populateOrders === 'function' && currentUser) populateOrders();
 }
 
 function copyOrderId(){
@@ -1110,10 +1154,10 @@ function handleProofUpload(input){
   }
 }
 
-function confirmPayment(){
+async function confirmPayment(){
   const errBox = document.getElementById('paymentError');
   errBox.style.display = 'none';
-  
+
   if(!currentPaymentProof){
     errBox.textContent = '⚠️ Please upload your payment screenshot first.';
     errBox.style.display = 'block';
@@ -1123,34 +1167,35 @@ function confirmPayment(){
 
   const btn = document.getElementById('payConfirmBtn');
   btn.textContent = '⌛ Submitting...';
-  btn.disabled = true;
+  btn.disabled    = true;
 
+  // ── Update localStorage ───────────────────────────────────
   try {
     const orders = JSON.parse(localStorage.getItem('gaumaatriOrders') || '{}');
     const order  = orders[currentOrderId];
-    if(!order) throw new Error('Order not found');
-
-    order.status        = 2; // Verification Pending
+    if(!order) throw new Error('Order not found in localStorage');
+    order.status        = 2;
     order.paymentStatus = 'Submitted – Verification Pending';
     order.proof         = currentPaymentProof;
     orders[currentOrderId] = order;
     localStorage.setItem('gaumaatriOrders', JSON.stringify(orders));
     _orderCache = order;
-  } catch(e) {
-    btn.textContent  = '👉 I HAVE PAID';
-    btn.disabled     = false;
-    errBox.textContent = '❌ Failed to save payment proof. Please try again.';
-    errBox.style.display = 'block';
-    return;
+  } catch(e) { console.warn('localStorage payment update failed:', e); }
+
+  // ── Update Google Sheets ──────────────────────────────────
+  if(SHEETS_API.URL !== 'https://script.google.com/macros/s/YOUR_SCRIPT_ID_HERE/exec'){
+    try {
+      await apiPost({ action: 'updatePayment', orderId: currentOrderId });
+      console.log('✅ Payment status updated in Google Sheets');
+    } catch(err) {
+      console.warn('Sheet payment update failed:', err.message);
+    }
   }
 
-  setTimeout(() => {
-    const orders = JSON.parse(localStorage.getItem('gaumaatriOrders') || '{}');
-    showSuccessScreen(currentOrderId, orders[currentOrderId], 'UPI');
-    showToast('🎉 Payment submitted successfully!');
-    sendOrderEmails(currentOrderId, 'UPI');
-    if(typeof populateOrders === 'function' && currentUser) populateOrders();
-  }, 1000);
+  const orders = JSON.parse(localStorage.getItem('gaumaatriOrders') || '{}');
+  showSuccessScreen(currentOrderId, orders[currentOrderId], 'UPI');
+  showToast('🎉 Payment submitted! We will verify soon.');
+  if(typeof populateOrders === 'function' && currentUser) populateOrders();
 }
 
 function sendOrderEmails(orderId, type){
@@ -1212,38 +1257,107 @@ function sendOrderEmails(orderId, type){
     .catch(err => console.warn('Admin email failed:', err));
 }
 
-// --- ORDER TRACKING ---
-const STATUSES=[
-  {icon:'⏳',title:'Pending Payment',desc:'Order received, waiting for payment completion'},
-  {icon:'🔍',title:'Verification Pending',desc:'Payment submitted, our team is verifying it'},
-  {icon:'✅',title:'Confirmed',desc:'Payment verified! We are preparing your order'},
-  {icon:'🚚',title:'Shipped',desc:'Your ghee has been dispatched!'},
-  {icon:'✨',title:'Delivered',desc:'Order delivered successfully!'}
-];
-function trackOrder(){
-  const oid=document.getElementById('trackOrderId').value.trim().toUpperCase();
-  const email=document.getElementById('trackEmail').value.trim().toLowerCase();
-  if(!oid||!email){showToast('Please enter both Order ID and email','error');return;}
-  const orders=JSON.parse(localStorage.getItem('gaumaatriOrders')||'{}');
-  const order=orders[oid];
-  if(!order||order.emailMatch!==email){
-    showToast('Order not found. Check your Order ID and email.','error');
-    document.getElementById('trackingResult').classList.remove('show');
+// ── ORDER TRACKING (fetches live from Google Sheets) ─────────
+const STATUS_MAP = {
+  'Order Received':    { step:0, icon:'⏳', label:'Order Received',    desc:'We have received your order.' },
+  'Pending':           { step:0, icon:'⏳', label:'Pending',            desc:'Awaiting payment.' },
+  'Payment Submitted – Verification Pending': { step:1, icon:'🔍', label:'Payment Submitted', desc:'We are verifying your payment.' },
+  'Confirmed':         { step:2, icon:'✅', label:'Confirmed',          desc:'Payment verified! Preparing your order.' },
+  'Shipped':           { step:3, icon:'🚚', label:'Shipped',            desc:'Your ghee is on the way!' },
+  'Delivered':         { step:4, icon:'🎉', label:'Delivered',          desc:'Delivered! Enjoy your Gaumaatri Ghee.' }
+};
+const STATUS_STEPS = ['Order Received','Payment Submitted – Verification Pending','Confirmed','Shipped','Delivered'];
+
+async function trackOrder(){
+  const oid   = document.getElementById('trackOrderId').value.trim().toUpperCase();
+  const email = document.getElementById('trackEmail').value.trim().toLowerCase();
+  if(!oid){ showToast('Please enter your Order ID','error'); return; }
+
+  const trackBtn    = document.querySelector('.track-btn');
+  const resultEl    = document.getElementById('trackingResult');
+  trackBtn.textContent = '🔍 Searching...';
+  trackBtn.disabled    = true;
+  resultEl.classList.remove('show');
+
+  let order = null;
+
+  // ── Try Google Sheets first ───────────────────────────────
+  if(SHEETS_API.URL !== 'https://script.google.com/macros/s/YOUR_SCRIPT_ID_HERE/exec'){
+    try {
+      const data = await apiGet({ action: 'trackOrder', orderId: oid });
+      if(data.success) {
+        order = {
+          isLive:        true,
+          id:            data.orderId,
+          variant:       data.product,
+          qty:           data.quantity,
+          total:         data.total,
+          paymentMethod: data.paymentMethod,
+          paymentStatus: data.paymentStatus,
+          orderStatus:   data.orderStatus,
+          date:          data.timestamp,
+          email:         data.email || ''
+        };
+      }
+    } catch(err) {
+      console.warn('Sheets tracking failed, using localStorage:', err.message);
+    }
+  }
+
+  // ── Fallback to localStorage ──────────────────────────────
+  if(!order){
+    const local = JSON.parse(localStorage.getItem('gaumaatriOrders') || '{}');
+    const lo    = local[oid];
+    if(lo && (!email || lo.emailMatch === email)){
+      order = {
+        isLive:        false,
+        id:            lo.id,
+        variant:       lo.variant,
+        qty:           lo.qty,
+        total:         lo.total,
+        paymentMethod: lo.paymentMethod,
+        paymentStatus: lo.paymentStatus || 'Pending',
+        orderStatus:   STATUS_STEPS[lo.status - 1] || 'Order Received',
+        date:          lo.date
+      };
+    }
+  }
+
+  trackBtn.textContent = 'Track Order →';
+  trackBtn.disabled    = false;
+
+  if(!order){
+    showToast('❌ Order not found. Please check your Order ID.', 'error');
     return;
   }
-  const result=document.getElementById('trackingResult');
-  document.getElementById('trackOrderTitle').textContent='Order: '+oid;
-  document.getElementById('trackOrderMeta').textContent=order.variant+' × '+order.qty+' | ₹'+order.total.toLocaleString()+' | Placed on '+order.date;
-  const tl=document.getElementById('trackTimeline');
-  tl.innerHTML='';
-  STATUSES.forEach((s,i)=>{
-    const li=document.createElement('li');
-    li.className=i<order.status?'done':(i===order.status?'active':'');
-    li.innerHTML='<div class="tl-title">'+s.icon+' '+s.title+'</div><div class="tl-desc">'+s.desc+'</div>';
+
+  // ── Render timeline ───────────────────────────────────────
+  const currentStatus = order.orderStatus || 'Order Received';
+  const currentStep   = STATUS_STEPS.indexOf(currentStatus);
+
+  document.getElementById('trackOrderTitle').textContent = 'Order: ' + order.id;
+  document.getElementById('trackOrderMeta').textContent  =
+    `${order.variant} × ${order.qty} | ₹${Number(order.total).toLocaleString()} | Placed: ${order.date}`
+    + (order.isLive ? ' 🟢 Live' : ' 🟡 Cached');
+
+  const tl = document.getElementById('trackTimeline');
+  tl.innerHTML = '';
+
+  STATUS_STEPS.forEach((step, i) => {
+    const info = STATUS_MAP[step] || { icon:'•', label: step, desc:'' };
+    const li   = document.createElement('li');
+    li.className = i < currentStep ? 'done' : (i === currentStep ? 'active' : '');
+    li.innerHTML = `<div class="tl-title">${info.icon} ${info.label}</div><div class="tl-desc">${info.desc}</div>`;
     tl.appendChild(li);
   });
-  result.classList.add('show');
-  showToast('Order found! Showing tracking details.','success');
+
+  // Payment status badge
+  const payBadge = `<div style="margin-top:16px;padding:10px 16px;background:var(--cream);border-radius:10px;font-size:0.88rem;">
+    💳 <b>Payment:</b> ${order.paymentStatus} &nbsp;|&nbsp; 📱 <b>Method:</b> ${order.paymentMethod}</div>`;
+  document.getElementById('trackOrderMeta').insertAdjacentHTML('afterend', payBadge);
+
+  resultEl.classList.add('show');
+  showToast('✅ Order found!', 'success');
 }
 
 // --- FAQ ACCORDION ---
