@@ -300,14 +300,26 @@ footer{background:var(--brown);color:var(--white);padding:48px 24px 24px;}
 .orders-table th{text-align:left;padding:16px;border-bottom:2px solid var(--cream-dark);font-size:0.85rem;text-transform:uppercase;letter-spacing:1px;color:var(--brown-light);}
 .orders-table td{padding:16px;border-bottom:1px solid var(--cream-dark);font-size:0.92rem;color:var(--brown);}
 .status-pill{padding:4px 10px;border-radius:50px;font-size:0.75rem;font-weight:700;text-transform:uppercase;}
-.st-1{background:#E3F2FD;color:#1976D2;} /* Placed */
-.st-2{background:#FFF3E0;color:#F57C00;} /* Confirmed */
-.st-3{background:#F3E5F5;color:#7B1FA2;} /* Shipped */
-.st-4{background:#E8F5E9;color:#388E3C;} /* Out for Delivery */
+.st-1{background:#FFF3E0;color:#F57C00;} /* Pending Payment */
+.st-2{background:#E3F2FD;color:#1976D2;} /* Payment Submitted */
+.st-3{background:#E8F5E9;color:#388E3C;} /* Confirmed */
+.st-4{background:#F3E5F5;color:#7B1FA2;} /* Shipped */
 .st-5{background:#E8F5E9;color:#2E7D32;} /* Delivered */
 
 .view-order-btn{background:none;border:1px solid var(--gold);color:var(--gold);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:0.8rem;font-weight:600;transition:all 0.3s;}
 .view-order-btn:hover{background:var(--gold);color:var(--white);}
+
+/* PAYMENT SECTION */
+#paymentSection{display:none;text-align:center;}
+.qr-container{background:var(--white);padding:20px;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,0.05);margin:20px auto;max-width:240px;border:1px solid var(--cream-dark);}
+.qr-container img{width:100%;height:auto;display:block;}
+.upi-id-box{background:var(--cream);padding:12px;border-radius:10px;font-size:0.95rem;font-weight:600;color:var(--gold-dark);cursor:pointer;margin-bottom:20px;border:1px dashed var(--gold);display:inline-block;transition:all 0.3s;}
+.upi-id-box:hover{background:rgba(201,146,42,0.1);transform:translateY(-2px);}
+.proof-upload{margin:24px 0;text-align:left;}
+.proof-upload label{display:block;font-size:0.85rem;font-weight:600;color:var(--brown);margin-bottom:8px;}
+.file-custom{padding:14px;background:var(--cream);border:2px dashed var(--cream-dark);border-radius:12px;text-align:center;color:var(--brown-light);cursor:pointer;font-size:0.9rem;transition:all 0.3s;}
+.file-custom:hover{border-color:var(--gold);color:var(--gold-dark);}
+.file-custom.uploaded{border-color:#4CAF50;color:#2E7D32;background:rgba(76,175,80,0.05);}
 
 @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
 @media(max-width:900px){
@@ -633,7 +645,29 @@ footer{background:var(--brown);color:var(--white);padding:48px 24px 24px;}
     </div>
     <div class="confirm-screen" id="confirmScreen">
       <div class="confirm-icon">✅</div>
+      <h2 class="modal-title">Order Received!</h2>
+      <p style="color:var(--brown-light);font-size:0.95rem;margin-bottom:8px;">Your order has been placed successfully and is pending payment verification.</p>
+      <div class="order-id-box" style="cursor:pointer;" onclick="navigator.clipboard.writeText(document.getElementById('confirmedOrderId').textContent);showToast('Order ID Copied!')">
+        <div class="order-id-label">Your Order ID (Click to copy)</div>
+        <div class="order-id-val" id="confirmedOrderId"></div>
+      </div>
+      <p style="font-size:0.85rem;color:var(--brown-light);margin-bottom:16px;">📧 We have sent order details and payment instructions to your email.</p>
       <button class="submit-order" onclick="closeModal()">Done</button>
+    </div>
+
+    <div id="paymentSection">
+      <h2 class="modal-title">Scan & Pay</h2>
+      <p class="modal-sub">Step 2: Scan QR and complete payment</p>
+      <div class="qr-container"><img src="payment_qr.png" alt="Payment QR"></div>
+      <div class="upi-id-box" onclick="navigator.clipboard.writeText('9654270726@upi');showToast('UPI ID Copied!')">UPI ID: 9654270726@upi 📋</div>
+      <p style="font-weight:700;font-size:1.2rem;color:var(--brown);margin-bottom:12px;">Total amount to pay: <span id="payAmount">₹0</span></p>
+      <div class="proof-upload">
+        <label>Upload Payment Screenshot *</label>
+        <input type="file" id="paymentProof" accept="image/*" style="display:none;" onchange="handleProofUpload(this)">
+        <div class="file-custom" onclick="document.getElementById('paymentProof').click()" id="fileLabel">📎 Click to upload screenshot</div>
+      </div>
+      <p style="font-size: 0.8rem; color: var(--brown-light); margin-bottom: 16px; font-style: italic;">Note: Order will be processed after payment verification.</p>
+      <button class="submit-order" style="margin-top:24px;" id="payConfirmBtn" onclick="confirmPayment()">👉 I HAVE PAID</button>
     </div>
   </div>
 </div>
@@ -685,6 +719,7 @@ footer{background:var(--brown);color:var(--white);padding:48px 24px 24px;}
       <ul class="dash-nav">
         <li><button class="active" onclick="switchPane('orders', this)">📦 My Orders</button></li>
         <li><button onclick="switchPane('profile', this)">👤 Edit Profile</button></li>
+        <li id="admin-nav-item" style="display:none; margin-top:10px;"><button onclick="switchPane('admin', this)" style="color:var(--gold-dark); background:rgba(201,146,42,0.1);">🛠️ Admin Panel</button></li>
         <li style="margin-top:20px;"><button onclick="logout()" style="color:#f44336;">🚪 Logout</button></li>
       </ul>
     </aside>
@@ -715,6 +750,18 @@ footer{background:var(--brown);color:var(--white);padding:48px 24px 24px;}
           <div class="form-group" style="margin-bottom:16px;"><label>Phone Number</label><input type="tel" id="p-phone"></div>
           <div class="form-group" style="margin-bottom:16px;"><label>Email (Username)</label><input type="email" id="p-email" disabled style="opacity:0.6;"></div>
           <button class="submit-order" onclick="updateProfile()">Save Changes</button>
+        </div>
+      </div>
+      <!-- ADMIN PANE -->
+      <div class="dash-content-pane" id="pane-admin">
+        <div class="dash-header"><h2 class="dash-title">Global Order Management</h2></div>
+        <div class="dash-card">
+          <div class="orders-table-wrapper">
+            <table class="orders-table">
+              <thead><tr><th>Order ID</th><th>Customer</th><th>Details</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody id="admin-orders-list"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </main>
@@ -893,16 +940,21 @@ function validateForm(){
 
 // --- ORDER ID GENERATOR ---
 function genOrderId(){
-  return 'GMT-2026-'+Math.random().toString(36).substr(2,5).toUpperCase();
+  const d = new Date();
+  const dateStr = d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
+  const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `GM-${dateStr}-${rand}`;
 }
 
 // --- ORDER SUBMIT ---
-// --- ORDER SUBMIT ---
+let currentOrderId = '';
+let currentPaymentProof = null;
+
 function submitOrder(){
   if(!validateForm()) return;
   const btn=document.querySelector('.submit-order');
   const originalBtnText = btn.textContent;
-  btn.textContent='🚀 Processing Order...';
+  btn.textContent='🚀 Processing...';
   btn.disabled=true;
 
   const name=document.getElementById('f-name').value.trim();
@@ -914,6 +966,7 @@ function submitOrder(){
   const pin=document.getElementById('f-pincode').value.trim();
   
   const orderId=genOrderId();
+  currentOrderId = orderId;
   const base=PRICES[currentVariant]*qty;
   const disc=couponApplied?Math.round(base*discountPct/100):0;
   const total=base-disc;
@@ -921,91 +974,147 @@ function submitOrder(){
   const orderDate=new Date().toLocaleString('en-IN', { dateStyle: 'long', timeStyle: 'short' });
   const deliveryDate=new Date(Date.now()+7*24*60*60*1000).toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'});
 
-  // 1. Save to localStorage (Local DB)
+  // 1. Save to localStorage (Status: 1 - Pending Payment)
   const orders=JSON.parse(localStorage.getItem('gaumaatriOrders')||'{}');
   orders[orderId]={
     id:orderId, name, phone, email,
     address: fullAddress,
     variant:VARIANTS[currentVariant], qty, total, paymentMethod,
-    date:orderDate, status:1,
+    date:orderDate, status:1, // 1 = Pending Payment
     emailMatch:email.toLowerCase(),
     timestamp: Date.now()
   };
   localStorage.setItem('gaumaatriOrders',JSON.stringify(orders));
 
-  // 2. Logging for System Audit
+  // 2. Logging
   const logs = JSON.parse(localStorage.getItem('gaumaatriLogs') || '[]');
   logs.push({ type: 'ORDER_PLACED', orderId, email, timestamp: new Date().toISOString() });
-  localStorage.setItem('gaumaatriLogs', JSON.stringify(logs.slice(-100))); // Keep last 100 logs
+  localStorage.setItem('gaumaatriLogs', JSON.stringify(logs.slice(-100)));
 
-  // 3. Trigger Email Notifications
+  // 3. UI Transition
+  setTimeout(()=>{
+    btn.textContent=originalBtnText;
+    btn.disabled=false;
+    
+    if(paymentMethod === 'UPI'){
+      document.getElementById('orderFormSection').style.display='none';
+      document.getElementById('paymentSection').style.display='block';
+      document.getElementById('payAmount').textContent = '₹' + total.toLocaleString();
+    } else {
+      // COD flow
+      document.getElementById('confirmedOrderId').textContent=orderId;
+      document.getElementById('confirmDetails').innerHTML=
+        '<b>Name:</b> '+name+'<br>'+
+        '<b>Product:</b> '+VARIANTS[currentVariant]+' × '+qty+'<br>'+
+        '<b>Total:</b> ₹'+total.toLocaleString()+(disc>0?' (incl. '+discountPct+'% off)':'')+'<br>'+
+        '<b>Payment:</b> Cash on Delivery<br>'+
+        '<b>Address:</b> '+fullAddress;
+      
+      document.getElementById('orderFormSection').style.display='none';
+      document.getElementById('confirmScreen').classList.add('show');
+      
+      // Send COD Email
+      sendOrderEmails(orderId, 'COD');
+    }
+    
+    if(typeof populateOrders === 'function' && currentUser) populateOrders();
+  }, 800);
+}
+
+function handleProofUpload(input){
+  if(input.files && input.files[0]){
+    const reader = new FileReader();
+    reader.onload = function(e){
+      currentPaymentProof = e.target.result;
+      const label = document.getElementById('fileLabel');
+      label.textContent = '✅ Screenshot Ready';
+      label.classList.add('uploaded');
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
+function confirmPayment(){
+  if(!currentPaymentProof){
+    showToast('Please upload payment screenshot first','error');
+    return;
+  }
+  
+  const btn = document.getElementById('payConfirmBtn');
+  btn.textContent = '⌛ Submiting...';
+  btn.disabled = true;
+
+  const orders = JSON.parse(localStorage.getItem('gaumaatriOrders') || '{}');
+  const order = orders[currentOrderId];
+  
+  if(order){
+    order.status = 2; // 2 = Verification Pending
+    order.proof = currentPaymentProof; // Store Base64
+    orders[currentOrderId] = order;
+    localStorage.setItem('gaumaatriOrders', JSON.stringify(orders));
+    
+    // UI update
+    setTimeout(()=>{
+      document.getElementById('paymentSection').style.display='none';
+      document.getElementById('confirmScreen').classList.add('show');
+      document.getElementById('confirmedOrderId').textContent=currentOrderId;
+      document.getElementById('confirmDetails').innerHTML = `
+        <b>Order ID:</b> ${currentOrderId}<br>
+        <b>Status:</b> Verification Pending<br>
+        <p style="margin-top:12px; color:var(--gold-dark); font-weight:600;">Payment submitted successfully. We will verify and update your order soon.</p>
+      `;
+      showToast('Payment submitted successfully!');
+      
+      // Send UPI Verification Email
+      sendOrderEmails(currentOrderId, 'UPI');
+    }, 1200);
+  }
+}
+
+function sendOrderEmails(orderId, type){
+  const orders = JSON.parse(localStorage.getItem('gaumaatriOrders') || '{}');
+  const order = orders[orderId];
+  if(!order) return;
+
   const emailParams = {
-    customer_name: name,
-    customer_email: email,
-    customer_phone: phone,
-    order_id: orderId,
-    product_name: VARIANTS[currentVariant],
-    quantity: qty,
-    total_amount: '₹' + total.toLocaleString(),
-    payment_method: paymentMethod,
-    shipping_address: fullAddress,
-    est_delivery: deliveryDate,
-    order_time: orderDate,
-    business_email: 'support@gaumaatri.co.in'
+    customer_name: order.name,
+    customer_email: order.email,
+    customer_phone: order.phone,
+    order_id: order.id,
+    product_name: order.variant,
+    quantity: order.qty,
+    total_amount: '₹' + order.total.toLocaleString(),
+    payment_method: order.paymentMethod,
+    shipping_address: order.address,
+    status: type === 'UPI' ? 'Verification Pending' : 'Order Placed (COD)',
+    proof_link: type === 'UPI' ? 'Check Admin Dashboard (localStorage)' : 'N/A',
+    subject_customer: type === 'UPI' ? 'Order Received – Payment Under Verification' : 'Gaumaatri Order Received (COD)',
+    subject_admin: type === 'UPI' ? 'New Order + Payment Submitted' : 'New COD Order Received'
   };
 
-  // Replace these with your actual EmailJS credentials
-  // EmailJS Configuration
   const EMAILJS_CONFIG = {
     SERVICE_ID: 'service_7zrxz4h',
     PUBLIC_KEY: 'IGPLEG5r-rO43M5EG',
     CUSTOMER_TEMPLATE: 'template_7lb2ejo',
-    ADMIN_TEMPLATE: 'template_fb7y4z6',
-    WELCOME_TEMPLATE: 'template_welcome_gaumaatri' // Placeholder for welcome template
+    ADMIN_TEMPLATE: 'template_fb7y4z6'
   };
 
-  Promise.all([
-    emailjs.send(EMAILJS_CONFIG.SERVICE_ID, EMAILJS_CONFIG.CUSTOMER_TEMPLATE, emailParams, EMAILJS_CONFIG.PUBLIC_KEY),
-    emailjs.send(EMAILJS_CONFIG.SERVICE_ID, EMAILJS_CONFIG.ADMIN_TEMPLATE, emailParams, EMAILJS_CONFIG.PUBLIC_KEY)
-  ]).then(() => {
-    console.log('✅ All notifications sent successfully.');
-    logs.push({ type: 'EMAIL_SUCCESS', orderId, timestamp: new Date().toISOString() });
-    localStorage.setItem('gaumaatriLogs', JSON.stringify(logs));
-  }).catch((err) => {
-    console.error('❌ Email notification failed:', err);
-    logs.push({ type: 'EMAIL_ERROR', orderId, error: err.text || err, timestamp: new Date().toISOString() });
-    localStorage.setItem('gaumaatriLogs', JSON.stringify(logs));
-    // We don't block the user if email fails, but we log it.
-  });
-
-  // 4. UI Transition
-  setTimeout(()=>{
-    document.getElementById('confirmedOrderId').textContent=orderId;
-    document.getElementById('confirmDetails').innerHTML=
-      '<b>Name:</b> '+name+'<br>'+
-      '<b>Product:</b> '+VARIANTS[currentVariant]+' × '+qty+'<br>'+
-      '<b>Total:</b> ₹'+total.toLocaleString()+(disc>0?' (incl. '+discountPct+'% off)':'')+'<br>'+
-      '<b>Payment:</b> '+paymentMethod+'<br>'+
-      '<b>Delivery Address:</b> '+fullAddress+'<br>'+
-      '<b>Expected Delivery:</b> By '+deliveryDate;
+  emailjs.send(EMAILJS_CONFIG.SERVICE_ID, EMAILJS_CONFIG.CUSTOMER_TEMPLATE, emailParams, EMAILJS_CONFIG.PUBLIC_KEY)
+    .then(() => console.log('Customer Email Sent'))
+    .catch(err => console.error('Email Error:', err));
     
-    document.getElementById('orderFormSection').style.display='none';
-    document.getElementById('confirmScreen').classList.add('show');
-    showToast('🎉 Order placed successfully! ID: '+orderId);
-    btn.textContent=originalBtnText;
-    btn.disabled=false;
-    
-    if(typeof populateOrders === 'function' && currentUser) populateOrders();
-  }, 1000);
+  emailjs.send(EMAILJS_CONFIG.SERVICE_ID, EMAILJS_CONFIG.ADMIN_TEMPLATE, emailParams, EMAILJS_CONFIG.PUBLIC_KEY)
+    .then(() => console.log('Admin Email Sent'))
+    .catch(err => console.error('Admin Email Error:', err));
 }
 
 // --- ORDER TRACKING ---
 const STATUSES=[
-  {icon:'✅',title:'Order Placed',desc:'Your order has been received'},
-  {icon:'📦',title:'Order Confirmed',desc:'We have confirmed your order and are preparing it'},
-  {icon:'🚚',title:'Shipped',desc:'Your ghee is on its way!'},
-  {icon:'🏠',title:'Out for Delivery',desc:'The delivery partner is near your address'},
-  {icon:'✔️',title:'Delivered',desc:'Order delivered successfully!'}
+  {icon:'⏳',title:'Pending Payment',desc:'Order received, waiting for payment completion'},
+  {icon:'🔍',title:'Verification Pending',desc:'Payment submitted, our team is verifying it'},
+  {icon:'✅',title:'Confirmed',desc:'Payment verified! We are preparing your order'},
+  {icon:'🚚',title:'Shipped',desc:'Your ghee has been dispatched!'},
+  {icon:'✨',title:'Delivered',desc:'Order delivered successfully!'}
 ];
 function trackOrder(){
   const oid=document.getElementById('trackOrderId').value.trim().toUpperCase();
@@ -1064,8 +1173,14 @@ function checkAuth(){
 function updateAuthUI(loggedIn){
   document.querySelectorAll('.logged-out').forEach(el => el.style.display = loggedIn ? 'none' : 'block');
   document.querySelectorAll('.logged-in').forEach(el => el.style.display = loggedIn ? 'block' : 'none');
+  
   if(loggedIn){
     document.getElementById('user-nav-name').textContent = currentUser.name.split(' ')[0];
+    // Show admin panel if admin email
+    if(currentUser.email === 'gaumaatri@gmail.com' || currentUser.email === 'admin@gaumaatri.com'){
+       const adminItem = document.getElementById('admin-nav-item');
+       if(adminItem) adminItem.style.display = 'block';
+    }
   }
 }
 
@@ -1184,6 +1299,55 @@ function switchPane(pane, btn){
   btn.classList.add('active');
   document.querySelectorAll('.dash-content-pane').forEach(p => p.classList.remove('active'));
   document.getElementById('pane-'+pane).classList.add('active');
+  
+  if(pane === 'admin') populateAdminOrders();
+}
+
+function populateAdminOrders(){
+  const orders = JSON.parse(localStorage.getItem('gaumaatriOrders') || '{}');
+  const allOrders = Object.values(orders).sort((a,b) => b.timestamp - a.timestamp);
+  const list = document.getElementById('admin-orders-list');
+  list.innerHTML = '';
+
+  allOrders.forEach(o => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><b>${o.id}</b></td>
+      <td>${o.name}<br><small>${o.phone}</small></td>
+      <td>${o.variant} × ${o.qty}<br><small>₹${o.total.toLocaleString()}</small></td>
+      <td><span class="status-pill st-${o.status}">${STATUSES[o.status-1].title}</span></td>
+      <td>
+        <select onchange="updateOrderStatus('${o.id}', this.value)" style="padding:4px; border-radius:4px; font-size:0.8rem;">
+          <option value="">Change Status</option>
+          <option value="3">Approve/Confirm</option>
+          <option value="4">Shipped</option>
+          <option value="5">Delivered</option>
+        </select>
+        ${o.proof ? `<br><button onclick="viewProof('${o.id}')" style="margin-top:4px; font-size:0.7rem; color:var(--gold-dark); border:none; background:none; cursor:pointer; text-decoration:underline;">View Proof</button>` : ''}
+      </td>
+    `;
+    list.appendChild(tr);
+  });
+}
+
+function updateOrderStatus(oid, newStatus){
+  if(!newStatus) return;
+  const orders = JSON.parse(localStorage.getItem('gaumaatriOrders') || '{}');
+  if(orders[oid]){
+    orders[oid].status = parseInt(newStatus);
+    localStorage.setItem('gaumaatriOrders', JSON.stringify(orders));
+    showToast(`Order ${oid} status updated to ${STATUSES[newStatus-1].title}!`);
+    populateAdminOrders();
+    populateOrders(); // Refresh customer view if open
+  }
+}
+
+function viewProof(oid){
+  const orders = JSON.parse(localStorage.getItem('gaumaatriOrders') || '{}');
+  const proof = orders[oid].proof;
+  if(!proof) return;
+  const w = window.open("");
+  w.document.write(`<img src="${proof}" style="max-width:100%;">`);
 }
 
 function populateOrders(){
