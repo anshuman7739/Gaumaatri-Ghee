@@ -955,14 +955,18 @@ function submitOrder(){
   };
 
   // Replace these with your actual EmailJS credentials
-  const SERVICE_ID = 'service_7zrxz4h'; 
-  const PUBLIC_KEY = 'IGPLEG5r-rO43M5EG';
-  const CUSTOMER_TEMPLATE = 'template_7lb2ejo';
-  const ADMIN_TEMPLATE = 'template_fb7y4z6';
+  // EmailJS Configuration
+  const EMAILJS_CONFIG = {
+    SERVICE_ID: 'service_7zrxz4h',
+    PUBLIC_KEY: 'IGPLEG5r-rO43M5EG',
+    CUSTOMER_TEMPLATE: 'template_7lb2ejo',
+    ADMIN_TEMPLATE: 'template_fb7y4z6',
+    WELCOME_TEMPLATE: 'template_welcome_gaumaatri' // Placeholder for welcome template
+  };
 
   Promise.all([
-    emailjs.send(SERVICE_ID, CUSTOMER_TEMPLATE, emailParams, PUBLIC_KEY),
-    emailjs.send(SERVICE_ID, ADMIN_TEMPLATE, emailParams, PUBLIC_KEY)
+    emailjs.send(EMAILJS_CONFIG.SERVICE_ID, EMAILJS_CONFIG.CUSTOMER_TEMPLATE, emailParams, EMAILJS_CONFIG.PUBLIC_KEY),
+    emailjs.send(EMAILJS_CONFIG.SERVICE_ID, EMAILJS_CONFIG.ADMIN_TEMPLATE, emailParams, EMAILJS_CONFIG.PUBLIC_KEY)
   ]).then(() => {
     console.log('✅ All notifications sent successfully.');
     logs.push({ type: 'EMAIL_SUCCESS', orderId, timestamp: new Date().toISOString() });
@@ -1108,12 +1112,16 @@ function signup(){
   showToast('Welcome to Gaumaatri, ' + name + '!');
   closeAuthModal();
 
-  // Welcome Email Simulation
+  // Welcome Email
   try{
-    emailjs.init('YOUR_EMAILJS_PUBLIC_KEY');
-    emailjs.send('YOUR_SERVICE_ID','YOUR_WELCOME_TEMPLATE',{
-      to_email:email, customer_name:name
-    });
+    const EMAILJS_CONFIG = {
+      SERVICE_ID: 'service_7zrxz4h',
+      PUBLIC_KEY: 'IGPLEG5r-rO43M5EG',
+      WELCOME_TEMPLATE: 'template_welcome_gaumaatri' 
+    };
+    emailjs.send(EMAILJS_CONFIG.SERVICE_ID, EMAILJS_CONFIG.WELCOME_TEMPLATE, {
+      to_email: email, customer_name: name
+    }, EMAILJS_CONFIG.PUBLIC_KEY);
   }catch(e){}
 }
 
