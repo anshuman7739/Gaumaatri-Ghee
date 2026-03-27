@@ -897,10 +897,14 @@ function genOrderId(){
 }
 
 // --- ORDER SUBMIT ---
+// --- ORDER SUBMIT ---
 function submitOrder(){
   if(!validateForm()) return;
   const btn=document.querySelector('.submit-order');
-  btn.textContent='Processing...';btn.disabled=true;
+  const originalBtnText = btn.textContent;
+  btn.textContent='🚀 Processing Order...';
+  btn.disabled=true;
+
   const name=document.getElementById('f-name').value.trim();
   const phone=document.getElementById('f-phone').value.trim();
   const email=document.getElementById('f-email').value.trim();
@@ -908,56 +912,87 @@ function submitOrder(){
   const city=document.getElementById('f-city').value.trim();
   const state=document.getElementById('f-state').value.trim();
   const pin=document.getElementById('f-pincode').value.trim();
+  
   const orderId=genOrderId();
   const base=PRICES[currentVariant]*qty;
   const disc=couponApplied?Math.round(base*discountPct/100):0;
   const total=base-disc;
-  const orderDate=new Date().toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'});
+  const fullAddress = `${addr}, ${city}, ${state} - ${pin}`;
+  const orderDate=new Date().toLocaleString('en-IN', { dateStyle: 'long', timeStyle: 'short' });
   const deliveryDate=new Date(Date.now()+7*24*60*60*1000).toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'});
 
-  // Save to localStorage
+  // 1. Save to localStorage (Local DB)
   const orders=JSON.parse(localStorage.getItem('gaumaatriOrders')||'{}');
   orders[orderId]={
-    id:orderId,name,phone,email,
-    address:addr+', '+city+', '+state+' - '+pin,
-    variant:VARIANTS[currentVariant],qty,total,paymentMethod,
-    date:orderDate,status:1,
-    emailMatch:email.toLowerCase()
+    id:orderId, name, phone, email,
+    address: fullAddress,
+    variant:VARIANTS[currentVariant], qty, total, paymentMethod,
+    date:orderDate, status:1,
+    emailMatch:email.toLowerCase(),
+    timestamp: Date.now()
   };
   localStorage.setItem('gaumaatriOrders',JSON.stringify(orders));
 
+  // 2. Logging for System Audit
+  const logs = JSON.parse(localStorage.getItem('gaumaatriLogs') || '[]');
+  logs.push({ type: 'ORDER_PLACED', orderId, email, timestamp: new Date().toISOString() });
+  localStorage.setItem('gaumaatriLogs', JSON.stringify(logs.slice(-100))); // Keep last 100 logs
+
+  // 3. Trigger Email Notifications
+  const emailParams = {
+    customer_name: name,
+    customer_email: email,
+    customer_phone: phone,
+    order_id: orderId,
+    product_name: VARIANTS[currentVariant],
+    quantity: qty,
+    total_amount: '₹' + total.toLocaleString(),
+    payment_method: paymentMethod,
+    shipping_address: fullAddress,
+    est_delivery: deliveryDate,
+    order_time: orderDate,
+    business_email: 'support@gaumaatri.co.in'
+  };
+
+  // Replace these with your actual EmailJS credentials
+  const SERVICE_ID = 'YOUR_SERVICE_ID'; 
+  const PUBLIC_KEY = 'YOUR_PUBLIC_KEY';
+  const CUSTOMER_TEMPLATE = 'YOUR_CUSTOMER_TEMPLATE_ID';
+  const ADMIN_TEMPLATE = 'YOUR_ADMIN_TEMPLATE_ID';
+
+  Promise.all([
+    emailjs.send(SERVICE_ID, CUSTOMER_TEMPLATE, emailParams, PUBLIC_KEY),
+    emailjs.send(SERVICE_ID, ADMIN_TEMPLATE, emailParams, PUBLIC_KEY)
+  ]).then(() => {
+    console.log('✅ All notifications sent successfully.');
+    logs.push({ type: 'EMAIL_SUCCESS', orderId, timestamp: new Date().toISOString() });
+    localStorage.setItem('gaumaatriLogs', JSON.stringify(logs));
+  }).catch((err) => {
+    console.error('❌ Email notification failed:', err);
+    logs.push({ type: 'EMAIL_ERROR', orderId, error: err.text || err, timestamp: new Date().toISOString() });
+    localStorage.setItem('gaumaatriLogs', JSON.stringify(logs));
+    // We don't block the user if email fails, but we log it.
+  });
+
+  // 4. UI Transition
   setTimeout(()=>{
-    // Show confirmation
     document.getElementById('confirmedOrderId').textContent=orderId;
     document.getElementById('confirmDetails').innerHTML=
       '<b>Name:</b> '+name+'<br>'+
       '<b>Product:</b> '+VARIANTS[currentVariant]+' × '+qty+'<br>'+
       '<b>Total:</b> ₹'+total.toLocaleString()+(disc>0?' (incl. '+discountPct+'% off)':'')+'<br>'+
       '<b>Payment:</b> '+paymentMethod+'<br>'+
-      '<b>Delivery Address:</b> '+addr+', '+city+', '+state+' - '+pin+'<br>'+
+      '<b>Delivery Address:</b> '+fullAddress+'<br>'+
       '<b>Expected Delivery:</b> By '+deliveryDate;
+    
     document.getElementById('orderFormSection').style.display='none';
     document.getElementById('confirmScreen').classList.add('show');
     showToast('🎉 Order placed successfully! ID: '+orderId);
-    btn.textContent='🛒 Confirm Order';btn.disabled=false;
-
-    // Attempt EmailJS (won't work without real keys, but structure is ready)
-    try{
-      emailjs.init('YOUR_EMAILJS_PUBLIC_KEY');
-      emailjs.send('YOUR_SERVICE_ID','YOUR_CUSTOMER_TEMPLATE',{
-        to_email:email,customer_name:name,order_id:orderId,
-        product:VARIANTS[currentVariant],quantity:qty,total:'₹'+total.toLocaleString(),
-        payment:paymentMethod,address:addr+', '+city+', '+state+' - '+pin,
-        delivery_date:deliveryDate
-      });
-      emailjs.send('YOUR_SERVICE_ID','YOUR_BUSINESS_TEMPLATE',{
-        to_email:'gaumaatri@gmail.com',customer_name:name,customer_phone:phone,
-        customer_email:email,order_id:orderId,product:VARIANTS[currentVariant],
-        quantity:qty,total:'₹'+total.toLocaleString(),payment:paymentMethod,
-        address:addr+', '+city+', '+state+' - '+pin
-      });
-    }catch(e){console.log('EmailJS not configured yet.')}
-  },1200);
+    btn.textContent=originalBtnText;
+    btn.disabled=false;
+    
+    if(typeof populateOrders === 'function' && currentUser) populateOrders();
+  }, 1000);
 }
 
 // --- ORDER TRACKING ---
