@@ -327,7 +327,8 @@ gaumaatri@gmail.com
   MailApp.sendEmail({
     to: data.email,
     subject: subject,
-    body: body
+    body: body,
+    name: 'Gaumaatri'
   });
   Logger.log('Customer email sent to: ' + data.email);
 }
@@ -366,7 +367,8 @@ ${SpreadsheetApp.getActiveSpreadsheet().getUrl()}
   MailApp.sendEmail({
     to: adminEmail,
     subject: subject,
-    body: body
+    body: body,
+    name: 'Gaumaatri'
   });
   Logger.log('Admin email sent for order: ' + data.orderId);
 }
@@ -391,7 +393,8 @@ Amount  : ₹${order.total}
 Please verify the payment in your UPI app and update the status in Google Sheets.
 
 View Sheet: ${SpreadsheetApp.getActiveSpreadsheet().getUrl()}
-    `.trim()
+    `.trim(),
+    name: 'Gaumaatri'
   });
 }
 
