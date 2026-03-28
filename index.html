@@ -109,26 +109,6 @@ section{padding:80px 24px;}
 .feature-card p{font-size:0.82rem;color:var(--brown-light);}
 
 /* PRODUCTS */
-  <h1>Buy Pure Desi Cow Ghee Online</h1>
-
-<p>
-Gaumaatri brings you 100% pure desi cow ghee made using traditional bilona method.
-Our ghee is rich in nutrients, improves digestion, and boosts immunity.
-</p>
-
-<h2>Why Choose Gaumaatri Ghee?</h2>
-<ul>
-  <li>100% Natural and Organic</li>
-  <li>Made from A2 Cow Milk</li>
-  <li>No chemicals or preservatives</li>
-  <li>Traditional Bilona Process</li>
-</ul>
-
-<h2>Benefits of Desi Ghee</h2>
-<p>
-Desi ghee helps in better digestion, improves skin health, strengthens immunity,
-and provides essential fatty acids for overall wellness.
-</p>
 #products{background:var(--cream-dark);}
 .products-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;margin-top:48px;}
 .product-card{background:var(--white);border-radius:24px;overflow:hidden;box-shadow:var(--shadow);transition:transform 0.3s,box-shadow 0.3s;position:relative;}
@@ -1122,105 +1102,138 @@ function sendOrderEmails(orderId, type){
 
 // ── ORDER TRACKING (fetches live from Google Sheets) ─────────
 const STATUS_MAP = {
-  'Order Received':    { step:0, icon:'⏳', label:'Order Received',    desc:'We have received your order.' },
-  'Pending':           { step:0, icon:'⏳', label:'Pending',            desc:'Awaiting payment.' },
-  'Payment Submitted – Verification Pending': { step:1, icon:'🔍', label:'Payment Submitted', desc:'We are verifying your payment.' },
-  'Confirmed':         { step:2, icon:'✅', label:'Confirmed',          desc:'Payment verified! Preparing your order.' },
-  'Shipped':           { step:3, icon:'🚚', label:'Shipped',            desc:'Your ghee is on the way!' },
-  'Delivered':         { step:4, icon:'🎉', label:'Delivered',          desc:'Delivered! Enjoy your Gaumaatri Ghee.' }
+  'Processing':     { step: 0, icon: '🟡', label: 'Processing',    color: '#FFB300' },
+  'Confirmed':      { step: 1, icon: '🔵', label: 'Confirmed',     color: '#2196F3' },
+  'Shipped':        { step: 2, icon: '🚚', label: 'Shipped',       color: '#9C27B0' },
+  'Delivered':      { step: 3, icon: '✅', label: 'Delivered',     color: '#4CAF50' },
+  'Pending':        { step: 0, icon: '🟡', label: 'Processing',    color: '#FFB300' },
+  'Order Received': { step: 0, icon: '🟡', label: 'Processing',    color: '#FFB300' }
 };
-const STATUS_STEPS = ['Order Received','Payment Submitted – Verification Pending','Confirmed','Shipped','Delivered'];
 
-async function trackOrder(){
-  const oid   = document.getElementById('trackOrderId').value.trim().toUpperCase();
-  const email = document.getElementById('trackEmail').value.trim().toLowerCase();
-  if(!oid){ showToast('Please enter your Order ID','error'); return; }
+const STATUS_STEPS = ['Processing', 'Confirmed', 'Shipped', 'Delivered'];
+let trackingInterval = null;
 
-  const trackBtn    = document.querySelector('.track-btn');
-  const resultEl    = document.getElementById('trackingResult');
-  trackBtn.textContent = '🔍 Searching...';
-  trackBtn.disabled    = true;
-  resultEl.classList.remove('show');
+async function trackOrder() {
+  const oid = document.getElementById('trackOrderId').value.trim().toUpperCase();
+  if (!oid) { showToast('Please enter your Order ID', 'error'); return; }
 
-  let order = null;
+  const trackBtn = document.querySelector('.track-btn');
+  const resultEl = document.getElementById('trackingResult');
+  
+  trackBtn.innerHTML = '🔍 Tracking Live... <span style="font-size:12px">(Please wait)</span>';
+  trackBtn.disabled = true;
 
-  // ── Try Google Sheets first ───────────────────────────────
-  if(SHEETS_API.URL !== 'https://script.google.com/macros/s/YOUR_SCRIPT_ID_HERE/exec'){
-    try {
-      const data = await apiGet({ action: 'trackOrder', orderId: oid });
-      if(data.success) {
-        order = {
-          isLive:        true,
-          id:            data.orderId,
-          variant:       data.product,
-          qty:           data.quantity,
-          total:         data.total,
-          paymentMethod: data.paymentMethod,
-          paymentStatus: data.paymentStatus,
-          orderStatus:   data.orderStatus,
-          date:          data.timestamp,
-          email:         data.email || ''
-        };
-      }
-    } catch(err) {
-      console.warn('Sheets tracking failed, using localStorage:', err.message);
+  try {
+    const data = await apiGet({ action: 'trackOrder', orderId: oid });
+    
+    trackBtn.innerHTML = 'Track Order &rarr;';
+    trackBtn.disabled = false;
+
+    if (!data.success) {
+      showToast('Invalid Order ID', 'error');
+      resultEl.classList.remove('show');
+      return;
+    }
+
+    renderTrackingInfo(data);
+    
+    // Auto-refresh every 30 seconds
+    if (trackingInterval) clearInterval(trackingInterval);
+    trackingInterval = setInterval(async () => {
+      try {
+        const refreshData = await apiGet({ action: 'trackOrder', orderId: oid });
+        if (refreshData.success) renderTrackingInfo(refreshData);
+      } catch(e) { console.warn('Auto-refresh failed'); }
+    }, 30000);
+
+  } catch (err) {
+    trackBtn.innerHTML = 'Track Order &rarr;';
+    trackBtn.disabled = false;
+    showToast('Try again later', 'error');
+  }
+}
+
+function renderTrackingInfo(order) {
+  const resultEl = document.getElementById('trackingResult');
+  const rawStatus = order.orderStatus || 'Pending';
+  
+  // Normalize status for UI matching
+  let uiStatus = rawStatus;
+  if (!STATUS_MAP[rawStatus]) {
+    const lowerStatus = rawStatus.toLowerCase();
+    if (lowerStatus.includes('process')) uiStatus = 'Processing';
+    else if (lowerStatus.includes('confirm')) uiStatus = 'Confirmed';
+    else if (lowerStatus.includes('ship')) uiStatus = 'Shipped';
+    else if (lowerStatus.includes('deliver')) uiStatus = 'Delivered';
+    else uiStatus = 'Processing';
+  }
+
+  const statusInfo = STATUS_MAP[uiStatus] || STATUS_MAP['Processing'];
+  const currentStep = STATUS_STEPS.indexOf(uiStatus) !== -1 ? STATUS_STEPS.indexOf(uiStatus) : 0;
+  
+  // Calculate Progress Percent for bar
+  const progressPercent = (currentStep / (STATUS_STEPS.length - 1)) * 100;
+
+  // Estimated Delivery Math (mocking 5 days from order timestamp)
+  let estDateStr = 'TBD';
+  if (order.timestamp) {
+    const parsedDate = new Date(order.timestamp);
+    if (!isNaN(parsedDate.getTime())) {
+      parsedDate.setDate(parsedDate.getDate() + 5);
+      estDateStr = parsedDate.toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' });
     }
   }
 
-  // ── Fallback to localStorage ──────────────────────────────
-  if(!order){
-    const local = JSON.parse(localStorage.getItem('gaumaatriOrders') || '{}');
-    const lo    = local[oid];
-    if(lo && (!email || lo.emailMatch === email)){
-      order = {
-        isLive:        false,
-        id:            lo.id,
-        variant:       lo.variant,
-        qty:           lo.qty,
-        total:         lo.total,
-        paymentMethod: lo.paymentMethod,
-        paymentStatus: lo.paymentStatus || 'Pending',
-        orderStatus:   STATUS_STEPS[lo.status - 1] || 'Order Received',
-        date:          lo.date
-      };
-    }
-  }
+  // Build UI
+  document.getElementById('trackOrderTitle').innerHTML = `Order ID: <b style="letter-spacing:1px">${order.orderId}</b>`;
+  
+  const metaHtml = `
+    <!-- Order Data Blocks -->
+    <div style="background: var(--cream-dark); padding: 20px; border-radius: 12px; margin-bottom: 24px; text-align: left;">
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div>
+          <span style="font-size:0.75rem; color:var(--brown-light); text-transform:uppercase; letter-spacing:1px; font-weight:600;">Product Details</span>
+          <div style="font-weight:600; color:var(--brown); margin-top:4px;">${order.product || '-'} × ${order.quantity || 1}</div>
+        </div>
+        <div>
+          <span style="font-size:0.75rem; color:var(--brown-light); text-transform:uppercase; letter-spacing:1px; font-weight:600;">Payment Status</span>
+          <div style="font-weight:600; color:${order.paymentStatus?.toLowerCase().includes('verified') || order.paymentStatus?.toLowerCase().includes('paid') ? '#4CAF50' : '#FF9800'}; margin-top:4px;">${order.paymentStatus || 'Pending'} (${order.paymentMethod || 'COD'})</div>
+        </div>
+      </div>
+      <div style="margin-top: 16px; padding-top: 16px; border-top: 1px dashed rgba(61,43,31,0.2);">
+        <span style="font-weight:600; color:var(--brown);">Estimated Delivery:</span> <span style="color:#4CAF50; font-weight:700;">By ${estDateStr}</span>
+      </div>
+    </div>
 
-  trackBtn.textContent = 'Track Order →';
-  trackBtn.disabled    = false;
-
-  if(!order){
-    showToast('❌ Order not found. Please check your Order ID.', 'error');
-    return;
-  }
-
-  // ── Render timeline ───────────────────────────────────────
-  const currentStatus = order.orderStatus || 'Order Received';
-  const currentStep   = STATUS_STEPS.indexOf(currentStatus);
-
-  document.getElementById('trackOrderTitle').textContent = 'Order: ' + order.id;
-  document.getElementById('trackOrderMeta').textContent  =
-    `${order.variant} × ${order.qty} | ₹${Number(order.total).toLocaleString()} | Placed: ${order.date}`
-    + (order.isLive ? ' 🟢 Live' : ' 🟡 Cached');
-
-  const tl = document.getElementById('trackTimeline');
-  tl.innerHTML = '';
-
-  STATUS_STEPS.forEach((step, i) => {
-    const info = STATUS_MAP[step] || { icon:'•', label: step, desc:'' };
-    const li   = document.createElement('li');
-    li.className = i < currentStep ? 'done' : (i === currentStep ? 'active' : '');
-    li.innerHTML = `<div class="tl-title">${info.icon} ${info.label}</div><div class="tl-desc">${info.desc}</div>`;
-    tl.appendChild(li);
-  });
-
-  // Payment status badge
-  const payBadge = `<div style="margin-top:16px;padding:10px 16px;background:var(--cream);border-radius:10px;font-size:0.88rem;">
-    💳 <b>Payment:</b> ${order.paymentStatus} &nbsp;|&nbsp; 📱 <b>Method:</b> ${order.paymentMethod}</div>`;
-  document.getElementById('trackOrderMeta').insertAdjacentHTML('afterend', payBadge);
+    <!-- Live Status Banner -->
+    <div style="text-align: center; padding: 24px 20px; background: rgba(255,255,255,0.9); border: 2px solid ${statusInfo.color}; border-radius: 16px; margin-bottom: 30px; box-shadow: 0 8px 24px rgba(0,0,0,0.06);">
+      <div style="font-size: 3rem; margin-bottom: 8px; line-height: 1;">${statusInfo.icon}</div>
+      <div style="font-size: 1.3rem; font-weight: 700; color: ${statusInfo.color}; text-transform: uppercase; letter-spacing: 2px;">${statusInfo.label}</div>
+      <div style="font-size: 0.8rem; color: var(--brown-light); margin-top: 6px;">Live Status Updated Directly from Backend ✨</div>
+    </div>
+    
+    <!-- Visual Progress Bar -->
+    <div style="margin-bottom: 10px;">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 0.75rem; font-weight: 700; color: var(--brown-light); text-transform: uppercase;">
+        <span style="color:${currentStep >= 0 ? 'var(--brown)' : ''}">Processing</span>
+        <span style="color:${currentStep >= 1 ? 'var(--brown)' : ''}">Confirmed</span>
+        <span style="color:${currentStep >= 2 ? 'var(--brown)' : ''}">Shipped</span>
+        <span style="color:${currentStep >= 3 ? '#4CAF50' : ''}">Delivered</span>
+      </div>
+      <div style="height: 10px; background: var(--cream-dark); border-radius: 5px; overflow: hidden; position: relative;">
+        <div style="position: absolute; left: 0; top: 0; height: 100%; width: ${progressPercent}%; background: linear-gradient(90deg, var(--gold), #4CAF50); border-radius: 5px; transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);"></div>
+      </div>
+    </div>
+  `;
+  
+  document.getElementById('trackOrderMeta').innerHTML = metaHtml;
+  document.getElementById('trackTimeline').style.display = 'none'; // hide old timeline ul
 
   resultEl.classList.add('show');
-  showToast('✅ Order found!', 'success');
+  
+  // Remove any previously inserted payment badges.
+  const oldBadges = document.querySelectorAll('.payment-badge-tracker');
+  oldBadges.forEach(b => b.remove());
 }
 
 // --- FAQ ACCORDION ---
