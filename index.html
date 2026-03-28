@@ -296,44 +296,6 @@ footer{background:var(--brown);color:var(--white);padding:48px 24px 24px;}
 .steps-grid{grid-template-columns:1fr;}
 .footer-inner{grid-template-columns:1fr;}
 }
-/* AUTH MODAL */
-.auth-tabs{display:flex;gap:20px;border-bottom:1px solid var(--cream-dark);margin-bottom:24px;}
-.auth-tab{padding:10px 0;background:none;border:none;font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:600;color:var(--brown-light);cursor:pointer;position:relative;transition:all 0.3s;}
-.auth-tab.active{color:var(--gold);border-bottom:2px solid var(--gold);}
-.auth-form{display:none;}
-.auth-form.active{display:block;}
-
-/* DASHBOARD */
-#dashboard{display:none;position:fixed;inset:0;background:var(--cream);z-index:6000;overflow-y:auto;padding-top:80px;animation:fadeIn 0.5s ease;}
-.dash-container{max-width:1100px;margin:0 auto;padding:40px 24px;display:grid;grid-template-columns:280px 1fr;gap:40px;}
-.dash-sidebar{background:var(--white);border-radius:20px;padding:24px;box-shadow:var(--shadow);height:fit-content;}
-.dash-user-info{text-align:center;margin-bottom:32px;padding-bottom:20px;border-bottom:1px solid var(--cream-dark);}
-.dash-avatar{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-dark));margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:2rem;color:var(--white);font-weight:700;}
-.dash-nav{list-style:none;}
-.dash-nav li{margin-bottom:8px;}
-.dash-nav button{width:100%;text-align:left;padding:12px 16px;background:none;border:none;border-radius:10px;font-size:0.95rem;font-weight:500;color:var(--brown-light);cursor:pointer;transition:all 0.3s;display:flex;align-items:center;gap:12px;}
-.dash-nav button:hover,.dash-nav button.active{background:var(--cream);color:var(--gold-dark);}
-.dash-content-pane{display:none;}
-.dash-content-pane.active{display:block;}
-.dash-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:32px;}
-.dash-title{font-size:1.8rem;color:var(--brown);}
-.dash-card{background:var(--white);border-radius:20px;padding:32px;box-shadow:var(--shadow);}
-
-/* ORDER HISTORY TABLE */
-.orders-table-wrapper{overflow-x:auto;}
-.orders-table{width:100%;border-collapse:collapse;min-width:600px;}
-.orders-table th{text-align:left;padding:16px;border-bottom:2px solid var(--cream-dark);font-size:0.85rem;text-transform:uppercase;letter-spacing:1px;color:var(--brown-light);}
-.orders-table td{padding:16px;border-bottom:1px solid var(--cream-dark);font-size:0.92rem;color:var(--brown);}
-.status-pill{padding:4px 10px;border-radius:50px;font-size:0.75rem;font-weight:700;text-transform:uppercase;}
-.st-1{background:#FFF3E0;color:#F57C00;} /* Pending Payment */
-.st-2{background:#E3F2FD;color:#1976D2;} /* Payment Submitted */
-.st-3{background:#E8F5E9;color:#388E3C;} /* Confirmed */
-.st-4{background:#F3E5F5;color:#7B1FA2;} /* Shipped */
-.st-5{background:#E8F5E9;color:#2E7D32;} /* Delivered */
-
-.view-order-btn{background:none;border:1px solid var(--gold);color:var(--gold);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:0.8rem;font-weight:600;transition:all 0.3s;}
-.view-order-btn:hover{background:var(--gold);color:var(--white);}
-
 /* PAYMENT SECTION */
 #paymentSection{display:none;text-align:center;}
 .qr-container{background:var(--white);padding:20px;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,0.05);margin:20px auto;max-width:220px;border:1px solid var(--cream-dark);}
@@ -346,10 +308,7 @@ footer{background:var(--brown);color:var(--white);padding:48px 24px 24px;}
 .file-custom:hover{border-color:var(--gold);color:var(--gold-dark);}
 .file-custom.uploaded{border-color:#4CAF50;color:#2E7D32;background:rgba(76,175,80,0.05);}
 
-@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
 @media(max-width:900px){
-  .dash-container{grid-template-columns:1fr;}
-  .dash-sidebar{margin-bottom:24px;}
   .modal{padding:20px;}
   .payment-options{flex-direction:column;gap:8px;}
   .variant-pills{flex-wrap:wrap;}
@@ -377,14 +336,7 @@ footer{background:var(--brown);color:var(--white);padding:48px 24px 24px;}
     <li><a href="#benefits">Benefits</a></li>
     <li><a href="#reviews">Reviews</a></li>
     <li><a href="#faq">FAQ</a></li>
-    <li class="logged-out"><button onclick="openAuthModal('login')" style="background:none;border:none;color:var(--brown-light);font-size:0.9rem;font-weight:500;cursor:pointer;">Login</button></li>
-    <li class="logged-out"><button onclick="openAuthModal('signup')" class="nav-cta">Sign Up</button></li>
-    <li class="logged-in" style="display:none;"><button onclick="toggleUserMenu()" id="user-display" style="background:none;border:none;color:var(--gold-dark);font-size:0.9rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;">👤 <span id="user-nav-name">Account</span></button>
-      <div id="user-dropdown" style="display:none;position:absolute;top:60px;right:24px;background:var(--white);border-radius:12px;box-shadow:var(--shadow);padding:10px;min-width:160px;z-index:2000;">
-        <button onclick="openDashboard()" style="width:100%;text-align:left;padding:10px;background:none;border:none;cursor:pointer;font-size:0.85rem;color:var(--brown);">🏠 Dashboard</button>
-        <button onclick="logout()" style="width:100%;text-align:left;padding:10px;background:none;border:none;cursor:pointer;font-size:0.85rem;color:#f44336;border-top:1px solid var(--cream-dark);">🚪 Logout</button>
-      </div>
-    </li>
+    <li><a href="#products" class="nav-cta" style="text-decoration:none;">Order Now</a></li>
   </ul>
   <button class="hamburger" id="hamburger" aria-label="Menu"><span></span><span></span><span></span></button>
 </nav>
@@ -716,115 +668,7 @@ footer{background:var(--brown);color:var(--white);padding:48px 24px 24px;}
   </div>
 </div>
 
-<!-- AUTH MODAL -->
-<div class="modal-overlay" id="authModal">
-  <div class="modal" style="max-width:440px;">
-    <button class="modal-close" onclick="closeAuthModal()">✕</button>
-    <div class="auth-tabs">
-      <button class="auth-tab" id="tab-login" onclick="setAuthTab('login')">Login</button>
-      <button class="auth-tab" id="tab-signup" onclick="setAuthTab('signup')">Sign Up</button>
-    </div>
-    <!-- LOGIN FORM -->
-    <div class="auth-form" id="loginForm">
-      <h2 class="modal-title">Welcome Back</h2>
-      <p class="modal-sub">Login to track your orders and manage your account.</p>
-      <div class="form-group" style="margin-bottom:16px;"><label>Email Address</label><input type="email" id="l-email" placeholder="your@email.com"></div>
-      <div class="form-group" style="margin-bottom:24px;"><label>Password</label><input type="password" id="l-pass" placeholder="Your password"></div>
-      <button class="submit-order" onclick="login()">Login to Account</button>
-    </div>
-    <!-- SIGNUP FORM -->
-    <div class="auth-form" id="signupForm">
-      <h2 class="modal-title">Create Account</h2>
-      <p class="modal-sub">Join Gaumaatri today for a premium ghee experience.</p>
-      <div class="form-group" style="margin-bottom:16px;"><label>Full Name</label><input type="text" id="s-name" placeholder="Full name"></div>
-      <div class="form-group" style="margin-bottom:16px;"><label>Email Address</label><input type="email" id="s-email" placeholder="Email address"></div>
-      <div class="form-group" style="margin-bottom:16px;"><label>Phone Number</label><input type="tel" id="s-phone" placeholder="10-digit mobile number"></div>
-      <div class="form-group" style="margin-bottom:24px;"><label>Create Password</label><input type="password" id="s-pass" placeholder="Min 6 characters"></div>
-      <button class="submit-order" onclick="signup()">Create Account</button>
-    </div>
-  </div>
-</div>
 
-<!-- DASHBOARD -->
-<div id="dashboard">
-  <header id="dashHeader" style="position:fixed;top:0;left:0;right:0;background:var(--white);padding:14px 0;box-shadow:0 1px 10px rgba(0,0,0,0.05);z-index:7000;">
-    <nav style="max-width:1100px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;">
-      <a href="javascript:closeDashboard()" class="logo"><div class="logo-icon"><img src="logo.png" alt="Gaumaatri" class="logo-img"></div><div class="logo-text">Dashboard</div></a>
-      <button class="btn-outline" onclick="closeDashboard()" style="color:var(--brown);border-color:var(--cream-dark);padding:8px 20px;font-size:0.85rem;">← Back to Shop</button>
-    </nav>
-  </header>
-  <div class="dash-container">
-    <aside class="dash-sidebar">
-      <div class="dash-user-info">
-        <div class="dash-avatar" id="dash-avatar-char">U</div>
-        <h3 id="dash-user-name" style="font-family:'Playfair Display',serif;color:var(--brown);">User Name</h3>
-        <p id="dash-user-email" style="font-size:0.8rem;color:var(--brown-light);">user@email.com</p>
-      </div>
-      <ul class="dash-nav">
-        <li><button class="active" onclick="switchPane('orders', this)">📦 My Orders</button></li>
-        <li><button onclick="switchPane('profile', this)">👤 Edit Profile</button></li>
-        <li id="admin-nav-item" style="display:none; margin-top:10px;"><button onclick="switchPane('admin', this)" style="color:var(--gold-dark); background:rgba(201,146,42,0.1);">🛠️ Admin Panel</button></li>
-        <li style="margin-top:20px;"><button onclick="logout()" style="color:#f44336;">🚪 Logout</button></li>
-      </ul>
-    </aside>
-    <main class="dash-content">
-      <!-- ORDERS PANE -->
-      <div class="dash-content-pane active" id="pane-orders">
-        <div class="dash-header"><h2 class="dash-title">My Order History</h2></div>
-        <div class="dash-card">
-          <div id="orders-empty" style="display:none;text-align:center;padding:40px 0;">
-            <div style="font-size:3rem;margin-bottom:16px;">🛒</div>
-            <h3 style="color:var(--brown);">No orders found</h3>
-            <p style="color:var(--brown-light);margin-bottom:24px;">You haven't placed any orders yet.</p>
-            <button class="btn-primary" onclick="closeDashboard()">Start Shopping</button>
-          </div>
-          <div class="orders-table-wrapper" id="orders-table-wrapper">
-            <table class="orders-table">
-              <thead><tr><th>Order ID</th><th>Product</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead>
-              <tbody id="orders-list"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-      <!-- PROFILE PANE -->
-      <div class="dash-content-pane" id="pane-profile">
-        <div class="dash-header"><h2 class="dash-title">Profile Settings</h2></div>
-        <div class="dash-card">
-          <div class="form-group" style="margin-bottom:16px;"><label>Full Name</label><input type="text" id="p-name"></div>
-          <div class="form-group" style="margin-bottom:16px;"><label>Phone Number</label><input type="tel" id="p-phone"></div>
-          <div class="form-group" style="margin-bottom:16px;"><label>Email (Username)</label><input type="email" id="p-email" disabled style="opacity:0.6;"></div>
-          <button class="submit-order" onclick="updateProfile()">Save Changes</button>
-        </div>
-      </div>
-      <!-- ADMIN PANE -->
-      <div class="dash-content-pane" id="pane-admin">
-        <div class="dash-header"><h2 class="dash-title">Global Order Management</h2></div>
-        <div class="dash-card">
-          <div class="orders-table-wrapper">
-            <table class="orders-table">
-              <thead><tr><th>Order ID</th><th>Customer</th><th>Details</th><th>Status</th><th>Actions</th></tr></thead>
-              <tbody id="admin-orders-list"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </main>
-  </div>
-</div>
-
-<!-- TRACKING MODAL (DASHBOARD) -->
-<div class="modal-overlay" id="dashOrderDetailsModal">
-  <div class="modal">
-    <button class="modal-close" onclick="closeDashDetails()">✕</button>
-    <h2 class="modal-title" id="det-oid">Order Details</h2>
-    <p class="modal-sub" id="det-meta">Tracking Information</p>
-    <div id="det-tracking-box" style="margin-top:24px;">
-      <ul class="timeline" id="det-timeline"></ul>
-    </div>
-    <div class="confirm-details" id="det-summary" style="margin-top:24px;"></div>
-    <button class="btn-primary" onclick="closeDashDetails()" style="width:100%;margin-top:24px;">Close</button>
-  </div>
-</div>
 
 <script>
 // ── CONFIG ────────────────────────────────────────────────────
@@ -845,7 +689,6 @@ let currentVariant='500ml', qty=1, paymentMethod='COD', discountPct=0, couponApp
 // ── LOADER ───────────────────────────────────────────────────
 window.addEventListener('load', () => {
   setTimeout(() => { document.getElementById('loader').classList.add('hidden'); }, 1800);
-  checkAuth();
 });
 
 // --- SCROLL EFFECTS ---
@@ -919,12 +762,7 @@ function openModal(variant){
   document.body.style.overflow = 'hidden';
   updatePrice();
 
-  // Auto-fill if logged in
-  if(currentUser){
-    document.getElementById('f-name').value = currentUser.name;
-    document.getElementById('f-email').value = currentUser.email;
-    document.getElementById('f-phone').value = currentUser.phone;
-  }
+
 }
 function closeModal(){
   document.getElementById('orderModal').classList.remove('open');
@@ -1127,7 +965,7 @@ async function submitOrder(){
     showSuccessScreen(orderId, orderData, 'COD');
   }
 
-  if(typeof populateOrders === 'function' && currentUser) populateOrders();
+
 }
 
 function copyOrderId(){
@@ -1220,7 +1058,7 @@ async function confirmPayment(){
   const orders = JSON.parse(localStorage.getItem('gaumaatriOrders') || '{}');
   showSuccessScreen(currentOrderId, orders[currentOrderId], 'UPI');
   showToast('🎉 Payment submitted! We will verify soon.');
-  if(typeof populateOrders === 'function' && currentUser) populateOrders();
+
 }
 
 function sendOrderEmails(orderId, type){
@@ -1400,274 +1238,6 @@ document.querySelectorAll('.modal').forEach(m=>{
   m.addEventListener('click',e=>e.stopPropagation());
 });
 
-// --- AUTH LOGIC ---
-let currentUser = null;
-
-function checkAuth(){
-  const session = JSON.parse(localStorage.getItem('gaumaatriSession') || 'null');
-  if(session){
-    currentUser = session;
-    updateAuthUI(true);
-  } else {
-    updateAuthUI(false);
-  }
-}
-
-function updateAuthUI(loggedIn){
-  document.querySelectorAll('.logged-out').forEach(el => el.style.display = loggedIn ? 'none' : 'block');
-  document.querySelectorAll('.logged-in').forEach(el => el.style.display = loggedIn ? 'block' : 'none');
-  
-  if(loggedIn){
-    document.getElementById('user-nav-name').textContent = currentUser.name.split(' ')[0];
-    // Show admin panel if admin email
-    if(currentUser.email === 'gaumaatri@gmail.com' || currentUser.email === 'admin@gaumaatri.com'){
-       const adminItem = document.getElementById('admin-nav-item');
-       if(adminItem) adminItem.style.display = 'block';
-    }
-  }
-}
-
-function toggleUserMenu(){
-  const dd = document.getElementById('user-dropdown');
-  dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
-}
-
-function openAuthModal(mode){
-  setAuthTab(mode);
-  document.getElementById('authModal').classList.add('open');
-  document.body.style.overflow='hidden';
-}
-
-function closeAuthModal(){
-  document.getElementById('authModal').classList.remove('open');
-  document.body.style.overflow='';
-}
-
-function setAuthTab(mode){
-  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
-  document.getElementById('tab-'+mode).classList.add('active');
-  document.getElementById(mode+'Form').classList.add('active');
-}
-
-function signup(){
-  const name = document.getElementById('s-name').value.trim();
-  const email = document.getElementById('s-email').value.trim().toLowerCase();
-  const phone = document.getElementById('s-phone').value.trim();
-  const pass = document.getElementById('s-pass').value.trim();
-
-  if(!name || !email || !phone || !pass){ showToast('Please fill all fields','error'); return; }
-  if(pass.length < 6) { showToast('Password must be at least 6 characters','error'); return; }
-
-  let users = JSON.parse(localStorage.getItem('gaumaatriUsers') || '{}');
-  if(users[email]){ showToast('Email already registered!','error'); return; }
-
-  users[email] = { name, email, phone, pass };
-  localStorage.setItem('gaumaatriUsers', JSON.stringify(users));
-  
-  // Auto login
-  loginUser(users[email]);
-  showToast('Welcome to Gaumaatri, ' + name + '!');
-  closeAuthModal();
-
-  // Welcome Email
-  try{
-    const EMAILJS_CONFIG = {
-      SERVICE_ID: 'service_7zrxz4h',
-      PUBLIC_KEY: 'IGPLEG5r-rO43M5EG',
-      WELCOME_TEMPLATE: 'template_welcome_gaumaatri' 
-    };
-    emailjs.send(EMAILJS_CONFIG.SERVICE_ID, EMAILJS_CONFIG.WELCOME_TEMPLATE, {
-      to_email: email, customer_name: name
-    }, EMAILJS_CONFIG.PUBLIC_KEY);
-  }catch(e){}
-}
-
-function login(){
-  const email = document.getElementById('l-email').value.trim().toLowerCase();
-  const pass = document.getElementById('l-pass').value.trim();
-
-  if(!email || !pass){ showToast('Please fill all fields','error'); return; }
-
-  const users = JSON.parse(localStorage.getItem('gaumaatriUsers') || '{}');
-  const user = users[email];
-
-  if(user && user.pass === pass){
-    loginUser(user);
-    showToast('Welcome back, ' + user.name + '!');
-    closeAuthModal();
-  } else {
-    showToast('Invalid email or password','error');
-  }
-}
-
-function loginUser(user){
-  currentUser = user;
-  localStorage.setItem('gaumaatriSession', JSON.stringify(user));
-  updateAuthUI(true);
-}
-
-function logout(){
-  localStorage.removeItem('gaumaatriSession');
-  window.location.reload();
-}
-
-// --- DASHBOARD LOGIC ---
-function openDashboard(){
-  if(!currentUser) return;
-  document.getElementById('dashboard').style.display = 'block';
-  document.body.style.overflow = 'hidden';
-  document.getElementById('user-dropdown').style.display = 'none';
-  
-  // Populate Info
-  document.getElementById('dash-user-name').textContent = currentUser.name;
-  document.getElementById('dash-user-email').textContent = currentUser.email;
-  document.getElementById('dash-avatar-char').textContent = currentUser.name.charAt(0).toUpperCase();
-  
-  document.getElementById('p-name').value = currentUser.name;
-  document.getElementById('p-phone').value = currentUser.phone;
-  document.getElementById('p-email').value = currentUser.email;
-
-  populateOrders();
-  switchPane('orders', document.querySelector('.dash-nav button'));
-}
-
-function closeDashboard(){
-  document.getElementById('dashboard').style.display = 'none';
-  document.body.style.overflow = '';
-}
-
-function switchPane(pane, btn){
-  document.querySelectorAll('.dash-nav button').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  document.querySelectorAll('.dash-content-pane').forEach(p => p.classList.remove('active'));
-  document.getElementById('pane-'+pane).classList.add('active');
-  
-  if(pane === 'admin') populateAdminOrders();
-}
-
-function populateAdminOrders(){
-  const orders = JSON.parse(localStorage.getItem('gaumaatriOrders') || '{}');
-  const allOrders = Object.values(orders).sort((a,b) => b.timestamp - a.timestamp);
-  const list = document.getElementById('admin-orders-list');
-  list.innerHTML = '';
-
-  allOrders.forEach(o => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><b>${o.id}</b></td>
-      <td>${o.name}<br><small>${o.phone}</small></td>
-      <td>${o.variant} × ${o.qty}<br><small>₹${o.total.toLocaleString()}</small></td>
-      <td><span class="status-pill st-${o.status}">${STATUSES[o.status-1].title}</span></td>
-      <td>
-        <select onchange="updateOrderStatus('${o.id}', this.value)" style="padding:4px; border-radius:4px; font-size:0.8rem;">
-          <option value="">Change Status</option>
-          <option value="3">Approve/Confirm</option>
-          <option value="4">Shipped</option>
-          <option value="5">Delivered</option>
-        </select>
-        ${o.proof ? `<br><button onclick="viewProof('${o.id}')" style="margin-top:4px; font-size:0.7rem; color:var(--gold-dark); border:none; background:none; cursor:pointer; text-decoration:underline;">View Proof</button>` : ''}
-      </td>
-    `;
-    list.appendChild(tr);
-  });
-}
-
-function updateOrderStatus(oid, newStatus){
-  if(!newStatus) return;
-  const orders = JSON.parse(localStorage.getItem('gaumaatriOrders') || '{}');
-  if(orders[oid]){
-    orders[oid].status = parseInt(newStatus);
-    localStorage.setItem('gaumaatriOrders', JSON.stringify(orders));
-    showToast(`Order ${oid} status updated to ${STATUSES[newStatus-1].title}!`);
-    populateAdminOrders();
-    populateOrders(); // Refresh customer view if open
-  }
-}
-
-function viewProof(oid){
-  const orders = JSON.parse(localStorage.getItem('gaumaatriOrders') || '{}');
-  const proof = orders[oid].proof;
-  if(!proof) return;
-  const w = window.open("");
-  w.document.write(`<img src="${proof}" style="max-width:100%;">`);
-}
-
-function populateOrders(){
-  const orders = JSON.parse(localStorage.getItem('gaumaatriOrders') || '{}');
-  const userOrders = Object.values(orders).filter(o => o.emailMatch === currentUser.email.toLowerCase());
-  const list = document.getElementById('orders-list');
-  const empty = document.getElementById('orders-empty');
-  const table = document.getElementById('orders-table-wrapper');
-
-  list.innerHTML = '';
-  if(userOrders.length === 0){
-    empty.style.display = 'block';
-    table.style.display = 'none';
-  } else {
-    empty.style.display = 'none';
-    table.style.display = 'block';
-    userOrders.reverse().forEach(o => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td><b>${o.id}</b><br><small>${o.date}</small></td>
-        <td>${o.variant} × ${o.qty}</td>
-        <td>₹${o.total.toLocaleString()}</td>
-        <td><span class="status-pill st-${o.status}">${STATUSES[o.status-1].title}</span></td>
-        <td><button class="view-order-btn" onclick="viewOrderDetails('${o.id}')">Track</button></td>
-      `;
-      list.appendChild(tr);
-    });
-  }
-}
-
-function viewOrderDetails(oid){
-  const orders = JSON.parse(localStorage.getItem('gaumaatriOrders') || '{}');
-  const order = orders[oid];
-  if(!order) return;
-
-  document.getElementById('det-oid').textContent = 'Order: ' + oid;
-  document.getElementById('det-meta').textContent = order.variant + ' | ' + order.date;
-  
-  const tl = document.getElementById('det-timeline');
-  tl.innerHTML = '';
-  STATUSES.forEach((s,i)=>{
-    const li = document.createElement('li');
-    li.className = i < order.status ? 'done' : (i === order.status ? 'active' : '');
-    li.innerHTML = '<div class="tl-title">'+s.icon+' '+s.title+'</div><div class="tl-desc">'+s.desc+'</div>';
-    tl.appendChild(li);
-  });
-
-  document.getElementById('det-summary').innerHTML = `
-    <b>Payment:</b> ${order.paymentMethod}<br>
-    <b>Address:</b> ${order.address}
-  `;
-
-  document.getElementById('dashOrderDetailsModal').classList.add('open');
-}
-
-function closeDashDetails(){
-  document.getElementById('dashOrderDetailsModal').classList.remove('open');
-}
-
-function updateProfile(){
-  const name = document.getElementById('p-name').value.trim();
-  const phone = document.getElementById('p-phone').value.trim();
-  if(!name || !phone) { showToast('Please fill all fields','error'); return; }
-
-  let users = JSON.parse(localStorage.getItem('gaumaatriUsers') || '{}');
-  users[currentUser.email].name = name;
-  users[currentUser.email].phone = phone;
-  localStorage.setItem('gaumaatriUsers', JSON.stringify(users));
-  
-  currentUser.name = name;
-  currentUser.phone = phone;
-  localStorage.setItem('gaumaatriSession', JSON.stringify(currentUser));
-  
-  updateAuthUI(true);
-  document.getElementById('dash-user-name').textContent = name;
-  showToast('Profile updated successfully!');
-}
 </script>
 </body>
 </html>
