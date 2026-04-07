@@ -6,7 +6,6 @@
 
 // ── STEP 1: Set your secret token ──────────────────────────
 // Run setSecretToken() ONCE from the script editor, then delete it.
-// This stores the token in a secure server-side property.
 function setSecretToken() {
   PropertiesService.getScriptProperties().setProperty('SECRET_TOKEN', 'GAUMAATRI_SECRET_2026');
   Logger.log('Token set successfully');
@@ -19,29 +18,37 @@ function setAdminEmail() {
   Logger.log('Admin email set');
 }
 
-// ── CONFIG (edit Sheet name if needed) ──────────────────────
-const SHEET_NAME = 'Orders';
+// ── CONFIG ──────────────────────────────────────────────────
+const SHEET_NAME       = 'Orders';
+const PROMO_SHEET_NAME = 'Promo Codes';
+
+// Orders sheet columns (in order)
 const HEADERS = [
   'Order ID', 'Timestamp', 'Name', 'Email', 'Phone',
-  'Address', 'Product', 'Quantity', 'Total (₹)',
+  'Address', 'Product', 'Quantity',
+  'Original Price (₹)', 'Promo Code', 'Discount %', 'Discounted Price (₹)',
   'Payment Method', 'Payment Status', 'Order Status', 'Notes'
 ];
 
-// ============================================================
-//  CORS HELPER — required for browser fetch() calls
-// ============================================================
-function corsHeaders() {
-  return {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type'
-  };
-}
+// Promo Codes sheet columns
+const PROMO_HEADERS = ['Promo Code', 'Discount %', 'Max Uses', 'Expiry Date', 'Times Used', 'Last Used'];
 
+// ── Pre-defined promo codes (mirrors frontend PROMO_CODES) ──
+// Edit here to add / change codes server-side too.
+const PROMO_CODES_MASTER = {
+  'GAU25':       { discount: 25, maxUses: 50,  expiry: '2026-12-31' },
+  'FIRST25':     { discount: 25, maxUses: 100, expiry: '2026-12-31' },
+  'FESTIVE25':   { discount: 25, maxUses: 200, expiry: '2026-10-31' },
+  'GAUMAATRI10': { discount: 10, maxUses: null, expiry: null },
+  'WELCOME10':   { discount: 10, maxUses: null, expiry: null },
+};
+
+// ============================================================
+//  CORS HELPER
+// ============================================================
 function doOptions() {
   return ContentService.createTextOutput('')
-    .setMimeType(ContentService.MimeType.TEXT)
-    .setHeaders(corsHeaders());
+    .setMimeType(ContentService.MimeType.TEXT);
 }
 
 // ============================================================
@@ -52,16 +59,15 @@ function doPost(e) {
     const data   = JSON.parse(e.postData.contents);
     const action = data.action;
 
-    // ── Token Validation ──────────────────────────────────
+    // Token Validation
     const storedToken = PropertiesService.getScriptProperties().getProperty('SECRET_TOKEN');
     if (!storedToken || data.token !== storedToken) {
       return jsonResponse({ success: false, error: 'Unauthorized' }, 401);
     }
 
-    // ── Route Actions ─────────────────────────────────────
-    if (action === 'submitOrder')    return handleSubmitOrder(data);
-    if (action === 'updatePayment')  return handleUpdatePayment(data);
-    if (action === 'updateStatus')   return handleUpdateStatus(data);
+    if (action === 'submitOrder')   return handleSubmitOrder(data);
+    if (action === 'updatePayment') return handleUpdatePayment(data);
+    if (action === 'updateStatus')  return handleUpdateStatus(data);
 
     return jsonResponse({ success: false, error: 'Unknown action' }, 400);
 
@@ -72,7 +78,7 @@ function doPost(e) {
 }
 
 // ============================================================
-//  MAIN HANDLER — GET requests (for order tracking)
+//  MAIN HANDLER — GET requests (order tracking)
 // ============================================================
 function doGet(e) {
   try {
@@ -80,15 +86,12 @@ function doGet(e) {
     const token   = e.parameter.token;
     const orderId = e.parameter.orderId;
 
-    // Token validation
     const storedToken = PropertiesService.getScriptProperties().getProperty('SECRET_TOKEN');
     if (!storedToken || token !== storedToken) {
       return jsonResponse({ success: false, error: 'Unauthorized' }, 401);
     }
 
-    if (action === 'trackOrder' && orderId) {
-      return handleTrackOrder(orderId);
-    }
+    if (action === 'trackOrder' && orderId) return handleTrackOrder(orderId);
 
     return jsonResponse({ success: false, error: 'Unknown action' }, 400);
 
@@ -99,18 +102,16 @@ function doGet(e) {
 }
 
 // ============================================================
-//  ACTION: Submit new order
+//  ACTION: Submit new order (with promo code support)
 // ============================================================
 function handleSubmitOrder(data) {
-  // ── Field Validation ──────────────────────────────────────
-  const required = ['orderId','name','email','phone','address','product','quantity','total','paymentMethod'];
+  // Required fields
+  const required = ['orderId','name','email','phone','address','product','quantity','paymentMethod'];
   for (const field of required) {
-    if (!data[field]) {
-      return jsonResponse({ success: false, error: 'Missing field: ' + field }, 400);
-    }
+    if (!data[field]) return jsonResponse({ success: false, error: 'Missing field: ' + field }, 400);
   }
 
-  // ── Basic Format Checks ───────────────────────────────────
+  // Basic validation
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
     return jsonResponse({ success: false, error: 'Invalid email' }, 400);
   }
@@ -121,14 +122,27 @@ function handleSubmitOrder(data) {
     return jsonResponse({ success: false, error: 'Quantity out of range' }, 400);
   }
 
-  // ── Duplicate Check (same Order ID) ──────────────────────
-  const sheet = getOrCreateSheet();
+  // Promo code server-side validation (extra security layer)
+  const promoCode    = (data.promoCode || '').trim().toUpperCase();
+  const discountPct  = Number(data.discountPct) || 0;
+  const originalPrice  = Number(data.originalPrice) || 0;
+  const discountedPrice = Number(data.discountedPrice) || originalPrice;
+
+  if (promoCode && promoCode !== 'NONE') {
+    const validationError = validatePromoCode(promoCode, discountPct);
+    if (validationError) {
+      return jsonResponse({ success: false, error: validationError }, 400);
+    }
+  }
+
+  // Duplicate check
+  const sheet    = getOrCreateOrderSheet();
   const existing = findRowByOrderId(sheet, data.orderId);
   if (existing > 0) {
     return jsonResponse({ success: false, error: 'Order ID already exists' }, 409);
   }
 
-  // ── Write to Sheet ────────────────────────────────────────
+  // Write order to sheet
   const timestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
   const row = [
     data.orderId,
@@ -139,47 +153,117 @@ function handleSubmitOrder(data) {
     data.address,
     data.product,
     data.quantity,
-    data.total,
+    originalPrice,                          // Original Price
+    promoCode || 'None',                    // Promo Code
+    discountPct ? discountPct + '%' : '0%', // Discount %
+    discountedPrice,                        // Discounted Price (what customer pays)
     data.paymentMethod,
-    'Pending',          // Payment Status
-    'Order Received',   // Order Status
-    ''                  // Notes
+    'Pending',                              // Payment Status
+    'Order Received',                       // Order Status
+    ''                                      // Notes
   ];
   sheet.appendRow(row);
 
-  // ── Auto-format new row ───────────────────────────────────
+  // Format new row
   const lastRow = sheet.getLastRow();
-  sheet.getRange(lastRow, 1, 1, HEADERS.length)
-       .setBorder(true, true, true, true, true, true);
+  sheet.getRange(lastRow, 1, 1, HEADERS.length).setBorder(true, true, true, true, true, true);
 
-  // ── Send Emails ───────────────────────────────────────────
-  try { sendCustomerEmail(data, 'Order Received'); }     catch(e) { Logger.log('Customer email failed: ' + e); }
-  try { sendAdminEmail(data, 'Order Received'); }         catch(e) { Logger.log('Admin email failed: ' + e); }
+  // Highlight rows where a promo was applied (light green)
+  if (promoCode && promoCode !== 'NONE') {
+    sheet.getRange(lastRow, 10).setBackground('#e8f5e9'); // Promo Code cell
+    sheet.getRange(lastRow, 12).setBackground('#e8f5e9'); // Discounted Price cell
+    // Track usage in Promo Codes sheet
+    trackPromoUsage(promoCode);
+  }
 
-  Logger.log('Order saved: ' + data.orderId);
-  return jsonResponse({
-    success: true,
-    orderId: data.orderId,
-    message: 'Order saved successfully'
-  });
+  // Send emails
+  try { sendCustomerEmail(data, originalPrice, discountedPrice, promoCode, discountPct); } catch(e) { Logger.log('Customer email failed: ' + e); }
+  try { sendAdminEmail(data, originalPrice, discountedPrice, promoCode, discountPct); }    catch(e) { Logger.log('Admin email failed: ' + e); }
+
+  Logger.log('Order saved: ' + data.orderId + (promoCode ? ' | Promo: ' + promoCode : ''));
+  return jsonResponse({ success: true, orderId: data.orderId, message: 'Order saved successfully' });
 }
 
 // ============================================================
-//  ACTION: Update payment status (after "I HAVE PAID")
+//  PROMO CODE VALIDATION (server-side)
+// ============================================================
+function validatePromoCode(code, claimedDiscount) {
+  const master = PROMO_CODES_MASTER[code];
+  if (!master) return 'Invalid promo code: ' + code;
+
+  // Check expiry
+  if (master.expiry) {
+    const expDate = new Date(master.expiry + 'T23:59:59');
+    if (new Date() > expDate) return 'Promo code has expired: ' + code;
+  }
+
+  // Verify discount matches server-side definition
+  if (Number(claimedDiscount) !== master.discount) {
+    return 'Promo code discount mismatch';
+  }
+
+  // Check usage limit against Promo Codes sheet
+  if (master.maxUses !== null) {
+    const promoSheet = getOrCreatePromoSheet();
+    const row = findPromoCodeRow(promoSheet, code);
+    if (row > 0) {
+      const usedCount = promoSheet.getRange(row, 5).getValue() || 0;
+      if (usedCount >= master.maxUses) return 'Promo code usage limit reached: ' + code;
+    }
+  }
+
+  return null; // valid
+}
+
+// ============================================================
+//  PROMO USAGE TRACKING (Promo Codes sheet)
+// ============================================================
+function trackPromoUsage(code) {
+  const sheet = getOrCreatePromoSheet();
+  const row   = findPromoCodeRow(sheet, code);
+  const now   = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+
+  if (row > 0) {
+    // Increment existing count
+    const currentCount = sheet.getRange(row, 5).getValue() || 0;
+    sheet.getRange(row, 5).setValue(currentCount + 1);
+    sheet.getRange(row, 6).setValue(now); // Last Used
+  } else {
+    // First use — add new row
+    const master = PROMO_CODES_MASTER[code] || {};
+    sheet.appendRow([
+      code,
+      master.discount ? master.discount + '%' : '—',
+      master.maxUses  || 'Unlimited',
+      master.expiry   || 'No Expiry',
+      1,   // Times Used
+      now  // Last Used
+    ]);
+  }
+}
+
+function findPromoCodeRow(sheet, code) {
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]).trim().toUpperCase() === code.toUpperCase()) return i + 1;
+  }
+  return 0;
+}
+
+// ============================================================
+//  ACTION: Update payment status
 // ============================================================
 function handleUpdatePayment(data) {
   if (!data.orderId) return jsonResponse({ success: false, error: 'Missing orderId' }, 400);
 
-  const sheet = getOrCreateSheet();
+  const sheet = getOrCreateOrderSheet();
   const row   = findRowByOrderId(sheet, data.orderId);
   if (!row) return jsonResponse({ success: false, error: 'Order not found' }, 404);
 
-  // Column 11 = Payment Status
-  sheet.getRange(row, 11).setValue('Payment Submitted – Verification Pending');
-  // Column 13 = Notes
-  sheet.getRange(row, 13).setValue('Payment proof uploaded by customer at ' + new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }));
+  // Col 14 = Payment Status, Col 16 = Notes
+  sheet.getRange(row, 14).setValue('Payment Submitted – Verification Pending');
+  sheet.getRange(row, 16).setValue('Payment proof uploaded at ' + new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }));
 
-  // Notify admin of payment submission
   try {
     const orderData = getOrderDataFromRow(sheet, row);
     sendAdminPaymentAlert(orderData);
@@ -189,26 +273,25 @@ function handleUpdatePayment(data) {
 }
 
 // ============================================================
-//  ACTION: Update order status (admin use)
+//  ACTION: Update order status (admin)
 // ============================================================
 function handleUpdateStatus(data) {
   if (!data.orderId || !data.status) {
     return jsonResponse({ success: false, error: 'Missing orderId or status' }, 400);
   }
-
-  const sheet = getOrCreateSheet();
+  const sheet = getOrCreateOrderSheet();
   const row   = findRowByOrderId(sheet, data.orderId);
   if (!row) return jsonResponse({ success: false, error: 'Order not found' }, 404);
 
-  sheet.getRange(row, 12).setValue(data.status); // Column 12 = Order Status
-  return jsonResponse({ success: true, message: 'Order status updated to: ' + data.status });
+  sheet.getRange(row, 15).setValue(data.status); // Col 15 = Order Status
+  return jsonResponse({ success: true, message: 'Status updated to: ' + data.status });
 }
 
 // ============================================================
-//  ACTION: Track order by Order ID
+//  ACTION: Track order
 // ============================================================
 function handleTrackOrder(orderId) {
-  const sheet = getOrCreateSheet();
+  const sheet = getOrCreateOrderSheet();
   const row   = findRowByOrderId(sheet, orderId.toUpperCase());
 
   if (!row) {
@@ -217,29 +300,30 @@ function handleTrackOrder(orderId) {
 
   const r = sheet.getRange(row, 1, 1, HEADERS.length).getValues()[0];
   return jsonResponse({
-    success:       true,
-    orderId:       r[0],
-    timestamp:     r[1],
-    name:          r[2],
-    product:       r[6],
-    quantity:      r[7],
-    total:         r[8],
-    paymentMethod: r[9],
-    paymentStatus: r[10],
-    orderStatus:   r[11]
+    success:        true,
+    orderId:        r[0],
+    timestamp:      r[1],
+    name:           r[2],
+    product:        r[6],
+    quantity:       r[7],
+    originalPrice:  r[8],
+    promoCode:      r[9],
+    discountPct:    r[10],
+    total:          r[11],
+    paymentMethod:  r[12],
+    paymentStatus:  r[13],
+    orderStatus:    r[14]
   });
 }
 
 // ============================================================
 //  SHEET HELPERS
 // ============================================================
-function getOrCreateSheet() {
-  const ss    = SpreadsheetApp.getActiveSpreadsheet();
-  let   sheet = ss.getSheetByName(SHEET_NAME);
-
+function getOrCreateOrderSheet() {
+  const ss  = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) {
     sheet = ss.insertSheet(SHEET_NAME);
-    // Write headers with styling
     const headerRange = sheet.getRange(1, 1, 1, HEADERS.length);
     headerRange.setValues([HEADERS]);
     headerRange.setBackground('#3D2B1F');
@@ -247,19 +331,35 @@ function getOrCreateSheet() {
     headerRange.setFontWeight('bold');
     headerRange.setFontSize(11);
     sheet.setFrozenRows(1);
+    sheet.setColumnWidth(1, 160); // Order ID
+    sheet.setColumnWidth(2, 160); // Timestamp
+    sheet.setColumnWidth(3, 140); // Name
+    sheet.setColumnWidth(4, 180); // Email
+    sheet.setColumnWidth(5, 120); // Phone
+    sheet.setColumnWidth(6, 260); // Address
+    sheet.setColumnWidth(7, 160); // Product
+    sheet.setColumnWidth(9, 120); // Original Price
+    sheet.setColumnWidth(10, 120); // Promo Code
+    sheet.setColumnWidth(11, 90);  // Discount %
+    sheet.setColumnWidth(12, 140); // Discounted Price
+  }
+  return sheet;
+}
 
-    // Set column widths
-    sheet.setColumnWidth(1, 180);  // Order ID
-    sheet.setColumnWidth(2, 160);  // Timestamp
-    sheet.setColumnWidth(3, 140);  // Name
-    sheet.setColumnWidth(4, 180);  // Email
-    sheet.setColumnWidth(5, 120);  // Phone
-    sheet.setColumnWidth(6, 260);  // Address
-    sheet.setColumnWidth(7, 160);  // Product
-    sheet.setColumnWidth(10, 120); // Payment Method
-    sheet.setColumnWidth(11, 240); // Payment Status
-    sheet.setColumnWidth(12, 160); // Order Status
-    sheet.setColumnWidth(13, 200); // Notes
+function getOrCreatePromoSheet() {
+  const ss  = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(PROMO_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(PROMO_SHEET_NAME);
+    const hr = sheet.getRange(1, 1, 1, PROMO_HEADERS.length);
+    hr.setValues([PROMO_HEADERS]);
+    hr.setBackground('#1B5E20');
+    hr.setFontColor('#FFFFFF');
+    hr.setFontWeight('bold');
+    sheet.setFrozenRows(1);
+    sheet.setColumnWidth(1, 140);
+    sheet.setColumnWidth(5, 100);
+    sheet.setColumnWidth(6, 160);
   }
   return sheet;
 }
@@ -267,9 +367,7 @@ function getOrCreateSheet() {
 function findRowByOrderId(sheet, orderId) {
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
-    if (String(data[i][0]).trim().toUpperCase() === orderId.trim().toUpperCase()) {
-      return i + 1; // 1-indexed row
-    }
+    if (String(data[i][0]).trim().toUpperCase() === orderId.trim().toUpperCase()) return i + 1;
   }
   return 0;
 }
@@ -279,17 +377,19 @@ function getOrderDataFromRow(sheet, row) {
   return {
     orderId: r[0], timestamp: r[1], name: r[2], email: r[3],
     phone: r[4], address: r[5], product: r[6], quantity: r[7],
-    total: r[8], paymentMethod: r[9], paymentStatus: r[10], orderStatus: r[11]
+    originalPrice: r[8], promoCode: r[9], discountPct: r[10],
+    total: r[11], paymentMethod: r[12], paymentStatus: r[13], orderStatus: r[14]
   };
 }
 
 // ============================================================
 //  EMAIL: Customer confirmation
 // ============================================================
-function sendCustomerEmail(data, status) {
-  const subject = status === 'Order Received'
-    ? `✅ Order Confirmed – ${data.orderId} | Gaumaatri Ghee`
-    : `📦 Order Update – ${data.orderId} | Gaumaatri Ghee`;
+function sendCustomerEmail(data, originalPrice, discountedPrice, promoCode, discountPct) {
+  const hasPromo  = promoCode && promoCode !== 'NONE' && promoCode !== 'None';
+  const promoLine = hasPromo
+    ? `Promo Code    : ${promoCode} (${discountPct}% off)\nOriginal Price : ₹${originalPrice}\nYou Saved      : ₹${originalPrice - discountedPrice}\nAmount to Pay  : ₹${discountedPrice}`
+    : `Amount to Pay  : ₹${discountedPrice}`;
 
   const body = `
 Dear ${data.name},
@@ -302,75 +402,60 @@ ORDER DETAILS
 Order ID     : ${data.orderId}
 Product      : ${data.product}
 Quantity     : ${data.quantity}
-Total Amount : ₹${data.total}
+${promoLine}
 Payment      : ${data.paymentMethod}
-Status       : ${status}
+Status       : Order Received
 
 DELIVERY ADDRESS
 ${data.address}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${data.paymentMethod === 'UPI'
-  ? '📱 Please complete your UPI payment to: 9654270726@upi\n   Amount: ₹' + data.total + '\n   Your order will be confirmed after payment verification.'
-  : '💵 Cash on Delivery — Please keep ₹' + data.total + ' ready at the time of delivery.'}
+  ? '📱 Please complete your UPI payment to: 9654270726@upi\n   Amount: ₹' + discountedPrice + '\n   Order confirmed after payment verification.'
+  : '💵 Cash on Delivery — Please keep ₹' + discountedPrice + ' ready at delivery.'}
 
-To track your order, visit: https://anshuman7739.github.io/Gaumaatri-Ghee/
-Enter your Order ID: ${data.orderId}
+Track your order at: https://gaumaatri.co.in
+Your Order ID: ${data.orderId}
 
-Questions? WhatsApp us: +91 9654270726
+Questions? WhatsApp: +91 9654270726
 
 With love,
 Team Gaumaatri 🙏
 gaumaatri@gmail.com
   `.trim();
 
-  MailApp.sendEmail({
-    to: data.email,
-    subject: subject,
-    body: body,
-    name: 'Gaumaatri'
-  });
-  Logger.log('Customer email sent to: ' + data.email);
+  MailApp.sendEmail({ to: data.email, subject: `✅ Order Confirmed – ${data.orderId} | Gaumaatri Ghee`, body, name: 'Gaumaatri' });
 }
 
 // ============================================================
 //  EMAIL: Admin new order alert
 // ============================================================
-function sendAdminEmail(data, status) {
+function sendAdminEmail(data, originalPrice, discountedPrice, promoCode, discountPct) {
   const adminEmail = PropertiesService.getScriptProperties().getProperty('ADMIN_EMAIL') || 'gaumaatri@gmail.com';
-  const subject    = `🛒 New Order Received – ${data.orderId} (${data.paymentMethod})`;
+  const hasPromo   = promoCode && promoCode !== 'NONE' && promoCode !== 'None';
 
   const body = `
-NEW ORDER RECEIVED — GAUMAATRI GHEE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+NEW ORDER — GAUMAATRI GHEE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Order ID      : ${data.orderId}
 Timestamp     : ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
 
-CUSTOMER DETAILS
+CUSTOMER
 Name          : ${data.name}
 Email         : ${data.email}
 Phone         : ${data.phone}
 Address       : ${data.address}
 
-ORDER DETAILS
-Product       : ${data.product}
-Quantity      : ${data.quantity}
-Total         : ₹${data.total}
+ORDER
+Product       : ${data.product} × ${data.quantity}
+Original Price: ₹${originalPrice}
+${hasPromo ? `Promo Code    : ${promoCode} (${discountPct}% off)\nDiscount Amt  : ₹${originalPrice - discountedPrice}\n` : ''}Amount Payable : ₹${discountedPrice}
 Payment       : ${data.paymentMethod}
-Status        : ${status}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-👉 View all orders in Google Sheets:
-${SpreadsheetApp.getActiveSpreadsheet().getUrl()}
+👉 View sheet: ${SpreadsheetApp.getActiveSpreadsheet().getUrl()}
   `.trim();
 
-  MailApp.sendEmail({
-    to: adminEmail,
-    subject: subject,
-    body: body,
-    name: 'Gaumaatri'
-  });
-  Logger.log('Admin email sent for order: ' + data.orderId);
+  MailApp.sendEmail({ to: adminEmail, subject: `🛒 New Order – ${data.orderId}${hasPromo ? ' 🎟️ Promo: ' + promoCode : ''}`, body, name: 'Gaumaatri' });
 }
 
 // ============================================================
@@ -382,17 +467,16 @@ function sendAdminPaymentAlert(order) {
     to: adminEmail,
     subject: `💰 Payment Submitted – ${order.orderId} – Please Verify`,
     body: `
-Customer has submitted payment for order ${order.orderId}.
+Customer has submitted UPI payment for order ${order.orderId}.
 
 Name    : ${order.name}
 Email   : ${order.email}
 Phone   : ${order.phone}
 Product : ${order.product} × ${order.quantity}
 Amount  : ₹${order.total}
-
-Please verify the payment in your UPI app and update the status in Google Sheets.
-
-View Sheet: ${SpreadsheetApp.getActiveSpreadsheet().getUrl()}
+${order.promoCode && order.promoCode !== 'None' ? 'Promo   : ' + order.promoCode + '\n' : ''}
+Please verify the payment and update status in Google Sheets.
+View: ${SpreadsheetApp.getActiveSpreadsheet().getUrl()}
     `.trim(),
     name: 'Gaumaatri'
   });
@@ -402,8 +486,6 @@ View Sheet: ${SpreadsheetApp.getActiveSpreadsheet().getUrl()}
 //  RESPONSE HELPER
 // ============================================================
 function jsonResponse(data, statusCode) {
-  // Note: Apps Script doPost/doGet always returns 200.
-  // Status codes are included in the JSON body for the frontend to read.
   data.statusCode = statusCode || 200;
   return ContentService
     .createTextOutput(JSON.stringify(data))

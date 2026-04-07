@@ -666,12 +666,20 @@ footer{background:var(--brown);color:var(--white);padding:48px 24px 24px;}
         <label style="font-size:0.85rem;font-weight:600;color:var(--brown);display:block;margin-bottom:8px;">Payment Method</label>
         <div class="payment-options"><button class="pay-btn" id="pay-upi" onclick="selectPayment('UPI')">📱 UPI Payment</button><button class="pay-btn" id="pay-cod" onclick="selectPayment('COD')">💵 Cash on Delivery</button></div>
       </div>
-      <div class="coupon-row"><input type="text" id="couponInput" placeholder="Coupon code (e.g. GAUMAATRI10)"><button class="apply-coupon" onclick="applyCoupon()">Apply</button></div>
+      <div class="coupon-row">
+        <input type="text" id="couponInput" placeholder="Promo code (e.g. GAU25, FIRST25)" style="text-transform:uppercase;">
+        <button class="apply-coupon" onclick="applyCoupon()">Apply</button>
+      </div>
+      <div id="promoMsg" style="display:none;font-size:0.82rem;padding:8px 12px;border-radius:8px;margin-bottom:12px;"></div>
       <div class="price-summary" id="priceSummary">
         <div class="price-row"><span>Product</span><span id="sumProduct">—</span></div>
         <div class="price-row"><span>Quantity</span><span id="sumQty">1</span></div>
+        <div class="price-row"><span>Original Price</span><span id="sumOriginal">—</span></div>
         <div class="price-row"><span>Delivery</span><span style="color:#4CAF50;">FREE</span></div>
-        <div class="price-row discount" id="discountRow" style="display:none;"><span>Discount</span><span id="discountAmt">—</span></div>
+        <div class="price-row discount" id="discountRow" style="display:none;">
+          <span>Promo Discount <span id="promoCodeBadge" style="background:var(--gold);color:white;font-size:0.7rem;border-radius:4px;padding:2px 6px;margin-left:4px;"></span></span>
+          <span id="discountAmt" style="color:#4CAF50;">—</span>
+        </div>
         <div class="price-row total"><span>Total Payable</span><span id="sumTotal">—</span></div>
       </div>
       <div id="orderSubmitError" style="display:none;background:#fff3f3;border:1px solid #f44336;color:#c62828;padding:10px 14px;border-radius:8px;font-size:0.85rem;margin-bottom:12px;"></div>
@@ -762,7 +770,24 @@ footer{background:var(--brown);color:var(--white);padding:48px 24px 24px;}
 // ── CONFIG ────────────────────────────────────────────────────
 const PRICES   = {'200ml':356, '500ml':789, '1L':1599};
 const VARIANTS = {'200ml':'200ml Starter Pack', '500ml':'500ml Family Pack', '1L':'1 Litre Bulk Pack'};
-const COUPONS  = {'GAUMAATRI10':10, 'GHEE10':10, 'WELCOME10':10};
+
+// ── PROMO CODE SYSTEM ────────────────────────────────────────
+// To add a new code: add an entry below.
+// discount: percentage off (e.g. 25 = 25%)
+// maxUses:  maximum times the code can be used (null = unlimited)
+// expiry:   'YYYY-MM-DD' expiry date (null = never expires)
+const PROMO_CODES = {
+  'GAU25':     { discount: 25, maxUses: 50, expiry: '2026-12-31', description: '25% off – Gaumaatri Special' },
+  'FIRST25':   { discount: 25, maxUses: 100, expiry: '2026-12-31', description: '25% off – First Order Offer' },
+  'FESTIVE25': { discount: 25, maxUses: 200, expiry: '2026-10-31', description: '25% off – Festive Season Sale' },
+  'GAUMAATRI10': { discount: 10, maxUses: null, expiry: null, description: '10% off – Loyalty Code' },
+  'WELCOME10': { discount: 10, maxUses: null, expiry: null, description: '10% off – Welcome Offer' },
+};
+
+// Usage tracking lives in localStorage so it persists across sessions.
+// In production you can move this check to Apps Script for server-side enforcement.
+function getPromoUsage(code){ return parseInt(localStorage.getItem('promo_'+code) || '0'); }
+function incPromoUsage(code){ localStorage.setItem('promo_'+code, getPromoUsage(code)+1); }
 
 // ── GOOGLE SHEETS API CONFIG ──────────────────────────────────
 // IMPORTANT: After deploying your Apps Script, paste the web app URL below.
@@ -772,7 +797,7 @@ const SHEETS_API = {
   TOKEN: 'GAUMAATRI_SECRET_2026'
 };
 
-let currentVariant='500ml', qty=1, paymentMethod='COD', discountPct=0, couponApplied=false;
+let currentVariant='500ml', qty=1, paymentMethod='COD', discountPct=0, couponApplied=false, appliedPromoCode='';
 
 // ── LOADER ───────────────────────────────────────────────────
 window.addEventListener('load', () => {
@@ -826,10 +851,12 @@ function openModal(variant){
   qty = 1;
   discountPct = 0;
   couponApplied = false;
+  appliedPromoCode = '';
   currentPaymentProof = null;
 
   // Reset all steps
   document.getElementById('couponInput').value = '';
+  document.getElementById('promoMsg').style.display = 'none';
   document.getElementById('discountRow').style.display = 'none';
   document.getElementById('orderFormSection').style.display = 'block';
   document.getElementById('paymentSection').style.display = 'none';
@@ -849,8 +876,6 @@ function openModal(variant){
   document.getElementById('orderModal').classList.add('open');
   document.body.style.overflow = 'hidden';
   updatePrice();
-
-
 }
 function closeModal(){
   document.getElementById('orderModal').classList.remove('open');
@@ -877,28 +902,64 @@ function selectPayment(m){
   document.getElementById('pay-cod').classList.toggle('active',m==='COD');
 }
 function updatePrice(){
-  const base=PRICES[currentVariant]*qty;
-  const disc=couponApplied?Math.round(base*discountPct/100):0;
-  const total=base-disc;
-  document.getElementById('sumProduct').textContent='₹'+PRICES[currentVariant].toLocaleString()+' × '+qty;
-  document.getElementById('sumQty').textContent=qty;
-  document.getElementById('sumTotal').textContent='₹'+total.toLocaleString();
-  if(disc>0){
-    document.getElementById('discountRow').style.display='flex';
-    document.getElementById('discountAmt').textContent='−₹'+disc.toLocaleString();
+  const base = PRICES[currentVariant] * qty;
+  const disc = couponApplied ? Math.round(base * discountPct / 100) : 0;
+  const total = base - disc;
+  document.getElementById('sumProduct').textContent = '₹' + PRICES[currentVariant].toLocaleString() + ' × ' + qty;
+  document.getElementById('sumQty').textContent = qty;
+  document.getElementById('sumOriginal').textContent = '₹' + base.toLocaleString();
+  document.getElementById('sumTotal').textContent = '₹' + total.toLocaleString();
+  if(disc > 0){
+    document.getElementById('discountRow').style.display = 'flex';
+    document.getElementById('discountAmt').textContent = '−₹' + disc.toLocaleString() + ' (' + discountPct + '% off)';
+    document.getElementById('promoCodeBadge').textContent = appliedPromoCode;
+  } else {
+    document.getElementById('discountRow').style.display = 'none';
   }
 }
 function applyCoupon(){
-  const code=document.getElementById('couponInput').value.trim().toUpperCase();
-  if(couponApplied){showToast('Coupon already applied!','error');return;}
-  if(COUPONS[code]){
-    discountPct=COUPONS[code];
-    couponApplied=true;
-    updatePrice();
-    showToast('🎉 Coupon '+code+' applied! '+discountPct+'% off!','success');
-  } else {
-    showToast('Invalid coupon code. Try GAUMAATRI10','error');
+  const code = document.getElementById('couponInput').value.trim().toUpperCase();
+  const msgEl = document.getElementById('promoMsg');
+  msgEl.style.display = 'none';
+
+  if(!code){ showToast('Please enter a promo code', 'error'); return; }
+  if(couponApplied){
+    msgEl.textContent = '⚠️ Promo code "' + appliedPromoCode + '" is already applied.';
+    msgEl.style.cssText = 'display:block;background:#fff3e0;color:#e65100;padding:8px 12px;border-radius:8px;margin-bottom:12px;font-size:0.82rem;border-left:3px solid #FF9800;';
+    return;
   }
+
+  const promo = PROMO_CODES[code];
+
+  if(!promo){
+    msgEl.textContent = '❌ Invalid promo code. Try: GAU25, FIRST25, or FESTIVE25';
+    msgEl.style.cssText = 'display:block;background:#fff3f3;color:#c62828;padding:8px 12px;border-radius:8px;margin-bottom:12px;font-size:0.82rem;border-left:3px solid #f44336;';
+    return;
+  }
+
+  // Check expiry
+  if(promo.expiry && new Date() > new Date(promo.expiry + 'T23:59:59')){
+    msgEl.textContent = '❌ This promo code has expired.';
+    msgEl.style.cssText = 'display:block;background:#fff3f3;color:#c62828;padding:8px 12px;border-radius:8px;margin-bottom:12px;font-size:0.82rem;border-left:3px solid #f44336;';
+    return;
+  }
+
+  // Check usage limit
+  if(promo.maxUses !== null && getPromoUsage(code) >= promo.maxUses){
+    msgEl.textContent = '❌ This promo code has reached its maximum usage limit.';
+    msgEl.style.cssText = 'display:block;background:#fff3f3;color:#c62828;padding:8px 12px;border-radius:8px;margin-bottom:12px;font-size:0.82rem;border-left:3px solid #f44336;';
+    return;
+  }
+
+  // Valid!
+  discountPct = promo.discount;
+  couponApplied = true;
+  appliedPromoCode = code;
+  updatePrice();
+
+  msgEl.textContent = '✅ ' + promo.description + ' applied successfully!';
+  msgEl.style.cssText = 'display:block;background:#f1f8e9;color:#2e7d32;padding:8px 12px;border-radius:8px;margin-bottom:12px;font-size:0.82rem;border-left:3px solid #4CAF50;';
+  showToast('🎉 ' + promo.discount + '% discount applied!', 'success');
 }
 
 // --- VALIDATION ---
@@ -1017,23 +1078,29 @@ async function submitOrder(){
   if(SHEETS_API.URL !== 'https://script.google.com/macros/s/YOUR_SCRIPT_ID_HERE/exec'){
     try {
       const result = await apiPost({
-        action:        'submitOrder',
+        action:         'submitOrder',
         orderId,
         name, email, phone,
-        address:       fullAddress,
-        product:       VARIANTS[currentVariant],
-        quantity:      qty,
-        total:         total,
-        paymentMethod
+        address:        fullAddress,
+        product:        VARIANTS[currentVariant],
+        quantity:       qty,
+        originalPrice:  base,
+        discountedPrice: total,
+        promoCode:      appliedPromoCode || 'None',
+        discountPct:    couponApplied ? discountPct : 0,
+        paymentMethod,
+        date:           orderDate
       });
       if(result.success) {
         sheetsOk = true;
+        if(couponApplied) incPromoUsage(appliedPromoCode);
         console.log('✅ Order saved to Google Sheets:', orderId);
       } else {
         console.warn('Sheets API error:', result.error);
       }
     } catch(err) {
       console.warn('Google Sheets unreachable, using localStorage fallback:', err.message);
+      if(couponApplied) incPromoUsage(appliedPromoCode); // count locally even if sheets fails
     }
   }
 
