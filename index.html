@@ -160,6 +160,28 @@ section{padding:80px 24px;}
 .reviewer-name{font-weight:600;color:var(--white);font-size:0.9rem;}
 .reviewer-loc{font-size:0.78rem;color:rgba(255,255,255,0.5);}
 
+/* INLINE REVIEW BOX */
+.review-box{background:rgba(255,255,255,0.05);border:1px solid rgba(201,146,42,0.3);border-radius:24px;padding:36px;margin-top:48px;backdrop-filter:blur(10px);}
+.review-box h3{font-family:'Playfair Display',serif;font-size:1.4rem;color:var(--white);margin-bottom:6px;}
+.review-box p.rb-sub{font-size:0.85rem;color:rgba(255,255,255,0.55);margin-bottom:24px;}
+.rb-fields{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+.rb-input{width:100%;padding:12px 16px;background:rgba(255,255,255,0.08);border:1.5px solid rgba(201,146,42,0.25);border-radius:10px;font-size:0.92rem;font-family:'Inter',sans-serif;color:var(--white);outline:none;transition:border-color 0.3s;}
+.rb-input::placeholder{color:rgba(255,255,255,0.35);}
+.rb-input:focus{border-color:var(--gold);}
+.rb-textarea{resize:none;min-height:90px;}
+.rb-star-row{display:flex;align-items:center;gap:6px;margin-bottom:16px;}
+.rb-star-row label{font-size:0.82rem;color:rgba(255,255,255,0.6);font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-right:6px;}
+.rb-star{font-size:1.8rem;cursor:pointer;color:rgba(255,255,255,0.2);transition:color 0.15s;user-select:none;line-height:1;}
+.rb-star.lit{color:var(--gold-light);}
+.rb-upload-label{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.05);border:1.5px dashed rgba(201,146,42,0.3);border-radius:10px;padding:12px 16px;cursor:pointer;color:rgba(255,255,255,0.5);font-size:0.88rem;transition:all 0.3s;margin-bottom:16px;}
+.rb-upload-label:hover{border-color:var(--gold);color:var(--gold-light);}
+.rb-upload-label.has-file{border-color:#4CAF50;color:#81C784;}
+.rb-submit{background:linear-gradient(135deg,var(--gold),var(--gold-dark));color:var(--white);border:none;border-radius:12px;padding:13px 32px;font-size:1rem;font-weight:700;cursor:pointer;transition:all 0.3s;display:inline-flex;align-items:center;gap:8px;}
+.rb-submit:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(201,146,42,0.5);}
+.rb-err{font-size:0.78rem;color:#ef9a9a;display:none;margin-top:4px;}
+.rb-err.show{display:block;}
+@media(max-width:900px){.rb-fields{grid-template-columns:1fr;}}
+
 /* TRACKING */
 #tracking{background:var(--cream);}
 .track-box{background:var(--white);border-radius:24px;padding:40px;box-shadow:var(--shadow);max-width:600px;margin:40px auto 0;}
@@ -503,6 +525,49 @@ footer{background:var(--brown);color:var(--white);padding:48px 24px 24px;}
       <div class="review-card fade-in"><div class="stars">★★★★★</div><p class="review-text">"Switched from market ghee to Gaumaatri 6 months ago. My kids are healthier, my cooking tastes better and the whole house smells amazing when I cook with it. Will never go back to processed ghee!"</p><div class="reviewer"><div class="reviewer-avatar">S</div><div><div class="reviewer-name">Sunita Agarwal</div><div class="reviewer-loc">Lucknow, UP</div></div></div></div>
       <div class="review-card fade-in"><div class="stars">★★★★★</div><p class="review-text">"Free delivery was the reason I tried it first, but the quality is the reason I keep coming back. On my 5th order now. Customer support via WhatsApp is also very responsive and helpful. 10/10 brand!"</p><div class="reviewer"><div class="reviewer-avatar">K</div><div><div class="reviewer-name">Karan Malhotra</div><div class="reviewer-loc">Bengaluru, Karnataka</div></div></div></div>
     </div>
+
+    <!-- INLINE REVIEW BOX -->
+    <div class="review-box fade-in">
+      <h3>✍️ Share Your Experience</h3>
+      <p class="rb-sub">Your review helps others make the right choice. It only takes a minute!</p>
+
+      <div class="rb-star-row">
+        <label>Rating</label>
+        <span class="rb-star" data-v="1">★</span>
+        <span class="rb-star" data-v="2">★</span>
+        <span class="rb-star" data-v="3">★</span>
+        <span class="rb-star" data-v="4">★</span>
+        <span class="rb-star" data-v="5">★</span>
+        <input type="hidden" id="rb-rating" value="0">
+      </div>
+      <span class="rb-err" id="rb-err-rating">Please select a star rating</span>
+
+      <div class="rb-fields">
+        <div>
+          <input type="text" class="rb-input" id="rb-name" placeholder="Your name *">
+          <span class="rb-err" id="rb-err-name">Name is required</span>
+        </div>
+        <div>
+          <input type="text" class="rb-input" id="rb-loc" placeholder="Location (e.g. Delhi)">
+        </div>
+      </div>
+
+      <textarea class="rb-input rb-textarea" id="rb-text" placeholder="Write your review here... (What did you like? How did it help you?) *" style="margin-bottom:6px;"></textarea>
+      <span class="rb-err" id="rb-err-text">Please write your review</span>
+
+      <div style="margin-top:16px;">
+        <input type="file" id="rb-img" accept="image/*" style="display:none;" onchange="rbHandleImage(this)">
+        <label class="rb-upload-label" id="rb-img-label" onclick="document.getElementById('rb-img').click()">
+          <span style="font-size:1.4rem;">📸</span>
+          <span id="rb-img-text">Upload product photo (optional — max 2MB)</span>
+        </label>
+        <div id="rb-img-preview" style="display:none; margin-bottom:16px; border-radius:12px; overflow:hidden; max-height:180px;">
+          <img id="rb-img-previewImg" style="width:100%; object-fit:cover; display:block;">
+        </div>
+      </div>
+
+      <button class="rb-submit" onclick="rbSubmit()">🌟 Post My Review</button>
+    </div>
   </div>
 </section>
 
@@ -645,6 +710,49 @@ footer{background:var(--brown);color:var(--white);padding:48px 24px 24px;}
       <button class="submit-order" onclick="closeModal()">✅ Done</button>
     </div>
 
+  </div>
+</div>
+
+<!-- REVIEW MODAL -->
+<div class="modal-overlay" id="reviewModal">
+  <div class="modal" style="max-width: 500px;">
+    <button class="modal-close" onclick="closeReviewModal()">✕</button>
+    <h2 class="modal-title">Write a Review</h2>
+    <p class="modal-sub">Share your experience with Gaumaatri Ghee</p>
+    
+    <div class="form-group" style="margin-bottom:16px;">
+      <label>Your Name *</label>
+      <input type="text" id="rev-name" placeholder="Enter your name">
+      <span class="error-msg" id="err-rev-name">Please enter your name</span>
+    </div>
+    
+    <div class="form-group" style="margin-bottom:16px;">
+      <label>Location (Optional)</label>
+      <input type="text" id="rev-loc" placeholder="e.g. Mumbai, Maharashtra">
+    </div>
+
+    <div class="form-group" style="margin-bottom:16px;">
+      <label>Rating *</label>
+      <div class="star-rating" id="rev-stars" style="font-size:2rem; cursor:pointer; color:var(--cream-dark); user-select:none;">
+        <span data-val="1">★</span><span data-val="2">★</span><span data-val="3">★</span><span data-val="4">★</span><span data-val="5">★</span>
+      </div>
+      <input type="hidden" id="rev-rating" value="0">
+      <span class="error-msg" id="err-rev-rating">Please select a rating</span>
+    </div>
+
+    <div class="form-group" style="margin-bottom:20px;">
+      <label>Your Review *</label>
+      <textarea id="rev-text" rows="4" placeholder="Tell us what you think..." style="resize:none; padding:12px; font-family:'Inter',sans-serif; border:2px solid var(--cream-dark); border-radius:10px;"></textarea>
+      <span class="error-msg" id="err-rev-text">Please write a review</span>
+    </div>
+    
+    <div class="form-group" style="margin-bottom:24px;">
+      <label>Product Picture (Optional)</label>
+      <input type="file" id="rev-image" accept="image/*" style="display:none;" onchange="handleReviewImageUpload(this)">
+      <div class="file-custom" onclick="document.getElementById('rev-image').click()" id="revFileLabel">📸 Click to upload picture</div>
+    </div>
+    
+    <button class="submit-order" onclick="submitReview()">Submit Review</button>
   </div>
 </div>
 
@@ -1236,6 +1344,101 @@ function renderTrackingInfo(order) {
   oldBadges.forEach(b => b.remove());
 }
 
+// --- INLINE REVIEW BOX ---
+let rbImage = null;
+
+// Star hover/click
+document.querySelectorAll('.rb-star').forEach(star => {
+  star.addEventListener('click', function() {
+    const val = parseInt(this.dataset.v);
+    document.getElementById('rb-rating').value = val;
+    document.querySelectorAll('.rb-star').forEach((s, i) => s.classList.toggle('lit', i < val));
+  });
+  star.addEventListener('mouseover', function() {
+    const val = parseInt(this.dataset.v);
+    document.querySelectorAll('.rb-star').forEach((s, i) => s.classList.toggle('lit', i < val));
+  });
+  star.addEventListener('mouseout', function() {
+    const val = parseInt(document.getElementById('rb-rating').value);
+    document.querySelectorAll('.rb-star').forEach((s, i) => s.classList.toggle('lit', i < val));
+  });
+});
+
+function rbHandleImage(input){
+  if(input.files && input.files[0]){
+    if(input.files[0].size > 2 * 1024 * 1024){
+      showToast('Image too large. Max 2MB.', 'error');
+      input.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(e){
+      rbImage = e.target.result;
+      document.getElementById('rb-img-text').textContent = '✅ ' + input.files[0].name;
+      document.getElementById('rb-img-label').classList.add('has-file');
+      const preview = document.getElementById('rb-img-preview');
+      document.getElementById('rb-img-previewImg').src = rbImage;
+      preview.style.display = 'block';
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
+function rbClearErrors(){
+  ['rb-err-rating','rb-err-name','rb-err-text'].forEach(id => document.getElementById(id).classList.remove('show'));
+}
+
+function rbSubmit(){
+  rbClearErrors();
+  let valid = true;
+  const rating = parseInt(document.getElementById('rb-rating').value);
+  const name   = document.getElementById('rb-name').value.trim();
+  const loc    = document.getElementById('rb-loc').value.trim() || 'India';
+  const text   = document.getElementById('rb-text').value.trim();
+
+  if(rating === 0){ document.getElementById('rb-err-rating').classList.add('show'); valid=false; }
+  if(!name){ document.getElementById('rb-err-name').classList.add('show'); valid=false; }
+  if(!text){ document.getElementById('rb-err-text').classList.add('show'); valid=false; }
+  if(!valid) return;
+
+  const rev = { name, loc, text, rating, image: rbImage, date: new Date().toISOString() };
+  try {
+    const reviews = JSON.parse(localStorage.getItem('gaumaatriReviews') || '[]');
+    reviews.push(rev);
+    localStorage.setItem('gaumaatriReviews', JSON.stringify(reviews));
+  } catch(e) {
+    showToast('Storage full. Try without photo.', 'error'); return;
+  }
+
+  // Build stars HTML
+  let starsHtml = '';
+  for(let i=0;i<5;i++) starsHtml += i < rating ? '★' : '☆';
+
+  // Build image HTML
+  let imgHtml = rbImage ? `<div style="margin-top:12px;border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,0.1);"><img src="${rbImage}" style="width:100%;max-height:200px;object-fit:cover;display:block;"></div>` : '';
+
+  // Prepend to grid
+  const card = document.createElement('div');
+  card.className = 'review-card fade-in visible';
+  card.innerHTML = `<div class="stars">${starsHtml}</div><p class="review-text">"${text}"</p>${imgHtml}<div class="reviewer" style="margin-top:16px;"><div class="reviewer-avatar">${name.charAt(0).toUpperCase()}</div><div><div class="reviewer-name">${name}</div><div class="reviewer-loc">${loc}</div></div></div>`;
+  document.querySelector('.reviews-grid').prepend(card);
+
+  // Reset form
+  document.getElementById('rb-name').value = '';
+  document.getElementById('rb-loc').value = '';
+  document.getElementById('rb-text').value = '';
+  document.getElementById('rb-rating').value = '0';
+  document.querySelectorAll('.rb-star').forEach(s => s.classList.remove('lit'));
+  rbImage = null;
+  document.getElementById('rb-img').value = '';
+  document.getElementById('rb-img-text').textContent = 'Upload product photo (optional — max 2MB)';
+  document.getElementById('rb-img-label').classList.remove('has-file');
+  document.getElementById('rb-img-preview').style.display = 'none';
+
+  showToast('🌟 Thank you! Your review is now live.', 'success');
+  document.querySelector('.reviews-grid').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 // --- FAQ ACCORDION ---
 document.querySelectorAll('.faq-q').forEach(btn=>{
   btn.addEventListener('click',()=>{
@@ -1250,6 +1453,122 @@ document.querySelectorAll('.faq-q').forEach(btn=>{
 document.querySelectorAll('.modal').forEach(m=>{
   m.addEventListener('click',e=>e.stopPropagation());
 });
+
+// --- REVIEWS ---
+let currentReviewImage = null;
+
+function handleReviewImageUpload(input){
+  if(input.files && input.files[0]){
+    if(input.files[0].size > 2 * 1024 * 1024){
+      showToast('Image too large. Max 2MB allowed.', 'error');
+      input.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(e){
+      currentReviewImage = e.target.result;
+      const label = document.getElementById('revFileLabel');
+      label.textContent = '✅ Image Uploaded';
+      label.classList.add('uploaded');
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
+function openReviewModal(){
+  document.getElementById('reviewModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  document.getElementById('rev-name').value = '';
+  document.getElementById('rev-loc').value = '';
+  document.getElementById('rev-text').value = '';
+  document.getElementById('rev-rating').value = '0';
+  currentReviewImage = null;
+  document.getElementById('rev-image').value = '';
+  document.getElementById('revFileLabel').textContent = '📸 Click to upload picture';
+  document.getElementById('revFileLabel').classList.remove('uploaded');
+  document.querySelectorAll('#rev-stars span').forEach(s => {
+    s.classList.remove('active');
+    s.style.color = 'var(--cream-dark)';
+  });
+  clearErrors();
+}
+function closeReviewModal(){
+  document.getElementById('reviewModal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+document.getElementById('reviewModal').addEventListener('click', function(e){
+  if(e.target === this) closeReviewModal();
+});
+document.querySelectorAll('#rev-stars span').forEach(star => {
+  star.addEventListener('click', function(){
+    const val = parseInt(this.getAttribute('data-val'));
+    document.getElementById('rev-rating').value = val;
+    document.querySelectorAll('#rev-stars span').forEach((s, idx) => {
+      s.style.color = idx < val ? 'var(--gold-light)' : 'var(--cream-dark)';
+    });
+  });
+});
+
+function loadUserReviews(){
+  const reviews = JSON.parse(localStorage.getItem('gaumaatriReviews') || '[]');
+  const grid = document.querySelector('.reviews-grid');
+  reviews.forEach(rev => {
+    const card = document.createElement('div');
+    card.className = 'review-card fade-in visible';
+    let starsHtml = '';
+    for(let i=0;i<5;i++){ starsHtml += i < rev.rating ? '★' : '☆'; }
+    let imgHtml = '';
+    if(rev.image){
+      imgHtml = `<div style="margin-top:12px; border-radius:12px; overflow:hidden; border:1px solid rgba(255,255,255,0.1);"><img src="${rev.image}" style="width:100%; max-height:200px; object-fit:cover; display:block;"></div>`;
+    }
+    card.innerHTML = `<div class="stars">${starsHtml}</div><p class="review-text">"${rev.text}"</p>${imgHtml}<div class="reviewer" style="margin-top:16px;"><div class="reviewer-avatar">${rev.name.charAt(0).toUpperCase()}</div><div><div class="reviewer-name">${rev.name}</div><div class="reviewer-loc">${rev.loc || 'India'}</div></div></div>`;
+    grid.prepend(card);
+  });
+}
+window.addEventListener('DOMContentLoaded', loadUserReviews);
+
+function submitReview(){
+  clearErrors();
+  let valid = true;
+  const name = document.getElementById('rev-name').value.trim();
+  const loc = document.getElementById('rev-loc').value.trim() || 'India';
+  const text = document.getElementById('rev-text').value.trim();
+  const rating = parseInt(document.getElementById('rev-rating').value);
+  
+  if(!name){ setError('rev-name','err-rev-name'); valid=false; }
+  if(!text){ setError('rev-text','err-rev-text'); valid=false; }
+  if(rating === 0){ document.getElementById('err-rev-rating').classList.add('show'); valid=false; }
+  
+  if(!valid) return;
+  
+  const rev = { name, loc, text, rating, image: currentReviewImage, date: new Date().toISOString() };
+  try {
+    const reviews = JSON.parse(localStorage.getItem('gaumaatriReviews') || '[]');
+    reviews.push(rev);
+    localStorage.setItem('gaumaatriReviews', JSON.stringify(reviews));
+  } catch(e) {
+    if(e.name === 'QuotaExceededError'){
+      showToast('Storage full. Could not save picture. Try without picture.', 'error');
+      return;
+    }
+  }
+  
+  // Render instantly
+  const grid = document.querySelector('.reviews-grid');
+  const card = document.createElement('div');
+  card.className = 'review-card fade-in visible';
+  let starsHtml = '';
+  for(let i=0;i<5;i++){ starsHtml += i < rating ? '★' : '☆'; }
+  let imgHtml = '';
+  if(currentReviewImage){
+    imgHtml = `<div style="margin-top:12px; border-radius:12px; overflow:hidden; border:1px solid rgba(255,255,255,0.1);"><img src="${currentReviewImage}" style="width:100%; max-height:200px; object-fit:cover; display:block;"></div>`;
+  }
+  card.innerHTML = `<div class="stars">${starsHtml}</div><p class="review-text">"${text}"</p>${imgHtml}<div class="reviewer" style="margin-top:16px;"><div class="reviewer-avatar">${name.charAt(0).toUpperCase()}</div><div><div class="reviewer-name">${name}</div><div class="reviewer-loc">${loc}</div></div></div>`;
+  grid.prepend(card);
+  
+  closeReviewModal();
+  showToast('Thank you! Your review has been posted.', 'success');
+}
 
 </script>
 </body>
