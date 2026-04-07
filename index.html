@@ -1078,29 +1078,31 @@ async function submitOrder(){
   if(SHEETS_API.URL !== 'https://script.google.com/macros/s/YOUR_SCRIPT_ID_HERE/exec'){
     try {
       const result = await apiPost({
-        action:         'submitOrder',
+        action:          'submitOrder',
         orderId,
         name, email, phone,
-        address:        fullAddress,
-        product:        VARIANTS[currentVariant],
-        quantity:       qty,
-        originalPrice:  base,
+        address:         fullAddress,
+        product:         VARIANTS[currentVariant],
+        quantity:        qty,
+        total:           total,           // backward compat with old deployment
+        originalPrice:   base,
         discountedPrice: total,
-        promoCode:      appliedPromoCode || 'None',
-        discountPct:    couponApplied ? discountPct : 0,
+        promoCode:       appliedPromoCode || 'None',
+        discountPct:     couponApplied ? discountPct : 0,
         paymentMethod,
-        date:           orderDate
+        date:            orderDate
       });
+      console.log('📊 Sheets response:', JSON.stringify(result));
       if(result.success) {
         sheetsOk = true;
         if(couponApplied) incPromoUsage(appliedPromoCode);
         console.log('✅ Order saved to Google Sheets:', orderId);
       } else {
-        console.warn('Sheets API error:', result.error);
+        console.warn('❌ Sheets API error:', result.error);
       }
     } catch(err) {
-      console.warn('Google Sheets unreachable, using localStorage fallback:', err.message);
-      if(couponApplied) incPromoUsage(appliedPromoCode); // count locally even if sheets fails
+      console.warn('⚠️ Google Sheets unreachable, using localStorage fallback:', err.message);
+      if(couponApplied) incPromoUsage(appliedPromoCode);
     }
   }
 
