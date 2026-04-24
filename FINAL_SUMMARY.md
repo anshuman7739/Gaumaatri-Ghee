@@ -30,7 +30,7 @@ Your Gaumaatri Ghee website now has a **production-ready Razorpay payment system
 - **Contents:**
   ```
   RAZORPAY_KEY_ID=rzp_test_SgtE5GLU0CP7fq
-  RAZORPAY_KEY_SECRET=ymHiQ27ea0xZEBsJ17cZo13Q
+  RAZORPAY_KEY_SECRET=your_razorpay_key_secret
   PORT=3000
   ```
 
@@ -229,7 +229,7 @@ Success page shown 🎉
 ### Authentication
 - **API Method:** Environment variables via dotenv
 - **Key ID:** `rzp_test_SgtE5GLU0CP7fq` (test mode)
-- **Key Secret:** `ymHiQ27ea0xZEBsJ17cZo13Q` (test mode)
+- **Key Secret:** `(hidden)` (test mode)
 
 ---
 
@@ -310,7 +310,7 @@ cat .env
 
 # Should contain:
 # RAZORPAY_KEY_ID=rzp_test_SgtE5GLU0CP7fq
-# RAZORPAY_KEY_SECRET=ymHiQ27ea0xZEBsJ17cZo13Q
+# RAZORPAY_KEY_SECRET=your_razorpay_key_secret
 ```
 
 ### ❌ Payment modal not opening

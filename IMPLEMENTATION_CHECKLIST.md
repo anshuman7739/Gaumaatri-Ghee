@@ -48,7 +48,7 @@
 
 - [x] `.env` file created
 - [x] `RAZORPAY_KEY_ID` set to `rzp_test_SgtE5GLU0CP7fq`
-- [x] `RAZORPAY_KEY_SECRET` set to `ymHiQ27ea0xZEBsJ17cZo13Q`
+- [x] `RAZORPAY_KEY_SECRET` set (hidden)
 - [x] `PORT` set to `3000`
 - [x] `.env` added to `.gitignore`
 - [x] Dependencies installed: `razorpay`, `dotenv`, `express`

@@ -80,8 +80,8 @@ heroku create gaumaatri-ghee
 
 #### Step 4: Configure Secrets
 ```bash
-heroku config:set RAZORPAY_KEY_ID=rzp_live_ShHI5Ujmhwtila
-heroku config:set RAZORPAY_KEY_SECRET=WXBlbJlc310XqkE59JxCeeWl
+heroku config:set RAZORPAY_KEY_ID=rzp_live_xxxxxxxxxxxxxxxx
+heroku config:set RAZORPAY_KEY_SECRET=your_razorpay_key_secret
 heroku config:set NODE_ENV=production
 ```
 
@@ -122,8 +122,8 @@ heroku logs --tail
 ## 💰 RAZORPAY LIVE CREDENTIALS
 
 ```
-Key ID:        rzp_live_ShHI5Ujmhwtila ✅ LIVE
-Key Secret:    WXBlbJlc310XqkE59JxCeeWl ✅ PROTECTED
+Key ID:        rzp_live_xxxxxxxxxxxxxxxx ✅ LIVE
+Key Secret:    (hidden) ✅ PROTECTED
 Mode:          PRODUCTION ✅
 Status:        ACTIVE & READY ✅
 ```
@@ -301,12 +301,12 @@ You can test locally before going live
 
 **Your Live Razorpay Key:**
 ```
-rzp_live_ShHI5Ujmhwtila
+rzp_live_xxxxxxxxxxxxxxxx
 ```
 
 **Keep Your Secret Key Safe:**
 ```
-WXBlbJlc310XqkE59JxCeeWl
+(hidden)
 (Never share this with anyone!)
 ```
 
@@ -342,4 +342,3 @@ Everything is:
 **Last Updated:** April 24, 2026 at 10:30 AM  
 **Status:** PRODUCTION READY ✅  
 **Go Live:** NOW! 🚀
-

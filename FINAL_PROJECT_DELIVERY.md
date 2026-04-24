@@ -164,7 +164,7 @@ Recent Commits:
 ### Credentials Status
 ```
 Live Razorpay Keys: ✅ CONFIGURED
-- Key ID: rzp_live_ShHI5Ujmhwtila
+- Key ID: rzp_live_xxxxxxxxxxxxxxxx
 - Secret: Protected in .env
 - Mode: PRODUCTION
 

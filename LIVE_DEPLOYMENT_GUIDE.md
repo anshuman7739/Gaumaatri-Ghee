@@ -55,8 +55,8 @@ heroku create gaumaatri-ghee
 ### Step 5: Configure Environment Variables
 ```bash
 # Set live Razorpay keys
-heroku config:set RAZORPAY_KEY_ID=rzp_live_ShHI5Ujmhwtila
-heroku config:set RAZORPAY_KEY_SECRET=WXBlbJlc310XqkE59JxCeeWl
+heroku config:set RAZORPAY_KEY_ID=rzp_live_xxxxxxxxxxxxxxxx
+heroku config:set RAZORPAY_KEY_SECRET=your_razorpay_key_secret
 heroku config:set PORT=80
 
 # Verify
@@ -116,8 +116,8 @@ https://render.com
 - **Start Command:** `node server.js`
 
 ### Step 5: Add Environment Variables
-- RAZORPAY_KEY_ID = `rzp_live_ShHI5Ujmhwtila`
-- RAZORPAY_KEY_SECRET = `WXBlbJlc310XqkE59JxCeeWl`
+- RAZORPAY_KEY_ID = `rzp_live_xxxxxxxxxxxxxxxx`
+- RAZORPAY_KEY_SECRET = `(hidden)`
 - PORT = `3000`
 
 ### Step 6: Deploy
@@ -163,8 +163,8 @@ npm install
 ### Step 5: Create .env File
 ```bash
 cat > .env << 'EOF'
-RAZORPAY_KEY_ID=rzp_live_ShHI5Ujmhwtila
-RAZORPAY_KEY_SECRET=WXBlbJlc310XqkE59JxCeeWl
+RAZORPAY_KEY_ID=rzp_live_xxxxxxxxxxxxxxxx
+RAZORPAY_KEY_SECRET=your_razorpay_key_secret
 PORT=80
 NODE_ENV=production
 EOF
@@ -217,8 +217,8 @@ https://www.digitalocean.com/
 
 ### Step 5: Add Environment Variables
 ```
-RAZORPAY_KEY_ID=rzp_live_ShHI5Ujmhwtila
-RAZORPAY_KEY_SECRET=WXBlbJlc310XqkE59JxCeeWl
+RAZORPAY_KEY_ID=rzp_live_xxxxxxxxxxxxxxxx
+RAZORPAY_KEY_SECRET=your_razorpay_key_secret
 NODE_ENV=production
 ```
 
@@ -348,8 +348,8 @@ heroku login
 heroku create gaumaatri-ghee
 
 # 5. Set environment variables
-heroku config:set RAZORPAY_KEY_ID=rzp_live_ShHI5Ujmhwtila
-heroku config:set RAZORPAY_KEY_SECRET=WXBlbJlc310XqkE59JxCeeWl
+heroku config:set RAZORPAY_KEY_ID=rzp_live_xxxxxxxxxxxxxxxx
+heroku config:set RAZORPAY_KEY_SECRET=your_razorpay_key_secret
 
 # 6. Deploy
 git push heroku main

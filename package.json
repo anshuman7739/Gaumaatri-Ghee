@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Gaumaatri Ghee — Express server with Razorpay integration",
   "main": "server.js",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js"

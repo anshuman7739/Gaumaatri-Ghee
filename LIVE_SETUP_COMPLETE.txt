@@ -19,8 +19,8 @@
 
 📊 LIVE CREDENTIALS ACTIVATED:
 
-Live Key ID:      rzp_live_ShHI5Ujmhwtila
-Live Secret Key:  WXBlbJlc310XqkE59JxCeeWl
+Live Key ID:      rzp_live_xxxxxxxxxxxxxxxx
+Live Secret Key:  (hidden)
 Server Status:    RUNNING ✅
 Environment:      PRODUCTION
 Port:             3000
@@ -164,4 +164,3 @@ Happy selling! 💳🚀
 Created: April 24, 2026
 Status: ✅ PRODUCTION LIVE
 Mode: REAL PAYMENTS ACTIVE
-

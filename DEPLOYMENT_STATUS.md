@@ -54,8 +54,8 @@
 
 ### Live Credentials (Protected in `.env`)
 ```
-RAZORPAY_KEY_ID: rzp_live_ShHI5Ujmhwtila
-RAZORPAY_KEY_SECRET: WXBlbJlc310XqkE59JxCeeWl (protected)
+RAZORPAY_KEY_ID: rzp_live_xxxxxxxxxxxxxxxx
+RAZORPAY_KEY_SECRET: (stored in environment, never written in docs)
 MODE: LIVE (Production)
 ```
 
@@ -93,8 +93,8 @@ heroku login
 heroku create your-app-name
 
 # Set environment variables
-heroku config:set RAZORPAY_KEY_ID=rzp_live_ShHI5Ujmhwtila
-heroku config:set RAZORPAY_KEY_SECRET=WXBlbJlc310XqkE59JxCeeWl
+heroku config:set RAZORPAY_KEY_ID=rzp_live_xxxxxxxxxxxxxxxx
+heroku config:set RAZORPAY_KEY_SECRET=your_razorpay_key_secret
 heroku config:set PORT=3000
 
 # Deploy
@@ -124,8 +124,8 @@ ssh user@your-server.com
 git clone https://github.com/anshuman7739/Gaumaatri-Ghee.git
 
 # Create .env
-echo "RAZORPAY_KEY_ID=rzp_live_ShHI5Ujmhwtila" > .env
-echo "RAZORPAY_KEY_SECRET=WXBlbJlc310XqkE59JxCeeWl" >> .env
+echo "RAZORPAY_KEY_ID=rzp_live_xxxxxxxxxxxxxxxx" > .env
+echo "RAZORPAY_KEY_SECRET=your_razorpay_key_secret" >> .env
 echo "PORT=3000" >> .env
 
 # Install & start

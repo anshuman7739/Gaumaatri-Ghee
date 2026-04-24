@@ -19,7 +19,7 @@
 - Health check and monitoring endpoints
 
 ### ✅ Live Credentials Configured
-- **Key ID:** `rzp_live_ShHI5Ujmhwtila`
+- **Key ID:** `rzp_live_xxxxxxxxxxxxxxxx`
 - **Secret Key:** Protected in `.env`
 - **Mode:** PRODUCTION (real payments)
 - **Status:** Active & Verified

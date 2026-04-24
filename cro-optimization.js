@@ -60,7 +60,15 @@ function trackOrder() {
 async function trackOrderById(orderId) {
   try {
     const response = await fetch(`/api/order-status/${orderId || document.getElementById('trackingOrderId').value}`);
-    const data = await response.json();
+    const bodyText = await response.text();
+    const trimmed = bodyText.trim();
+
+    if (trimmed.startsWith('<')) {
+      const snippet = trimmed.replace(/\s+/g, ' ').slice(0, 120);
+      throw new Error(`Server returned HTML instead of JSON. Snippet: ${snippet}`);
+    }
+
+    const data = JSON.parse(trimmed);
     
     if (data.success) {
       const html = `

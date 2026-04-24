@@ -2664,21 +2664,22 @@
       return `GM-${dateStr}-${rand}`;
     }
 
-    // ── API HELPER ───────────────────────────────────────────────
-    async function apiPost(payload) {
-      const res = await fetch(SHEETS_API.URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' }, // text/plain avoids OPTIONS preflight
-        body: JSON.stringify({ ...payload, token: SHEETS_API.TOKEN })
-      });
-      return res.json();
-    }
+	    // ── API HELPER ───────────────────────────────────────────────
+	    async function apiPost(payload) {
+	      const res = await fetch(SHEETS_API.URL, {
+	        method: 'POST',
+	        headers: { 'Content-Type': 'text/plain' }, // text/plain avoids OPTIONS preflight
+	        body: JSON.stringify({ ...payload, token: SHEETS_API.TOKEN })
+	      });
+	      // Use our JSON parser so HTML error pages (404/login/CORS) become actionable errors.
+	      return parseJsonResponse(res);
+	    }
 
-    async function apiGet(params) {
-      const qs = new URLSearchParams({ ...params, token: SHEETS_API.TOKEN }).toString();
-      const res = await fetch(`${SHEETS_API.URL}?${qs}`);
-      return res.json();
-    }
+	    async function apiGet(params) {
+	      const qs = new URLSearchParams({ ...params, token: SHEETS_API.TOKEN }).toString();
+	      const res = await fetch(`${SHEETS_API.URL}?${qs}`);
+	      return parseJsonResponse(res);
+	    }
 
     // ── ORDER ID GENERATOR ───────────────────────────────────────
     function genOrderId() {
@@ -2863,9 +2864,34 @@
       document.getElementById('confirmScreen').classList.add('show');
     }
 
+	    async function parseJsonResponse(response) {
+	      const bodyText = await response.text();
+	      const trimmed = bodyText.trim();
+
+	      // Many platforms return HTML error pages (404/login/proxy) with a 200/3xx status.
+	      // Detect that early so we don't surface a confusing "Unexpected token '<'".
+	      if (trimmed.startsWith('<')) {
+	        const snippet = trimmed.replace(/\s+/g, ' ').slice(0, 120);
+	        throw new Error(`Server returned HTML instead of JSON. Check deployment/API route. Response: ${snippet}`);
+	      }
+
+	      try {
+	        return JSON.parse(trimmed);
+	      } catch (error) {
+	        const snippet = trimmed.replace(/\s+/g, ' ').slice(0, 120);
+	        throw new Error(`Server returned invalid JSON. Response: ${snippet}`);
+	      }
+	    }
+
     async function payWithRazorpay() {
       const errBox = document.getElementById('paymentError');
       errBox.style.display = 'none';
+
+      if (location.protocol === 'file:') {
+        errBox.textContent = '⚠️ Payment cannot start from a local file. Open this site through your live domain or a running server.';
+        errBox.style.display = 'block';
+        return;
+      }
 
       if (!_pendingOrderData) {
         errBox.textContent = '⚠️ Session expired. Please close and start again.';
@@ -2888,7 +2914,7 @@
             receipt: 'rx_' + Date.now()
           })
         });
-        const serverOrder = await createRes.json();
+        const serverOrder = await parseJsonResponse(createRes);
 
         if (!serverOrder.success) {
             throw new Error(serverOrder.error || 'Failed to create payment order');
@@ -2916,7 +2942,7 @@
                     razorpay_signature: response.razorpay_signature
                 })
             });
-            const verifyResult = await verifyRes.json();
+            const verifyResult = await parseJsonResponse(verifyRes);
 
             if (verifyResult.success) {
                 finalizeUPIOrder(response.razorpay_payment_id);

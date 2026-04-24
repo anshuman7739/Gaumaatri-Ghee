@@ -13,6 +13,7 @@ const path     = require('path');
 const Razorpay = require('razorpay');
 
 const app = express();
+app.disable('x-powered-by');
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -237,17 +238,19 @@ app.get('*', (req, res) => {
 // ──────────────────────────────────────────────────────────
 //  Start Server
 // ──────────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log('\n╔════════════════════════════════════════════╗');
-  console.log('║  🐄 GAUMAATRI GHEE PAYMENT SYSTEM 🐄  ║');
-  console.log('╚════════════════════════════════════════════╝\n');
-  console.log(`✅ Server Running`);
-  console.log(`🌐 Local URL: http://localhost:${PORT}`);
-  console.log(`💳 Razorpay:  ${RAZORPAY_KEY_ID}`);
-  console.log(`📡 API:       http://localhost:${PORT}/api`);
-  console.log(`🏥 Health:    http://localhost:${PORT}/api/health`);
-  console.log(`🖥️  Frontend: http://localhost:${PORT}`);
-  console.log('\n⌚ Press Ctrl+C to stop\n');
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log('\n╔════════════════════════════════════════════╗');
+    console.log('║  🐄 GAUMAATRI GHEE PAYMENT SYSTEM 🐄  ║');
+    console.log('╚════════════════════════════════════════════╝\n');
+    console.log(`✅ Server Running`);
+    console.log(`🌐 Local URL: http://localhost:${PORT}`);
+    console.log(`💳 Razorpay:  ${RAZORPAY_KEY_ID}`);
+    console.log(`📡 API:       http://localhost:${PORT}/api`);
+    console.log(`🏥 Health:    http://localhost:${PORT}/api/health`);
+    console.log(`🖥️  Frontend: http://localhost:${PORT}`);
+    console.log('\n⌚ Press Ctrl+C to stop\n');
+  });
+}
 
 module.exports = app;

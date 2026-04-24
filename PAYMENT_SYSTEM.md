@@ -42,7 +42,7 @@ node server.js
 
 ```bash
 RAZORPAY_KEY_ID=rzp_test_SgtE5GLU0CP7fq
-RAZORPAY_KEY_SECRET=ymHiQ27ea0xZEBsJ17cZo13Q
+RAZORPAY_KEY_SECRET=your_razorpay_key_secret
 PORT=3000
 NODE_ENV=development
 ```
@@ -57,7 +57,7 @@ NODE_ENV=development
 
 ### Test Credentials
 - **Key ID**: `rzp_test_SgtE5GLU0CP7fq`
-- **Key Secret**: `ymHiQ27ea0xZEBsJ17cZo13Q`
+- **Key Secret**: `(hidden)`
 - **Mode**: TEST (sandbox)
 
 ### Test Payment Card
@@ -214,7 +214,7 @@ PORT=3001 node server.js
 # Create with correct credentials
 cat > .env << 'EOF'
 RAZORPAY_KEY_ID=rzp_test_SgtE5GLU0CP7fq
-RAZORPAY_KEY_SECRET=ymHiQ27ea0xZEBsJ17cZo13Q
+RAZORPAY_KEY_SECRET=your_razorpay_key_secret
 PORT=3000
 EOF
 ```

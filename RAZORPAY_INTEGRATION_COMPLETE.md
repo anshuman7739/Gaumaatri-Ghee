@@ -303,7 +303,7 @@ cat .env
 Should have:
 ```
 RAZORPAY_KEY_ID=rzp_test_SgtE5GLU0CP7fq
-RAZORPAY_KEY_SECRET=ymHiQ27ea0xZEBsJ17cZo13Q
+RAZORPAY_KEY_SECRET=your_razorpay_key_secret
 PORT=3000
 ```
 
@@ -357,7 +357,7 @@ npm install
 
 **Test Credentials:** Already configured ✅
 - Key ID: `rzp_test_SgtE5GLU0CP7fq`
-- Key Secret: `ymHiQ27ea0xZEBsJ17cZo13Q`
+- Key Secret: `(hidden)`
 
 **Test Card:** 4111 1111 1111 1111
 

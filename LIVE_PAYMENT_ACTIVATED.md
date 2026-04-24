@@ -10,8 +10,8 @@ Your Gaumaatri Ghee payment system is now accepting **REAL PAYMENTS**!
 
 | Item | Status | Details |
 |------|--------|---------|
-| Live Key ID | ✅ ACTIVE | `rzp_live_ShHI5Ujmhwtila` |
-| Live Secret Key | ✅ ACTIVE | `WXBlbJlc310XqkE59JxCeeWl` |
+| Live Key ID | ✅ ACTIVE | `rzp_live_xxxxxxxxxxxxxxxx` |
+| Live Secret Key | ✅ ACTIVE | `(hidden)` |
 | Environment | ✅ PRODUCTION | `NODE_ENV=production` |
 | Protected | ✅ SECURE | `.env` in `.gitignore` |
 | Server Status | ✅ RUNNING | `http://localhost:3000` |
@@ -69,8 +69,8 @@ curl -X POST http://localhost:3000/api/create-order \
 
 ```
 .env (UPDATED)
-├── RAZORPAY_KEY_ID=rzp_live_ShHI5Ujmhwtila ✅
-├── RAZORPAY_KEY_SECRET=WXBlbJlc310XqkE59JxCeeWl ✅
+├── RAZORPAY_KEY_ID=rzp_live_xxxxxxxxxxxxxxxx ✅
+├── RAZORPAY_KEY_SECRET=(hidden) ✅
 ├── PORT=3000 ✅
 └── NODE_ENV=production ✅
 
@@ -258,8 +258,8 @@ Your payment system is now accepting **REAL MONEY** from **REAL CUSTOMERS**.
 
 **Save these in a secure location:**
 ```
-Live Key ID:     rzp_live_ShHI5Ujmhwtila
-Live Secret Key: WXBlbJlc310XqkE59JxCeeWl
+Live Key ID:     rzp_live_xxxxxxxxxxxxxxxx
+Live Secret Key: (hidden)
 ```
 
 Also stored in: `/Users/shubhamkumar/Desktop/RAZOR/.env` (Protected)
