@@ -2905,16 +2905,16 @@
 
       try {
         // 1. Create order on the server
-        const createRes = await fetch('/api/create-order', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            amount: _pendingOrderData.total,
-            currency: 'INR',
-            receipt: 'rx_' + Date.now()
-          })
-        });
-        const serverOrder = await parseJsonResponse(createRes);
+	        const createRes = await fetch('/api/create-order', {
+	          method: 'POST',
+	          headers: { 'Content-Type': 'application/json' },
+	          body: JSON.stringify({
+	            variantKey: currentVariant,
+	            qty,
+	            couponCode: couponApplied ? (document.getElementById('couponInput').value.trim().toUpperCase()) : null
+	          })
+	        });
+	        const serverOrder = await parseJsonResponse(createRes);
 
         if (!serverOrder.success) {
             throw new Error(serverOrder.error || 'Failed to create payment order');
@@ -2933,22 +2933,28 @@
             btn.textContent = '⌛ Verifying...';
             
             // 3. Verify payment signature on the server
-            const verifyRes = await fetch('/api/verify-payment', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    razorpay_order_id: response.razorpay_order_id,
-                    razorpay_payment_id: response.razorpay_payment_id,
-                    razorpay_signature: response.razorpay_signature
-                })
-            });
-            const verifyResult = await parseJsonResponse(verifyRes);
+	            const verifyRes = await fetch('/api/verify-payment', {
+	                method: 'POST',
+	                headers: { 'Content-Type': 'application/json' },
+	                body: JSON.stringify({
+	                    razorpay_order_id: response.razorpay_order_id,
+	                    razorpay_payment_id: response.razorpay_payment_id,
+	                    razorpay_signature: response.razorpay_signature,
+	                    customer: {
+	                      name: _pendingOrderData.name,
+	                      email: _pendingOrderData.email,
+	                      phone: _pendingOrderData.phone,
+	                      address: _pendingOrderData.address
+	                    }
+	                })
+	            });
+	            const verifyResult = await parseJsonResponse(verifyRes);
 
-            if (verifyResult.success) {
-                finalizeUPIOrder(response.razorpay_payment_id);
-            } else {
-                errBox.textContent = '⚠️ Payment verification failed. Please contact support.';
-                errBox.style.display = 'block';
+	            if (verifyResult.success) {
+	                finalizeUPIOrder(response.razorpay_payment_id, verifyResult.orderId);
+	            } else {
+	                errBox.textContent = '⚠️ Payment verification failed. Please contact support.';
+	                errBox.style.display = 'block';
                 btn.textContent = '👉 PROCEED TO PAY';
                 btn.disabled = false;
             }
@@ -2989,10 +2995,11 @@
       }
     }
 
-    async function finalizeUPIOrder(razorpayPaymentId) {
-      const orderId = genOrderId();
-      currentOrderId = orderId;
-      const data = _pendingOrderData;
+	    async function finalizeUPIOrder(razorpayPaymentId, verifiedOrderId) {
+	      // Use the backend-created order id (canonical), fallback to local if missing.
+	      const orderId = verifiedOrderId || genOrderId();
+	      currentOrderId = orderId;
+	      const data = _pendingOrderData;
 
       const orderData = {
         id: orderId,

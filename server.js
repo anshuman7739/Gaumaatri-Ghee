@@ -4,18 +4,28 @@
 //  Serves static index.html + Razorpay API endpoints
 // ============================================================
 
-'use strict';
-require('dotenv').config();
+	'use strict';
+	require('dotenv').config();
 
-const express  = require('express');
-const crypto   = require('crypto');
-const path     = require('path');
-const Razorpay = require('razorpay');
+	const express  = require('express');
+	const cors     = require('cors');
+	const crypto   = require('crypto');
+	const path     = require('path');
+	const Razorpay = require('razorpay');
+	const ordersDb = require('./orders-db');
 
-const app = express();
-app.disable('x-powered-by');
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+	const app = express();
+	app.disable('x-powered-by');
+
+	// If CORS_ORIGIN is set, restrict origins to that comma-separated list.
+	// Otherwise allow all origins (useful for local development).
+	const { CORS_ORIGIN } = process.env;
+	app.use(cors({
+	  origin: CORS_ORIGIN ? CORS_ORIGIN.split(',').map(s => s.trim()).filter(Boolean) : true,
+	  credentials: false,
+	}));
+	app.use(express.json());
+	app.use(express.urlencoded({ extended: true }));
 
 // ── Validate env vars on startup ────────────────────────────
 const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, PORT = 3000 } = process.env;
@@ -27,10 +37,50 @@ if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
 }
 
 // ── Razorpay instance ────────────────────────────────────────
-const razorpay = new Razorpay({
-  key_id:     RAZORPAY_KEY_ID,
-  key_secret: RAZORPAY_KEY_SECRET,
-});
+	const razorpay = new Razorpay({
+	  key_id:     RAZORPAY_KEY_ID,
+	  key_secret: RAZORPAY_KEY_SECRET,
+	});
+
+	// ── Server-side pricing (never trust client totals) ─────────
+	// Keep these in sync with the frontend options in index.html.
+	const PRICES_INR = { '200ml': 356, '500ml': 789, '1L': 1599 };
+	const COUPONS = { GAUMAATRI10: 10, GHEE10: 10, WELCOME10: 10 };
+
+	// razorpay_order_id -> pending checkout context (kept until verification).
+	const pendingPayments = new Map();
+
+	function genOrderId() {
+	  const d = new Date();
+	  const dateStr =
+	    d.getFullYear() +
+	    String(d.getMonth() + 1).padStart(2, '0') +
+	    String(d.getDate()).padStart(2, '0');
+	  const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+	  return `GM-${dateStr}-${rand}`;
+	}
+
+	function computeTotalInr({ variantKey, qty, couponCode }) {
+	  if (!PRICES_INR[variantKey]) {
+	    const err = new Error('Invalid variant');
+	    err.statusCode = 400;
+	    throw err;
+	  }
+	  const qtyNum = Number(qty);
+	  if (!Number.isInteger(qtyNum) || qtyNum < 1 || qtyNum > 20) {
+	    const err = new Error('Invalid quantity');
+	    err.statusCode = 400;
+	    throw err;
+	  }
+
+	  const base = PRICES_INR[variantKey] * qtyNum;
+	  const code = String(couponCode || '').trim().toUpperCase();
+	  const pct = code && COUPONS[code] ? COUPONS[code] : 0;
+	  const discount = pct ? Math.round(base * pct / 100) : 0;
+	  const total = base - discount;
+
+	  return { base, discount, total, qty: qtyNum, couponCode: code || null, couponPct: pct };
+	}
 
 // ⚠️ IMPORTANT: Define API routes BEFORE static files middleware
 // This ensures /api/* requests are handled as JSON, not served as static files
@@ -38,57 +88,60 @@ const razorpay = new Razorpay({
 // ============================================================
 //  POST /api/create-order
 //  Creates a Razorpay order on the server side.
-//  Body: { amount (₹ in rupees), currency?, receipt? }
-//  Returns: { order_id, amount, currency, key_id }
+//  Body: { variantKey, qty, couponCode? }
+//  Returns: { id, amount, currency }
+//  ⚠️ Does NOT create a DB order here.
 // ============================================================
-app.post('/api/create-order', async (req, res) => {
+async function createOrderHandler(req, res) {
   try {
-    const { amount, currency = 'INR', receipt } = req.body;
+    const { variantKey, qty, couponCode } = req.body;
+    const pricing = computeTotalInr({ variantKey, qty, couponCode });
 
-    // ── Validate amount ──────────────────────────────────
-    const amountNum = Number(amount);
-    if (!amount || isNaN(amountNum) || amountNum <= 0) {
-      return res.status(400).json({ success: false, error: 'Invalid amount' });
-    }
-
-    // Convert ₹ rupees → paise (Razorpay uses smallest currency unit)
-    const amountPaise = Math.round(amountNum * 100);
-    if (amountPaise < 100) {
-      return res.status(400).json({
-        success: false,
-        error: 'Minimum order amount is ₹1 (100 paise)'
-      });
-    }
-
-    // ── Create order via Razorpay API ────────────────────
+    const amountPaise = Math.round(pricing.total * 100);
     const orderOptions = {
-      amount:   amountPaise,
-      currency,
-      receipt:  receipt || `rcpt_${Date.now()}`,
-      payment_capture: 1,         // auto-capture payment
+      amount: amountPaise,
+      currency: 'INR',
+      receipt: `rcpt_${Date.now()}`,
+      payment_capture: 1,
     };
 
     const order = await razorpay.orders.create(orderOptions);
 
-    console.log(`✅ Razorpay order created: ${order.id}  ₹${amountNum}`);
+    pendingPayments.set(order.id, {
+      createdAt: Date.now(),
+      variantKey,
+      qty: pricing.qty,
+      base: pricing.base,
+      discount: pricing.discount,
+      total: pricing.total,
+      couponCode: pricing.couponCode,
+      couponPct: pricing.couponPct,
+    });
+
+    console.log(`✅ Razorpay order created: ${order.id}  ₹${pricing.total}`);
 
     return res.status(200).json({
-      success:   true,
-      order_id:  order.id,
-      amount:    order.amount,    // in paise
-      currency:  order.currency,
-      key_id:    RAZORPAY_KEY_ID, // safe to send to frontend
+      success: true,
+      id: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      key: RAZORPAY_KEY_ID,
+      // Backward compat for existing frontend code
+      order_id: order.id,
+      key_id: RAZORPAY_KEY_ID,
     });
 
   } catch (err) {
     console.error('❌ create-order error:', err);
-
-    if (err.statusCode === 401) {
-      return res.status(401).json({ success: false, error: 'Razorpay auth failed. Check your KEY_ID and KEY_SECRET.' });
-    }
-    return res.status(500).json({ success: false, error: err.error?.description || err.message || 'Order creation failed' });
+    return res.status(err.statusCode || 500).json({
+      success: false,
+      error: err.statusCode ? err.message : (err.error?.description || err.message || 'Order creation failed'),
+    });
   }
-});
+}
+
+app.post('/api/create-order', createOrderHandler);
+app.post('/create-order', createOrderHandler);
 
 // ============================================================
 //  POST /api/verify-payment
@@ -96,9 +149,9 @@ app.post('/api/create-order', async (req, res) => {
 //  Body: { razorpay_order_id, razorpay_payment_id, razorpay_signature }
 //  Returns: { success: true/false }
 // ============================================================
-app.post('/api/verify-payment', (req, res) => {
+function verifyPaymentHandler(req, res) {
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, customer } = req.body;
 
     // ── Validate required fields ─────────────────────────
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
@@ -124,55 +177,107 @@ app.post('/api/verify-payment', (req, res) => {
       receivedBuf.length === expectedBuf.length &&
       crypto.timingSafeEqual(receivedBuf, expectedBuf);
 
-    if (!isValid) {
-      console.warn(`⚠️  Signature mismatch for order ${razorpay_order_id}`);
-      return res.status(400).json({ success: false, error: 'Payment signature verification failed' });
+    if (!pendingPayments.has(razorpay_order_id)) {
+      return res.status(400).json({ success: false, error: 'Unknown or expired order. Please refresh and try again.' });
     }
 
-    console.log(`✅ Payment verified: ${razorpay_payment_id}  order: ${razorpay_order_id}`);
-    return res.status(200).json({
-      success:    true,
-      payment_id: razorpay_payment_id,
-      order_id:   razorpay_order_id,
-      message:    'Payment verified successfully'
+    if (!isValid) {
+      console.warn(`⚠️  Signature mismatch for order ${razorpay_order_id}`);
+      return res.status(400).json({ success: false });
+    }
+
+    const pending = pendingPayments.get(razorpay_order_id);
+
+    // ✅ Verified: only now create an internal order record ("DB")
+    const internalOrderId = genOrderId();
+    ordersDb.insert({
+      id: internalOrderId,
+      createdAt: new Date().toISOString(),
+      payment: {
+        provider: 'razorpay',
+        razorpay_order_id,
+        razorpay_payment_id,
+        razorpay_signature,
+        amount_paise: Math.round(pending.total * 100),
+        currency: 'INR',
+      },
+      items: [{ variantKey: pending.variantKey, qty: pending.qty }],
+      pricing: {
+        base_inr: pending.base,
+        discount_inr: pending.discount,
+        total_inr: pending.total,
+        couponCode: pending.couponCode,
+        couponPct: pending.couponPct,
+      },
+      customer: {
+        name: customer?.name || null,
+        email: customer?.email || null,
+        phone: customer?.phone || null,
+        address: customer?.address || null,
+      },
     });
+
+    pendingPayments.delete(razorpay_order_id);
+
+    console.log(`✅ Payment verified + order saved: ${razorpay_payment_id} -> ${internalOrderId}`);
+    return res.status(200).json({ success: true, orderId: internalOrderId });
 
   } catch (err) {
     console.error('❌ verify-payment error:', err);
     return res.status(500).json({ success: false, error: 'Verification error' });
   }
-});
+}
+
+app.post('/api/verify-payment', verifyPaymentHandler);
+app.post('/verify-payment', verifyPaymentHandler);
 
 // ──────────────────────────────────────────────────────────
 //  COD Order Endpoint (Cash on Delivery)
 // ──────────────────────────────────────────────────────────
 app.post('/api/cod-order', (req, res) => {
   try {
-    const { orderId, amount, customerName, customerEmail, customerPhone, address, items } = req.body;
+    const { orderId, variantKey, qty, couponCode, customer } = req.body;
 
-    if (!orderId || !amount || !customerName || !customerEmail || !customerPhone) {
-      return res.status(400).json({ success: false, error: 'Missing required fields' });
+    if (!orderId) {
+      return res.status(400).json({ success: false, error: 'Missing orderId' });
     }
 
-    const amountNum = Number(amount);
-    if (amountNum <= 0) {
-      return res.status(400).json({ success: false, error: 'Invalid amount' });
-    }
+    const pricing = computeTotalInr({ variantKey, qty, couponCode });
 
-    console.log(`✅ COD Order Created: ${orderId} | Amount: ₹${amountNum} | Customer: ${customerName}`);
+    ordersDb.insert({
+      id: orderId,
+      createdAt: new Date().toISOString(),
+      payment: { provider: 'cod' },
+      items: [{ variantKey, qty: pricing.qty }],
+      pricing: {
+        base_inr: pricing.base,
+        discount_inr: pricing.discount,
+        total_inr: pricing.total,
+        couponCode: pricing.couponCode,
+        couponPct: pricing.couponPct,
+      },
+      customer: {
+        name: customer?.name || null,
+        email: customer?.email || null,
+        phone: customer?.phone || null,
+        address: customer?.address || null,
+      },
+    });
+
+    console.log(`✅ COD order saved: ${orderId}  ₹${pricing.total}`);
 
     return res.status(200).json({
       success: true,
       order_id: orderId,
-      amount: amountNum,
+      amount: pricing.total,
       payment_method: 'COD',
-      status: 'pending',
+      status: 'confirmed',
       message: 'Order confirmed. Payment will be collected on delivery.'
     });
 
   } catch (err) {
     console.error('❌ COD order error:', err);
-    return res.status(500).json({ success: false, error: 'Order creation failed' });
+    return res.status(err.statusCode || 500).json({ success: false, error: err.message || 'Order creation failed' });
   }
 });
 

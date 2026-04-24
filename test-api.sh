@@ -26,12 +26,9 @@ echo "POST $BASE_URL/api/create-order"
 ORDER_RESPONSE=$(curl -s -X POST "$BASE_URL/api/create-order" \
   -H "Content-Type: application/json" \
   -d '{
-    "amount": 100,
-    "currency": "INR",
-    "receipt": "test_'$(date +%s)'",
-    "customer_name": "Test User",
-    "customer_email": "test@example.com",
-    "customer_phone": "9876543210"
+    "variantKey": "500ml",
+    "qty": 1,
+    "couponCode": null
   }')
 
 echo "$ORDER_RESPONSE" | jq '.'
@@ -41,19 +38,19 @@ ORDER_ID=$(echo "$ORDER_RESPONSE" | jq -r '.order_id // empty')
 echo ""
 
 # Test 3: Create Order (Invalid Amount)
-echo "${BLUE}[TEST 3]${NC} Create Order (Invalid - Zero Amount)"
+echo "${BLUE}[TEST 3]${NC} Create Order (Invalid - Bad Variant)"
 echo "POST $BASE_URL/api/create-order"
 curl -s -X POST "$BASE_URL/api/create-order" \
   -H "Content-Type: application/json" \
-  -d '{"amount": 0}' | jq '.'
+  -d '{"variantKey":"BAD","qty":1}' | jq '.'
 echo ""
 
 # Test 4: Create Order (Too Small)
-echo "${BLUE}[TEST 4]${NC} Create Order (Invalid - Amount < ₹1)"
+echo "${BLUE}[TEST 4]${NC} Create Order (Invalid - Bad Qty)"
 echo "POST $BASE_URL/api/create-order"
 curl -s -X POST "$BASE_URL/api/create-order" \
   -H "Content-Type: application/json" \
-  -d '{"amount": 0.5}' | jq '.'
+  -d '{"variantKey":"500ml","qty":0}' | jq '.'
 echo ""
 
 # Test 5: Verify Payment (Invalid Signature)
