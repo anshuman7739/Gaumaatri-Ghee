@@ -31,8 +31,8 @@ const razorpay = new Razorpay({
   key_secret: RAZORPAY_KEY_SECRET,
 });
 
-// ── Serve static files (index.html, images, etc.) ───────────
-app.use(express.static(path.join(__dirname)));
+// ⚠️ IMPORTANT: Define API routes BEFORE static files middleware
+// This ensures /api/* requests are handled as JSON, not served as static files
 
 // ============================================================
 //  POST /api/create-order
@@ -223,6 +223,9 @@ app.use((err, req, res, next) => {
     error: 'Server error'
   });
 });
+
+// ── Serve static files AFTER API routes (index.html, images, etc.) ───────────
+app.use(express.static(path.join(__dirname)));
 
 // ──────────────────────────────────────────────────────────
 //  Catch-all: Serve index.html
