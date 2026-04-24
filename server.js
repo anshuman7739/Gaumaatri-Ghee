@@ -143,6 +143,65 @@ app.post('/api/verify-payment', (req, res) => {
 });
 
 // ──────────────────────────────────────────────────────────
+//  COD Order Endpoint (Cash on Delivery)
+// ──────────────────────────────────────────────────────────
+app.post('/api/cod-order', (req, res) => {
+  try {
+    const { orderId, amount, customerName, customerEmail, customerPhone, address, items } = req.body;
+
+    if (!orderId || !amount || !customerName || !customerEmail || !customerPhone) {
+      return res.status(400).json({ success: false, error: 'Missing required fields' });
+    }
+
+    const amountNum = Number(amount);
+    if (amountNum <= 0) {
+      return res.status(400).json({ success: false, error: 'Invalid amount' });
+    }
+
+    console.log(`✅ COD Order Created: ${orderId} | Amount: ₹${amountNum} | Customer: ${customerName}`);
+
+    return res.status(200).json({
+      success: true,
+      order_id: orderId,
+      amount: amountNum,
+      payment_method: 'COD',
+      status: 'pending',
+      message: 'Order confirmed. Payment will be collected on delivery.'
+    });
+
+  } catch (err) {
+    console.error('❌ COD order error:', err);
+    return res.status(500).json({ success: false, error: 'Order creation failed' });
+  }
+});
+
+// ──────────────────────────────────────────────────────────
+//  Get Order Status (Order Tracking)
+// ──────────────────────────────────────────────────────────
+app.get('/api/order-status/:orderId', (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    // In production, fetch from database
+    // For now, return mock status based on orderId
+    const statuses = ['pending', 'confirmed', 'shipped', 'delivered'];
+    const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
+
+    return res.json({
+      success: true,
+      order_id: orderId,
+      status: randomStatus,
+      estimated_delivery: 'Today',
+      tracking_url: 'https://your-tracking-system.com/' + orderId
+    });
+
+  } catch (err) {
+    console.error('❌ Order status error:', err);
+    return res.status(500).json({ success: false, error: 'Failed to get order status' });
+  }
+});
+
+// ──────────────────────────────────────────────────────────
 //  Health Check Endpoint
 // ──────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
