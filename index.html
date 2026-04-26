@@ -1853,7 +1853,7 @@ async function startPayment(amount, customerData) {
   try {
     console.log("Starting payment...");
 
-    const response = await  fetch('/api/verify-payment', {
+    const response = await  fetch("https://gaumaatri-ghee.vercel.app/api/create-order" , {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -2949,7 +2949,7 @@ async function startPayment(amount, customerData) {
 
       try {
         // 1. Create order on the server
-	        const createRes = await fetch('/api/create-order', {
+	        const createRes = await fetch("https://gaumaatri-ghee.vercel.app/api/create-order", {
 	          method: 'POST',
 	          headers: { 'Content-Type': 'application/json' },
 	          body: JSON.stringify({
@@ -2977,7 +2977,7 @@ async function startPayment(amount, customerData) {
             btn.textContent = '⌛ Verifying...';
             
             // 3. Verify payment signature on the server
-	            const verifyRes = await fetch('/api/verify-payment', {
+	            const verifyRes = await fetch("https://gaumaatri-ghee.vercel.app/api/create-order" , {
 	                method: 'POST',
 	                headers: { 'Content-Type': 'application/json' },
 	                body: JSON.stringify({
@@ -3316,7 +3316,7 @@ async function startPayment(amount, customerData) {
   try {
     console.log("🚀 Starting payment...");
 
-    const response = await  fetch('/api/verify-payment', {
+    const response = await  fetch("https://gaumaatri-ghee.vercel.app/api/create-order" , {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
