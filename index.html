@@ -21,6 +21,10 @@
     rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <script>
+    // Initialize EmailJS
+    emailjs.init("user_XXXXXXXXXXXXXX");
+  </script>
   <style>
     :root {
       --gold: #C9922A;
@@ -1844,7 +1848,45 @@
     }
   </style>
 </head>
+<script>
+async function startPayment(amount, customerData) {
+  try {
+    console.log("Starting payment...");
 
+    const response = await fetch("https://gaumaatri-ghee.vercel.app/api/create-order", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ amount: amount }),
+    });
+
+    const data = await response.json();
+
+    const options = {
+      key: "rzp_live_Sho4UtyJcaqCgh", // replace this
+      amount: data.amount,
+      currency: "INR",
+      name: "Gaumaatri",
+      description: "Order Payment",
+      order_id: data.id,
+
+      handler: function (response) {
+        alert("Payment Successful ✅");
+      }
+    };
+
+    const rzp = new Razorpay(options);
+    rzp.open();
+
+  } catch (error) {
+    console.error(error);
+    alert("Payment failed!");
+  }
+}
+</script>
+
+</body>
 <body>
   <!-- LOADER -->
   <div id="loader">
@@ -2460,7 +2502,9 @@
           ⚠️ <strong>Cash on Delivery:</strong> Please keep the exact amount ready at delivery. Order will be placed only after you confirm below.
         </div>
         <div id="codReviewError" style="display:none;background:#fff3f3;border:1px solid #f44336;color:#c62828;padding:10px 14px;border-radius:8px;font-size:0.85rem;margin-bottom:12px;"></div>
-        <button class="cod-confirm-btn" id="codConfirmBtn" onclick="placeCodOrder()">✅ Confirm &amp; Place Order</button>
+        <button type="button" class="cod-confirm-btn" id="codConfirmBtn" onclick="startPayment(500, {})">
+  ✅ Confirm & Place Order
+</button>
         <button class="cod-back-btn" onclick="goBackToForm()">← Edit Details</button>
       </div>
 
@@ -3263,6 +3307,51 @@
     });
 
   </script>
+  <!-- your website content -->
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+<script>
+async function startPayment(amount, customerData) {
+  try {
+    console.log("🚀 Starting payment...");
+
+    const response = await fetch("https://gaumaatri-ghee.vercel.app/api/create-order", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ amount: amount })
+    });
+
+    if (!response.ok) throw new Error("Order creation failed");
+
+    const data = await response.json();
+
+    const options = {
+      key: "rzp_live_Sho4UtyJcaqCgh",
+      amount: data.amount,
+      currency: "INR",
+      name: "Gaumaatri",
+      description: "Order Payment",
+      order_id: data.id,
+
+      handler: function (response) {
+        alert("Payment Successful ✅");
+      }
+    };
+
+    const rzp = new Razorpay(options);
+    rzp.open();
+
+  } catch (error) {
+    console.error(error);
+    alert("Something went wrong");
+  }
+}
+</script>
+
+</body>
 </body>
 
 </html>
