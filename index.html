@@ -3312,11 +3312,11 @@ async function startPayment(amount, customerData) {
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 
 <script>
-async function startPayment(amount, customerData) {
+async function startPayment(amount) {
   try {
     console.log("🚀 Starting payment...");
 
-    const response = await  fetch("/api/create-order") , {
+    const response = await fetch("/api/create-order", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -3324,7 +3324,9 @@ async function startPayment(amount, customerData) {
       body: JSON.stringify({ amount: amount })
     });
 
-    if (!response.ok) throw new Error("Order creation failed");
+    if (!response.ok) {
+      throw new Error("Order creation failed");
+    }
 
     const data = await response.json();
 
@@ -3335,8 +3337,7 @@ async function startPayment(amount, customerData) {
       name: "Gaumaatri",
       description: "Order Payment",
       order_id: data.id,
-
-      handler: function (response) {
+      handler: function () {
         alert("Payment Successful ✅");
       }
     };
@@ -3346,12 +3347,11 @@ async function startPayment(amount, customerData) {
 
   } catch (error) {
     console.error(error);
-    alert("Something went wrong");
+    alert("Error: " + error.message);
   }
 }
 </script>
 
-</body>
 </body>
 
 </html>
