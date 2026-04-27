@@ -15,3 +15,7 @@ services:
         sync: false
       - key: RAZORPAY_KEY_SECRET
         sync: false
+      - key: SHEETS_API_URL
+        sync: false
+      - key: SHEETS_API_TOKEN
+        sync: false

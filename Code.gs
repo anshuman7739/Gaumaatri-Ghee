@@ -130,6 +130,10 @@ function handleSubmitOrder(data) {
 
   // ── Write to Sheet ────────────────────────────────────────
   const timestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+  const paymentStatus = data.paymentStatus
+    ? String(data.paymentStatus)
+    : (String(data.paymentMethod || '').toUpperCase() === 'UPI' ? 'Paid' : (String(data.paymentMethod || '').toUpperCase() === 'COD' ? 'COD – Pay on Delivery' : 'Pending'));
+  const orderStatus = data.orderStatus ? String(data.orderStatus) : 'Order Received';
   const row = [
     data.orderId,
     timestamp,
@@ -141,8 +145,8 @@ function handleSubmitOrder(data) {
     data.quantity,
     data.total,
     data.paymentMethod,
-    'Pending',          // Payment Status
-    'Order Received',   // Order Status
+    paymentStatus,      // Payment Status
+    orderStatus,        // Order Status
     ''                  // Notes
   ];
   sheet.appendRow(row);
@@ -153,8 +157,8 @@ function handleSubmitOrder(data) {
        .setBorder(true, true, true, true, true, true);
 
   // ── Send Emails ───────────────────────────────────────────
-  try { sendCustomerEmail(data, 'Order Received'); }     catch(e) { Logger.log('Customer email failed: ' + e); }
-  try { sendAdminEmail(data, 'Order Received'); }         catch(e) { Logger.log('Admin email failed: ' + e); }
+  try { sendCustomerEmail(data, orderStatus); }     catch(e) { Logger.log('Customer email failed: ' + e); }
+  try { sendAdminEmail(data, orderStatus); }         catch(e) { Logger.log('Admin email failed: ' + e); }
 
   Logger.log('Order saved: ' + data.orderId);
   return jsonResponse({

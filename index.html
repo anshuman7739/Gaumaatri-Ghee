@@ -6,7 +6,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Buy Pure Desi Cow Ghee Online | Organic Bilona Ghee | Gaumaatri</title>
-  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
   <meta name="description" content="Buy pure desi cow ghee online from Gaumaatri. 100% natural, organic bilona ghee with rich aroma and health benefits. Order now for fast delivery.">
   <meta name="keywords" content="desi ghee, pure cow ghee, bilona ghee, organic ghee india, buy ghee online, gaumaatri ghee">
   <meta name="robots" content="index, follow">
@@ -856,23 +855,18 @@
   ════════════════════════════════════════════ -->
   <script>
     // ── INIT THIRD-PARTY SDKS ────────────────────────────────────
-    // EmailJS — replace with your actual Public Key from emailjs.com
-    emailjs.init("user_XXXXXXXXXXXXXX");
+    // EmailJS Public Key (safe to keep client-side)
+    emailjs.init("IGPLEG5r-rO43M5EG");
 
     // ── CONFIG ────────────────────────────────────────────────────
+    const API_BASE = (document.querySelector('meta[name="api-base"]')?.content || '').replace(/\/$/, '');
     const PRICES   = { '200ml': 356, '500ml': 789, '1L': 1599 };
     const VARIANTS = { '200ml': '200ml Starter Pack', '500ml': '500ml Family Pack', '1L': '1 Litre Bulk Pack' };
     const COUPONS  = { 'GAUMAATRI10': 10, 'GHEE10': 10, 'WELCOME10': 10 };
 
-    // ── GOOGLE SHEETS API CONFIG ──────────────────────────────────
-    // Replace YOUR_SCRIPT_ID_HERE with your deployed Apps Script URL.
-    const SHEETS_API = {
-      URL:   'https://script.google.com/macros/s/AKfycbzu7MvB-cE1oJ517NYxMyIxp7RaLfybK1rfTPutB_YBdgnbKIfL90xqLxdIQLCqaumpVg/exec',
-      TOKEN: 'GAUMAATRI_SECRET_2026'
-    };
-
     // ── RAZORPAY KEY ─────────────────────────────────────────────
-    const RAZORPAY_KEY_ID = 'rzp_live_Sho4UtyJcaqCgh'; // ← Replace with your live key
+    // Not a secret, but prefer using the key returned by your backend.
+    const RAZORPAY_KEY_ID = '';
 
     // ── STATE ────────────────────────────────────────────────────
     let currentVariant   = '500ml';
@@ -987,6 +981,9 @@
       if (disc > 0) {
         document.getElementById('discountRow').style.display  = 'flex';
         document.getElementById('discountAmt').textContent    = '−₹' + disc.toLocaleString();
+      } else {
+        document.getElementById('discountRow').style.display  = 'none';
+        document.getElementById('discountAmt').textContent    = '—';
       }
     }
     function applyCoupon() {
@@ -1052,75 +1049,73 @@
         throw new Error('Server returned invalid JSON.');
       }
     }
-    async function apiPost(payload) {
-      const res = await fetch(SHEETS_API.URL, {
-        method:  'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body:    JSON.stringify({ ...payload, token: SHEETS_API.TOKEN })
-      });
-      return parseJsonResponse(res);
-    }
-    async function apiGet(params) {
-      const qs  = new URLSearchParams({ ...params, token: SHEETS_API.TOKEN }).toString();
-      const res = await fetch(`${SHEETS_API.URL}?${qs}`);
-      return parseJsonResponse(res);
-    }
+    // NOTE: Google Sheets token is never exposed to the browser.
+    // All Sheets reads/writes are proxied via your backend (/api/*).
 
     // ── STEP 1: VALIDATE + SHOW NEXT SCREEN ─────────────────────
+    function buildFullAddress(addr, city, state, pin) {
+      const pinPart = pin ? ` - ${pin}` : '';
+      return `${addr}, ${city}, ${state}${pinPart}`;
+    }
 
-// Razorpay integration for submitOrder
-async function submitOrder() {
-  try {
-    const base  = PRICES[currentVariant] * qty;
-    const disc  = couponApplied ? Math.round(base * discountPct / 100) : 0;
-    const total = base - disc;
-    
-    const res = await fetch("/api/create-order", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        amount: total
-      })
-    });
-    const data = await res.json();
-    const options = {
-      key: "rzp_live_Sho4UtyJcaqCgh",
-      amount: data.amount,
-      currency: "INR",
-      name: "Gaumaatri",
-      description: "Ghar Ka Sudh Desi Danedar Ghee",
-      order_id: data.id,
-      handler: async function (response) {
-        const verifyRes = await fetch("/api/verify-payment", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            razorpay_order_id: response.razorpay_order_id,
-            razorpay_payment_id: response.razorpay_payment_id,
-            razorpay_signature: response.razorpay_signature
-          })
-        });
+    function submitOrder() {
+      const errBox = document.getElementById('orderSubmitError');
+      errBox.style.display = 'none';
+      errBox.textContent = '';
 
-        const result = await verifyRes.json();
-
-        if (result.success) {
-          alert("Payment Verified ✅");
-        } else {
-          alert("Payment Failed ❌");
-        }
+      if (!validateForm()) {
+        showToast('Please fill all required details', 'error');
+        return;
       }
-    };
-    const rzp = new window.Razorpay(options);
-    rzp.open();
-  } catch (err) {
-    console.error(err);
-    alert("Payment failed");
-  }
-}
+
+      const name  = document.getElementById('f-name').value.trim();
+      const phone = document.getElementById('f-phone').value.trim();
+      const email = document.getElementById('f-email').value.trim();
+      const addr  = document.getElementById('f-address').value.trim();
+      const city  = document.getElementById('f-city').value.trim();
+      const state = document.getElementById('f-state').value.trim();
+      const pin   = document.getElementById('f-pincode').value.trim();
+
+      const base  = PRICES[currentVariant] * qty;
+      const disc  = couponApplied ? Math.round(base * discountPct / 100) : 0;
+      const total = base - disc;
+
+      const now = new Date();
+      _pendingOrderData = {
+        name,
+        phone,
+        email,
+        address: buildFullAddress(addr, city, state, pin),
+        variant: VARIANTS[currentVariant],
+        variantKey: currentVariant,
+        qty,
+        total,
+        couponDiscount: disc,
+        date: now.toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' }),
+        timestamp: now.toISOString()
+      };
+
+      if (paymentMethod === 'COD') {
+        showCodReviewScreen(_pendingOrderData);
+        return;
+      }
+
+      if (paymentMethod !== 'UPI') {
+        errBox.textContent = 'Please select a payment method (UPI or COD).';
+        errBox.style.display = 'block';
+        return;
+      }
+
+      document.getElementById('payAmount').textContent = '₹' + total.toLocaleString();
+      document.getElementById('orderFormSection').style.display = 'none';
+      document.getElementById('codReviewScreen').classList.remove('show');
+      document.getElementById('confirmScreen').classList.remove('show');
+      document.getElementById('paymentSection').style.display = 'block';
+
+      const payBtn = document.getElementById('payConfirmBtn');
+      payBtn.disabled = false;
+      payBtn.textContent = '👉 PROCEED TO PAY';
+    }
 
     // ── COD: SHOW REVIEW SCREEN ──────────────────────────────────
     function showCodReviewScreen(data) {
@@ -1165,6 +1160,29 @@ async function submitOrder() {
       currentOrderId = orderId;
       const data     = _pendingOrderData;
 
+      // Create COD order on backend (server computes totals + saves to Sheets)
+      try {
+        const res = await fetch(API_BASE + '/api/cod-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId,
+            variantKey: data.variantKey,
+            qty: data.qty,
+            couponCode: couponApplied ? document.getElementById('couponInput').value.trim().toUpperCase() : null,
+            customer: { name: data.name, email: data.email, phone: data.phone, address: data.address },
+          })
+        });
+        const result = await parseJsonResponse(res);
+        if (!result.success) throw new Error(result.error || 'COD order failed');
+      } catch (err) {
+        errBox.textContent = '⚠️ ' + (err.message || 'COD order failed');
+        errBox.style.display = 'block';
+        btn.textContent = '✅ Confirm & Place Order';
+        btn.disabled = false;
+        return;
+      }
+
       const orderData = {
         id: orderId, name: data.name, phone: data.phone, email: data.email,
         address: data.address, variant: data.variant, qty: data.qty,
@@ -1180,22 +1198,6 @@ async function submitOrder() {
         localStorage.setItem('gaumaatriOrders', JSON.stringify(local));
         _orderCache = orderData;
       } catch (e) { console.warn('localStorage write failed:', e); }
-
-      // Send to Google Sheets
-      if (SHEETS_API.URL && !SHEETS_API.URL.includes('YOUR_SCRIPT_ID_HERE')) {
-        try {
-          const result = await apiPost({
-            action: 'submitOrder', orderId,
-            name: data.name, email: data.email, phone: data.phone,
-            address: data.address, product: data.variant,
-            quantity: data.qty, total: data.total, paymentMethod: 'COD'
-          });
-          if (result.success) console.log('✅ COD order saved to Google Sheets:', orderId);
-          else console.warn('Sheets API error:', result.error);
-        } catch (err) {
-          console.warn('Google Sheets unreachable, using localStorage:', err.message);
-        }
-      }
 
       sendOrderEmails(orderId, 'COD');
       _pendingOrderData = null;
@@ -1226,12 +1228,12 @@ async function submitOrder() {
 
       try {
         // 1. Create order on your server
-        const createRes  = await fetch('/api/create-order', {
+        const createRes  = await fetch(API_BASE + '/api/create-order', {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
           body:    JSON.stringify({
-            variantKey:  currentVariant,
-            qty,
+            variantKey:  _pendingOrderData.variantKey,
+            qty:         _pendingOrderData.qty,
             couponCode:  couponApplied ? document.getElementById('couponInput').value.trim().toUpperCase() : null
           })
         });
@@ -1240,7 +1242,7 @@ async function submitOrder() {
 
         // 2. Open Razorpay modal
         const options = {
-          key:         serverOrder.key_id || RAZORPAY_KEY_ID,
+          key:         serverOrder.key_id || serverOrder.key || RAZORPAY_KEY_ID,
           amount:      serverOrder.amount,
           currency:    serverOrder.currency || 'INR',
           name:        'Gaumaatri',
@@ -1251,7 +1253,7 @@ async function submitOrder() {
             btn.textContent = '⌛ Verifying...';
             try {
               // 3. Verify signature on server
-              const verifyRes = await fetch('/api/verify-payment', {
+              const verifyRes = await fetch(API_BASE + '/api/verify-payment', {
                 method:  'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body:    JSON.stringify({
@@ -1262,13 +1264,16 @@ async function submitOrder() {
                     name:    _pendingOrderData.name,
                     email:   _pendingOrderData.email,
                     phone:   _pendingOrderData.phone,
-                    address: _pendingOrderData.address
+                    address: _pendingOrderData.address,
+                    product: _pendingOrderData.variant,
+                    quantity: _pendingOrderData.qty
                   }
                 })
               });
               const verifyResult = await parseJsonResponse(verifyRes);
               if (verifyResult.success) {
-                finalizeUPIOrder(response.razorpay_payment_id, verifyResult.orderId);
+                const oid = verifyResult.orderId || verifyResult.order_id;
+                finalizeUPIOrder(response.razorpay_payment_id, oid);
               } else {
                 throw new Error('Payment verification failed. Please contact support.');
               }
@@ -1331,20 +1336,6 @@ async function submitOrder() {
         _orderCache = orderData;
       } catch (e) { console.warn('localStorage write failed:', e); }
 
-      if (SHEETS_API.URL && !SHEETS_API.URL.includes('YOUR_SCRIPT_ID_HERE')) {
-        try {
-          const result = await apiPost({
-            action: 'submitOrder', orderId,
-            name: data.name, email: data.email, phone: data.phone,
-            address: data.address, product: data.variant,
-            quantity: data.qty, total: data.total, paymentMethod: 'UPI'
-          });
-          if (result.success) {
-            await apiPost({ action: 'updatePayment', orderId });
-          }
-        } catch (err) { console.warn('Google Sheets unreachable:', err.message); }
-      }
-
       sendOrderEmails(orderId, 'UPI');
       _pendingOrderData = null;
       showSuccessScreen(orderId, orderData, 'UPI');
@@ -1354,16 +1345,16 @@ async function submitOrder() {
     // ── SUCCESS SCREEN ───────────────────────────────────────────
     function showSuccessScreen(orderId, order, type) {
       document.getElementById('confirmedOrderId').textContent = orderId;
-      document.getElementById('confirmTitle').textContent     = type === 'UPI' ? '✅ Payment Submitted!' : '🎉 Order Placed!';
+      document.getElementById('confirmTitle').textContent     = type === 'UPI' ? '✅ Payment Successful!' : '🎉 Order Placed!';
       document.getElementById('confirmSubtitle').textContent  = type === 'UPI'
-        ? 'Payment submitted successfully. We will verify and update your order soon.'
+        ? 'Payment verified successfully. Your order has been confirmed.'
         : 'Your order has been received. We will contact you before delivery.';
       document.getElementById('confirmDetails').innerHTML = `
         <b>Name:</b> ${order.name}<br>
         <b>Phone:</b> ${order.phone}<br>
         <b>Product:</b> ${order.variant} × ${order.qty}<br>
         <b>Total:</b> ₹${order.total.toLocaleString()}<br>
-        <b>Payment:</b> ${order.paymentMethod === 'UPI' ? 'UPI – Verification Pending' : 'Cash on Delivery'}<br>
+        <b>Payment:</b> ${order.paymentMethod === 'UPI' ? 'Paid (UPI)' : 'Cash on Delivery'}<br>
         <b>Address:</b> ${order.address}<br>
         <b>Date:</b> ${order.date}
       `;
@@ -1403,8 +1394,8 @@ async function submitOrder() {
         payment_method:   order.paymentMethod,
         shipping_address: order.address,
         order_date:       order.date,
-        status:           type === 'UPI' ? 'Verification Pending' : 'Confirmed (COD)',
-        email_subject:    type === 'UPI' ? 'Order Received – Payment Under Verification' : 'Order Confirmed – Gaumaatri Ghee'
+        status:           type === 'UPI' ? 'Paid & Confirmed' : 'Confirmed (COD)',
+        email_subject:    type === 'UPI' ? 'Payment Successful – Order Confirmed (Gaumaatri)' : 'Order Confirmed – Gaumaatri Ghee'
       };
 
       const adminParams = {
@@ -1419,9 +1410,9 @@ async function submitOrder() {
         payment_method:   order.paymentMethod,
         shipping_address: order.address,
         order_date:       order.date,
-        status:           type === 'UPI' ? 'Verification Pending' : 'New COD Order',
-        proof_uploaded:   type === 'UPI' ? 'Yes – Check Admin Panel' : 'N/A',
-        email_subject:    type === 'UPI' ? '🚨 New Order + Payment Submitted – ' + order.id : '🛒 New COD Order – ' + order.id
+        status:           type === 'UPI' ? 'Paid & Confirmed' : 'New COD Order',
+        proof_uploaded:   type === 'UPI' ? 'Paid (Verified)' : 'N/A',
+        email_subject:    type === 'UPI' ? '✅ New Paid Order – ' + order.id : '🛒 New COD Order – ' + order.id
       };
 
       emailjs.send(EMAILJS_CONFIG.SERVICE_ID, EMAILJS_CONFIG.CUSTOMER_TEMPLATE, customerParams, EMAILJS_CONFIG.PUBLIC_KEY)
@@ -1455,7 +1446,8 @@ async function submitOrder() {
       trackBtn.disabled  = true;
 
       try {
-        const data = await apiGet({ action: 'trackOrder', orderId: oid });
+        const res  = await fetch(API_BASE + '/api/track-order?orderId=' + encodeURIComponent(oid));
+        const data = await parseJsonResponse(res);
         trackBtn.innerHTML = 'Track Order &rarr;';
         trackBtn.disabled  = false;
 
@@ -1469,7 +1461,8 @@ async function submitOrder() {
         if (trackingInterval) clearInterval(trackingInterval);
         trackingInterval = setInterval(async () => {
           try {
-            const refreshData = await apiGet({ action: 'trackOrder', orderId: oid });
+            const refreshRes  = await fetch(API_BASE + '/api/track-order?orderId=' + encodeURIComponent(oid));
+            const refreshData = await parseJsonResponse(refreshRes);
             if (refreshData.success) renderTrackingInfo(refreshData);
           } catch { console.warn('Auto-refresh failed'); }
         }, 30000);

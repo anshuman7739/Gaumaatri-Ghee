@@ -13,6 +13,7 @@
 	const path     = require('path');
 	const Razorpay = require('razorpay');
 	const ordersDb = require('./orders-db');
+	const { setTimeout: sleep } = require('timers/promises');
 
 	const app = express();
 	app.disable('x-powered-by');
@@ -28,12 +29,89 @@
 	app.use(express.urlencoded({ extended: true }));
 
 // ── Validate env vars on startup ────────────────────────────
-const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, PORT = 3000 } = process.env;
+const {
+  RAZORPAY_KEY_ID,
+  RAZORPAY_KEY_SECRET,
+  PORT = 3000,
+  SHEETS_API_URL,
+  SHEETS_API_TOKEN,
+} = process.env;
 
 if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
   console.error('\n❌  Missing Razorpay credentials in .env file.');
   console.error('    Ensure RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are set.\n');
   process.exit(1);
+}
+
+const DEFAULT_SHEETS_API_URL =
+  'https://script.google.com/macros/s/AKfycbzu7MvB-cE1oJ517NYxMyIxp7RaLfybK1rfTPutB_YBdgnbKIfL90xqLxdIQLCqaumpVg/exec';
+const DEFAULT_SHEETS_API_TOKEN = 'GAUMAATRI_SECRET_2026';
+
+const sheetsConfig = {
+  url: SHEETS_API_URL || DEFAULT_SHEETS_API_URL,
+  token: SHEETS_API_TOKEN || DEFAULT_SHEETS_API_TOKEN,
+};
+
+function sheetsEnabled() {
+  return Boolean(sheetsConfig.url && sheetsConfig.token);
+}
+
+async function parseJsonResponse(response) {
+  const text = await response.text();
+  const trimmed = text.trim();
+  if (trimmed.startsWith('<')) throw new Error('Sheets returned HTML (check deployment / permissions).');
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    throw new Error('Sheets returned invalid JSON.');
+  }
+}
+
+async function sheetsPost(payload, { attempts = 3 } = {}) {
+  if (!sheetsEnabled()) throw new Error('Sheets API not configured.');
+
+  let lastErr = null;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fetch(sheetsConfig.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ ...payload, token: sheetsConfig.token }),
+      });
+      const json = await parseJsonResponse(res);
+      if (!res.ok || !json?.success) {
+        throw new Error(json?.error || `Sheets error (HTTP ${res.status})`);
+      }
+      return json;
+    } catch (err) {
+      lastErr = err;
+      if (i < attempts - 1) await sleep(250 * Math.pow(2, i));
+    }
+  }
+  throw lastErr || new Error('Sheets request failed.');
+}
+
+async function sheetsGet(params, { attempts = 3 } = {}) {
+  if (!sheetsEnabled()) throw new Error('Sheets API not configured.');
+
+  const qs = new URLSearchParams({ ...params, token: sheetsConfig.token }).toString();
+  const url = `${sheetsConfig.url}?${qs}`;
+
+  let lastErr = null;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fetch(url, { method: 'GET' });
+      const json = await parseJsonResponse(res);
+      if (!res.ok || !json?.success) {
+        throw new Error(json?.error || `Sheets error (HTTP ${res.status})`);
+      }
+      return json;
+    } catch (err) {
+      lastErr = err;
+      if (i < attempts - 1) await sleep(250 * Math.pow(2, i));
+    }
+  }
+  throw lastErr || new Error('Sheets request failed.');
 }
 
 // ── Razorpay instance ────────────────────────────────────────
@@ -45,6 +123,7 @@ if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
 	// ── Server-side pricing (never trust client totals) ─────────
 	// Keep these in sync with the frontend options in index.html.
 	const PRICES_INR = { '200ml': 356, '500ml': 789, '1L': 1599 };
+	const VARIANT_LABELS = { '200ml': '200ml Starter Pack', '500ml': '500ml Family Pack', '1L': '1 Litre Bulk Pack' };
 	const COUPONS = { GAUMAATRI10: 10, GHEE10: 10, WELCOME10: 10 };
 
 	// razorpay_order_id -> pending checkout context (kept until verification).
@@ -67,7 +146,7 @@ if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
 	    throw err;
 	  }
 	  const qtyNum = Number(qty);
-	  if (!Number.isInteger(qtyNum) || qtyNum < 1 || qtyNum > 20) {
+	  if (!Number.isInteger(qtyNum) || qtyNum < 1 || qtyNum > 10) {
 	    const err = new Error('Invalid quantity');
 	    err.statusCode = 400;
 	    throw err;
@@ -103,6 +182,11 @@ async function createOrderHandler(req, res) {
       currency: 'INR',
       receipt: `rcpt_${Date.now()}`,
       payment_capture: 1,
+      notes: {
+        variantKey: String(variantKey),
+        qty: String(pricing.qty),
+        couponCode: pricing.couponCode || '',
+      },
     };
 
     const order = await razorpay.orders.create(orderOptions);
@@ -135,7 +219,7 @@ async function createOrderHandler(req, res) {
     console.error('❌ create-order error:', err);
     return res.status(err.statusCode || 500).json({
       success: false,
-      error: err.statusCode ? err.message : (err.error?.description || err.message || 'Order creation failed'),
+      error: err.error?.description || err.message || 'Order creation failed',
     });
   }
 }
@@ -149,7 +233,7 @@ app.post('/create-order', createOrderHandler);
 //  Body: { razorpay_order_id, razorpay_payment_id, razorpay_signature }
 //  Returns: { success: true/false }
 // ============================================================
-function verifyPaymentHandler(req, res) {
+async function verifyPaymentHandler(req, res) {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, customer } = req.body;
 
@@ -158,6 +242,12 @@ function verifyPaymentHandler(req, res) {
       return res.status(400).json({
         success: false,
         error: 'Missing required fields: razorpay_order_id, razorpay_payment_id, razorpay_signature'
+      });
+    }
+    if (!customer?.name || !customer?.email || !customer?.phone || !customer?.address) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing customer details'
       });
     }
 
@@ -177,16 +267,43 @@ function verifyPaymentHandler(req, res) {
       receivedBuf.length === expectedBuf.length &&
       crypto.timingSafeEqual(receivedBuf, expectedBuf);
 
-    if (!pendingPayments.has(razorpay_order_id)) {
-      return res.status(400).json({ success: false, error: 'Unknown or expired order. Please refresh and try again.' });
-    }
-
     if (!isValid) {
       console.warn(`⚠️  Signature mismatch for order ${razorpay_order_id}`);
-      return res.status(400).json({ success: false });
+      return res.status(400).json({ success: false, error: 'Invalid signature' });
     }
 
-    const pending = pendingPayments.get(razorpay_order_id);
+    // Prefer in-memory pending checkout context, but fall back to Razorpay order notes
+    // (handles server restarts / cold starts)
+    let pending = pendingPayments.get(razorpay_order_id);
+    if (!pending) {
+      try {
+        const rpOrder = await razorpay.orders.fetch(razorpay_order_id);
+        const variantKey = rpOrder?.notes?.variantKey;
+        const qty = rpOrder?.notes?.qty;
+        const couponCode = rpOrder?.notes?.couponCode || null;
+        const pricing = computeTotalInr({ variantKey, qty, couponCode });
+        const expectedPaise = Math.round(pricing.total * 100);
+        if (Number(rpOrder?.amount) !== expectedPaise) {
+          return res.status(400).json({ success: false, error: 'Amount mismatch' });
+        }
+        pending = {
+          createdAt: Date.now(),
+          variantKey,
+          qty: pricing.qty,
+          base: pricing.base,
+          discount: pricing.discount,
+          total: pricing.total,
+          couponCode: pricing.couponCode,
+          couponPct: pricing.couponPct,
+        };
+      } catch (err) {
+        return res.status(400).json({
+          success: false,
+          error: 'Unknown or expired order. Please refresh and try again.',
+        });
+      }
+    }
+    const variantLabel = VARIANT_LABELS[pending.variantKey] || pending.variantKey;
 
     // ✅ Verified: only now create an internal order record ("DB")
     const internalOrderId = genOrderId();
@@ -219,8 +336,33 @@ function verifyPaymentHandler(req, res) {
 
     pendingPayments.delete(razorpay_order_id);
 
+    let sheetsSaved = false;
+    let sheetsError = null;
+    if (sheetsEnabled()) {
+      try {
+        await sheetsPost({
+          action: 'submitOrder',
+          orderId: internalOrderId,
+          name: customer?.name || '',
+          email: customer?.email || '',
+          phone: customer?.phone || '',
+          address: customer?.address || '',
+          product: variantLabel,
+          quantity: pending.qty,
+          total: pending.total,
+          paymentMethod: 'UPI',
+          paymentStatus: `Paid - ${razorpay_payment_id}`,
+          orderStatus: 'Order Received',
+        });
+        sheetsSaved = true;
+      } catch (err) {
+        sheetsError = err.message;
+        console.warn('⚠️ Sheets sync failed (payment verified, DB saved):', err.message);
+      }
+    }
+
     console.log(`✅ Payment verified + order saved: ${razorpay_payment_id} -> ${internalOrderId}`);
-    return res.status(200).json({ success: true, orderId: internalOrderId });
+    return res.status(200).json({ success: true, orderId: internalOrderId, sheetsSaved, sheetsError });
 
   } catch (err) {
     console.error('❌ verify-payment error:', err);
@@ -234,15 +376,20 @@ app.post('/verify-payment', verifyPaymentHandler);
 // ──────────────────────────────────────────────────────────
 //  COD Order Endpoint (Cash on Delivery)
 // ──────────────────────────────────────────────────────────
-app.post('/api/cod-order', (req, res) => {
+app.post('/api/cod-order', async (req, res) => {
   try {
     const { orderId, variantKey, qty, couponCode, customer } = req.body;
 
     if (!orderId) {
       return res.status(400).json({ success: false, error: 'Missing orderId' });
     }
+    if (!customer?.name || !customer?.email || !customer?.phone || !customer?.address) {
+      return res.status(400).json({ success: false, error: 'Missing customer details' });
+    }
 
     const pricing = computeTotalInr({ variantKey, qty, couponCode });
+
+    const variantLabel = VARIANT_LABELS[variantKey] || variantKey;
 
     ordersDb.insert({
       id: orderId,
@@ -266,18 +413,66 @@ app.post('/api/cod-order', (req, res) => {
 
     console.log(`✅ COD order saved: ${orderId}  ₹${pricing.total}`);
 
+    let sheetsSaved = false;
+    let sheetsError = null;
+    if (sheetsEnabled()) {
+      try {
+        await sheetsPost({
+          action: 'submitOrder',
+          orderId,
+          name: customer?.name || '',
+          email: customer?.email || '',
+          phone: customer?.phone || '',
+          address: customer?.address || '',
+          product: variantLabel,
+          quantity: pricing.qty,
+          total: pricing.total,
+          paymentMethod: 'COD',
+          paymentStatus: 'COD – Pay on Delivery',
+          orderStatus: 'Order Received',
+        });
+        sheetsSaved = true;
+      } catch (err) {
+        sheetsError = err.message;
+        console.warn('⚠️ Sheets sync failed (COD saved, DB saved):', err.message);
+      }
+    }
+
     return res.status(200).json({
       success: true,
       order_id: orderId,
       amount: pricing.total,
       payment_method: 'COD',
       status: 'confirmed',
-      message: 'Order confirmed. Payment will be collected on delivery.'
+      message: 'Order confirmed. Payment will be collected on delivery.',
+      sheetsSaved,
+      sheetsError
     });
 
   } catch (err) {
     console.error('❌ COD order error:', err);
     return res.status(err.statusCode || 500).json({ success: false, error: err.message || 'Order creation failed' });
+  }
+});
+
+// ──────────────────────────────────────────────────────────
+//  Track Order (Proxy to Google Sheets; hides token from browser)
+// ──────────────────────────────────────────────────────────
+app.get('/api/track-order', async (req, res) => {
+  try {
+    const orderId = String(req.query.orderId || '').trim().toUpperCase();
+    if (!orderId) return res.status(400).json({ success: false, error: 'Missing orderId' });
+
+    if (!sheetsEnabled()) {
+      return res.status(500).json({ success: false, error: 'Sheets API not configured' });
+    }
+
+    const qs = new URLSearchParams({ action: 'trackOrder', orderId, token: sheetsConfig.token }).toString();
+    const sheetRes = await fetch(`${sheetsConfig.url}?${qs}`, { method: 'GET' });
+    const json = await parseJsonResponse(sheetRes);
+    return res.status(sheetRes.status).json(json);
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message || 'Tracking failed' });
   }
 });
 

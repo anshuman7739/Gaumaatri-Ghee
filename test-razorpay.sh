@@ -22,10 +22,10 @@ else
 fi
 
 # Test 2: Create Order (Valid)
-echo "2️⃣  Testing Create Order (₹299)..."
+echo "2️⃣  Testing Create Order (200ml × 1)..."
 ORDER=$(curl -s -X POST "$BASE_URL/api/create-order" \
   -H "Content-Type: application/json" \
-  -d '{"amount": 299, "currency": "INR", "receipt": "test_'$(date +%s)'"}')
+  -d '{"variantKey":"200ml","qty":1,"couponCode":null}')
 
 if echo "$ORDER" | grep -q '"success":true'; then
     ORDER_ID=$(echo "$ORDER" | grep -o '"order_id":"[^"]*"' | cut -d'"' -f4)
@@ -38,11 +38,11 @@ else
     echo "Response: $ORDER\n"
 fi
 
-# Test 3: Create Order (Invalid - too small)
-echo "3️⃣  Testing Create Order (Invalid - ₹0)..."
+# Test 3: Create Order (Invalid - bad variant)
+echo "3️⃣  Testing Create Order (Invalid - bad variant)..."
 INVALID=$(curl -s -X POST "$BASE_URL/api/create-order" \
   -H "Content-Type: application/json" \
-  -d '{"amount": 0, "currency": "INR"}')
+  -d '{"variantKey":"BAD","qty":1}')
 
 if echo "$INVALID" | grep -q '"success":false'; then
     echo -e "${GREEN}✅ Correctly rejected invalid amount${NC}\n"
@@ -74,5 +74,4 @@ echo "📝 Next steps:"
 echo "1. Open http://localhost:3000 in browser"
 echo "2. Navigate to checkout"
 echo "3. Click 'PROCEED TO PAY'"
-echo "4. Use test card: 4111 1111 1111 1111"
-echo "5. Any expiry date & CVV works"
+echo "4. Complete payment in Razorpay checkout"

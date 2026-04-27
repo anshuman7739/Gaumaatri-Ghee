@@ -36,6 +36,8 @@ This project now includes a Node/Express payment backend, so it should be deploy
 4. Add these environment variables in Render:
    - `RAZORPAY_KEY_ID`
    - `RAZORPAY_KEY_SECRET`
+   - `SHEETS_API_URL`
+   - `SHEETS_API_TOKEN`
 5. Deploy the service and point your domain to the Render URL.
 
 The health check endpoint is available at `/api/health`.
