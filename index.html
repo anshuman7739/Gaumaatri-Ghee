@@ -1071,7 +1071,19 @@
 // Razorpay integration for submitOrder
 async function submitOrder() {
   try {
-    const res = await fetch("/api/create-order", { method: "POST" });
+    const base  = PRICES[currentVariant] * qty;
+    const disc  = couponApplied ? Math.round(base * discountPct / 100) : 0;
+    const total = base - disc;
+    
+    const res = await fetch("/api/create-order", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        amount: total
+      })
+    });
     const data = await res.json();
     const options = {
       key: "rzp_live_Sho4UtyJcaqCgh",
