@@ -78,7 +78,7 @@
 
     /* HERO */
     #hero { min-height: 100vh; display: flex; align-items: center; position: relative; overflow: hidden; background: linear-gradient(135deg, #2C1810 0%, #3D2B1F 40%, #5C3A28 100%); }
-    .hero-bg { position: absolute; inset: 0; background-image: url('hero.png'); background-size: cover; background-position: center; opacity: 0.25; }
+    .hero-bg { position: absolute; inset: 0; background-image: url('/hero.png'); background-size: cover; background-position: center; opacity: 0.25; }
     .hero-overlay { position: absolute; inset: 0; background: linear-gradient(135deg, rgba(44,24,16,0.9) 0%, rgba(61,43,31,0.7) 50%, rgba(92,58,40,0.5) 100%); }
     .hero-content { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 100px 24px 60px; display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; }
     .hero-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(201,146,42,0.2); border: 1px solid rgba(201,146,42,0.4); padding: 8px 16px; border-radius: 50px; font-size: 0.8rem; letter-spacing: 3px; color: var(--gold-light); font-weight: 600; margin-bottom: 24px; text-transform: uppercase; }
@@ -348,7 +348,7 @@
   <header id="header">
     <nav>
       <a href="#hero" class="logo">
-        <div class="logo-icon"><img src="logo.png" alt="Gaumaatri Logo" class="logo-img"></div>
+        <div class="logo-icon"><img src="/logo.png" alt="Gaumaatri Logo" class="logo-img"></div>
         <div>
           <div class="logo-text">Gaumaatri</div>
           <div class="logo-sub">Ghar Ka Sudh Desi Danedar Ghee</div>
@@ -402,7 +402,7 @@
           <div class="stat"><div class="stat-num">A2</div><div class="stat-label">Badri Cow Milk</div></div>
         </div>
       </div>
-      <div class="hero-img"><img src="hero.png" alt="Gaumaatri Pure Desi Cow Ghee" loading="eager"></div>
+      <div class="hero-img"><img src="/hero.png" alt="Gaumaatri Pure Desi Cow Ghee" loading="eager"></div>
     </div>
   </section>
 
@@ -422,7 +422,7 @@
   <section id="about">
     <div class="container">
       <div class="about-grid">
-        <div class="about-img fade-in"><img src="products.png" alt="Gaumaatri Ghee Products"></div>
+        <div class="about-img fade-in"><img src="/products.png" alt="Gaumaatri Ghee Products"></div>
         <div class="about-text fade-in">
           <div class="section-label">Our Story</div>
           <p>At Gaumaatri, we believe food is medicine. Founded on the principles of Ayurveda, we bring you ghee made exactly how our ancestors made it — slowly, with care, using the traditional Bilona method from Himalayan Badri cows.</p>
@@ -448,7 +448,7 @@
       </div>
       <div class="products-grid">
         <div class="product-card fade-in">
-          <div class="product-img"><img src="products.png" alt="200ml Ghee"></div>
+          <div class="product-img"><img src="/products.png" alt="200ml Ghee"></div>
           <div class="product-body">
             <div class="product-size">200 ML</div>
             <div class="product-name">Starter Pack</div>
@@ -464,7 +464,7 @@
         </div>
         <div class="product-card featured fade-in">
           <div class="popular-badge">⭐ Most Popular</div>
-          <div class="product-img"><img src="products.png" alt="500ml Ghee"></div>
+          <div class="product-img"><img src="/products.png" alt="500ml Ghee"></div>
           <div class="product-body">
             <div class="product-size">500 ML</div>
             <div class="product-name">Family Pack</div>
@@ -479,7 +479,7 @@
           </div>
         </div>
         <div class="product-card fade-in">
-          <div class="product-img"><img src="products.png" alt="1 Litre Ghee"></div>
+          <div class="product-img"><img src="/products.png" alt="1 Litre Ghee"></div>
           <div class="product-body">
             <div class="product-size">1 LITRE</div>
             <div class="product-name">Bulk Pack</div>
@@ -649,7 +649,7 @@
     <div class="footer-inner">
       <div class="footer-brand">
         <div class="logo">
-          <div class="logo-icon"><img src="logo.png" alt="Gaumaatri Logo" class="logo-img"></div>
+          <div class="logo-icon"><img src="/logo.png" alt="Gaumaatri Logo" class="logo-img"></div>
           <div>
             <div class="logo-text" style="color:var(--white);">Gaumaatri</div>
             <div class="logo-sub" style="color:var(--gold-light);">Ghar Ka Sudh Desi Danedar Ghee</div>
@@ -1076,6 +1076,11 @@ async function submitOrder() {
   }
 
   try {
+    // Show loading state
+    const placeOrderBtn = document.getElementById('placeOrderBtn');
+    placeOrderBtn.disabled = true;
+    placeOrderBtn.textContent = '⏳ Creating Order...';
+
     const base  = PRICES[currentVariant] * qty;
     const disc  = couponApplied ? Math.round(base * discountPct / 100) : 0;
     const total = base - disc;
@@ -1089,7 +1094,15 @@ async function submitOrder() {
         amount: total
       })
     });
+    
+    if (!res.ok) {
+      throw new Error('Failed to create order');
+    }
+    
     const data = await res.json();
+    
+    placeOrderBtn.textContent = '🚀 Opening Payment...';
+
     const options = {
       key: "rzp_live_Sho4UtyJcaqCgh",
       amount: data.amount,
@@ -1097,34 +1110,110 @@ async function submitOrder() {
       name: "Gaumaatri",
       description: "Ghar Ka Sudh Desi Danedar Ghee",
       order_id: data.id,
+      prefill: {
+        name: document.getElementById('f-name').value,
+        email: document.getElementById('f-email').value,
+        contact: document.getElementById('f-phone').value
+      },
       handler: async function (response) {
-        const verifyRes = await fetch("/api/verify-payment", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            razorpay_order_id: response.razorpay_order_id,
-            razorpay_payment_id: response.razorpay_payment_id,
-            razorpay_signature: response.razorpay_signature
-          })
-        });
+        try {
+          placeOrderBtn.textContent = '✓ Verifying Payment...';
+          
+          const verifyRes = await fetch("/api/verify-payment", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature
+            })
+          });
 
-        const result = await verifyRes.json();
+          if (!verifyRes.ok) {
+            throw new Error('Payment verification failed');
+          }
 
-        if (result.success) {
-          alert("Payment Verified ✅");
-        } else {
-          alert("Payment Failed ❌");
+          const result = await verifyRes.json();
+
+          if (result.success) {
+            // Show success screen instead of alert
+            showPaymentSuccess(data.id, total);
+            showToast('Payment successful! Order confirmed ✅', 'success');
+          } else {
+            showPaymentFailure('Payment signature verification failed');
+            showToast('Payment verification failed ❌', 'error');
+          }
+        } catch (err) {
+          console.error('Payment verification error:', err);
+          showPaymentFailure(err.message || 'Payment verification error');
+          showToast('Error verifying payment ❌', 'error');
+        } finally {
+          placeOrderBtn.disabled = false;
+          placeOrderBtn.textContent = '🛒 Place Order';
         }
+      },
+      ondismiss: function() {
+        placeOrderBtn.disabled = false;
+        placeOrderBtn.textContent = '🛒 Place Order';
+        showToast('Payment cancelled', 'error');
       }
     };
+
     const rzp = new window.Razorpay(options);
+    rzp.on('payment.failed', function (response) {
+      placeOrderBtn.disabled = false;
+      placeOrderBtn.textContent = '🛒 Place Order';
+      showPaymentFailure(response.error.description || 'Payment failed');
+      showToast('Payment failed: ' + (response.error.description || 'Unknown error'), 'error');
+    });
+    
     rzp.open();
   } catch (err) {
-    console.error(err);
-    alert("Payment failed");
+    console.error('Order creation error:', err);
+    const placeOrderBtn = document.getElementById('placeOrderBtn');
+    placeOrderBtn.disabled = false;
+    placeOrderBtn.textContent = '🛒 Place Order';
+    
+    const errBox = document.getElementById('orderSubmitError');
+    errBox.textContent = '⚠️ ' + (err.message || 'Failed to create order. Please try again.');
+    errBox.style.display = 'block';
+    showToast('Error: ' + (err.message || 'Failed to create order'), 'error');
   }
+}
+
+// Show payment success screen
+function showPaymentSuccess(orderId, amount) {
+  document.getElementById('confirmTitle').textContent = '✅ Payment Successful!';
+  document.getElementById('confirmSubtitle').textContent = 'Your order has been confirmed and verified.';
+  document.getElementById('confirmedOrderId').textContent = orderId || 'ORDER-' + Date.now();
+  
+  const confirmDetails = document.getElementById('confirmDetails');
+  confirmDetails.innerHTML = `
+    <div style="background:var(--cream);padding:16px;border-radius:12px;margin:16px 0;text-align:center;">
+      <div style="color:var(--brown-light);font-size:0.9rem;">Total Amount Paid</div>
+      <div style="font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:700;color:var(--gold);">₹${amount.toLocaleString()}</div>
+    </div>
+    <div style="background:#f1f8e9;border:1px solid #c5e1a5;padding:12px;border-radius:8px;font-size:0.85rem;color:#558b2f;margin:12px 0;">
+      ✓ Payment verified securely<br>
+      ✓ Order confirmation sent to your email<br>
+      ✓ We'll ship within 24 hours
+    </div>
+  `;
+  document.getElementById('confirmEmailNote').textContent = '📧 Confirmation email sent to ' + (document.getElementById('f-email').value || 'your email');
+  
+  document.getElementById('orderFormSection').style.display = 'none';
+  document.getElementById('paymentSection').style.display = 'none';
+  document.getElementById('codReviewScreen').classList.remove('show');
+  document.getElementById('confirmScreen').classList.add('show');
+}
+
+// Show payment failure
+function showPaymentFailure(error) {
+  const errBox = document.getElementById('paymentError');
+  errBox.textContent = '❌ ' + (error || 'Payment failed. Please try again.');
+  errBox.style.display = 'block';
 }
 
     // ── COD: SHOW REVIEW SCREEN ──────────────────────────────────
@@ -1250,7 +1339,7 @@ async function submitOrder() {
           currency:    serverOrder.currency || 'INR',
           name:        'Gaumaatri',
           description: 'Ghar Ka Sudh Desi Danedar Ghee',
-          image:       'logo.png',
+          image:       '/logo.png',
           order_id:    serverOrder.order_id,
           handler: async function (response) {
             btn.textContent = '⌛ Verifying...';
