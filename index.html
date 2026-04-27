@@ -6,6 +6,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Buy Pure Desi Cow Ghee Online | Organic Bilona Ghee | Gaumaatri</title>
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
   <meta name="description" content="Buy pure desi cow ghee online from Gaumaatri. 100% natural, organic bilona ghee with rich aroma and health benefits. Order now for fast delivery.">
   <meta name="keywords" content="desi ghee, pure cow ghee, bilona ghee, organic ghee india, buy ghee online, gaumaatri ghee">
   <meta name="robots" content="index, follow">
@@ -1066,46 +1067,30 @@
     }
 
     // ── STEP 1: VALIDATE + SHOW NEXT SCREEN ─────────────────────
-    function submitOrder() {
-      if (!validateForm()) return;
 
-      const errBox = document.getElementById('orderSubmitError');
-      errBox.style.display = 'none';
-
-      const name  = document.getElementById('f-name').value.trim();
-      const phone = document.getElementById('f-phone').value.trim();
-      const email = document.getElementById('f-email').value.trim();
-      const addr  = document.getElementById('f-address').value.trim();
-      const city  = document.getElementById('f-city').value.trim();
-      const state = document.getElementById('f-state').value.trim();
-      const pin   = document.getElementById('f-pincode').value.trim();
-
-      const base         = PRICES[currentVariant] * qty;
-      const disc         = couponApplied ? Math.round(base * discountPct / 100) : 0;
-      const total        = base - disc;
-      const fullAddress  = `${addr}, ${city}, ${state} - ${pin}`;
-      const orderDate    = new Date().toLocaleString('en-IN', { dateStyle: 'long', timeStyle: 'short' });
-
-      _pendingOrderData = {
-        name, phone, email,
-        address: fullAddress,
-        variant: VARIANTS[currentVariant],
-        qty, total, paymentMethod,
-        date: orderDate,
-        couponDiscount: disc,
-        timestamp: Date.now()
-      };
-
-      if (paymentMethod === 'UPI') {
-        document.getElementById('orderFormSection').style.display = 'none';
-        document.getElementById('paymentSection').style.display   = 'block';
-        document.getElementById('codReviewScreen').classList.remove('show');
-        document.getElementById('confirmScreen').classList.remove('show');
-        document.getElementById('payAmount').textContent = '₹' + total.toLocaleString();
-      } else {
-        showCodReviewScreen(_pendingOrderData);
+// Razorpay integration for submitOrder
+async function submitOrder() {
+  try {
+    const res = await fetch("/api/create-order", { method: "POST" });
+    const data = await res.json();
+    const options = {
+      key: "rzp_live_Sho4UtyJcaqCgh",
+      amount: data.amount,
+      currency: "INR",
+      name: "Gaumaatri",
+      description: "Ghar Ka Sudh Desi Danedar Ghee",
+      order_id: data.id,
+      handler: async function (response) {
+        console.log("Payment success:", response);
       }
-    }
+    };
+    const rzp = new window.Razorpay(options);
+    rzp.open();
+  } catch (err) {
+    console.error(err);
+    alert("Payment failed");
+  }
+}
 
     // ── COD: SHOW REVIEW SCREEN ──────────────────────────────────
     function showCodReviewScreen(data) {
