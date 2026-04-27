@@ -1070,17 +1070,7 @@
 
 // Razorpay integration for submitOrder
 async function submitOrder() {
-  // Validate form first
-  if (!validateForm()) {
-    return;
-  }
-
   try {
-    // Show loading state
-    const placeOrderBtn = document.getElementById('placeOrderBtn');
-    placeOrderBtn.disabled = true;
-    placeOrderBtn.textContent = '⏳ Creating Order...';
-
     const base  = PRICES[currentVariant] * qty;
     const disc  = couponApplied ? Math.round(base * discountPct / 100) : 0;
     const total = base - disc;
@@ -1094,15 +1084,7 @@ async function submitOrder() {
         amount: total
       })
     });
-    
-    if (!res.ok) {
-      throw new Error('Failed to create order');
-    }
-    
     const data = await res.json();
-    
-    placeOrderBtn.textContent = '🚀 Opening Payment...';
-
     const options = {
       key: "rzp_live_Sho4UtyJcaqCgh",
       amount: data.amount,
@@ -1110,110 +1092,34 @@ async function submitOrder() {
       name: "Gaumaatri",
       description: "Ghar Ka Sudh Desi Danedar Ghee",
       order_id: data.id,
-      prefill: {
-        name: document.getElementById('f-name').value,
-        email: document.getElementById('f-email').value,
-        contact: document.getElementById('f-phone').value
-      },
       handler: async function (response) {
-        try {
-          placeOrderBtn.textContent = '✓ Verifying Payment...';
-          
-          const verifyRes = await fetch("/api/verify-payment", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature
-            })
-          });
+        const verifyRes = await fetch("/api/verify-payment", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature
+          })
+        });
 
-          if (!verifyRes.ok) {
-            throw new Error('Payment verification failed');
-          }
+        const result = await verifyRes.json();
 
-          const result = await verifyRes.json();
-
-          if (result.success) {
-            // Show success screen instead of alert
-            showPaymentSuccess(data.id, total);
-            showToast('Payment successful! Order confirmed ✅', 'success');
-          } else {
-            showPaymentFailure('Payment signature verification failed');
-            showToast('Payment verification failed ❌', 'error');
-          }
-        } catch (err) {
-          console.error('Payment verification error:', err);
-          showPaymentFailure(err.message || 'Payment verification error');
-          showToast('Error verifying payment ❌', 'error');
-        } finally {
-          placeOrderBtn.disabled = false;
-          placeOrderBtn.textContent = '🛒 Place Order';
+        if (result.success) {
+          alert("Payment Verified ✅");
+        } else {
+          alert("Payment Failed ❌");
         }
-      },
-      ondismiss: function() {
-        placeOrderBtn.disabled = false;
-        placeOrderBtn.textContent = '🛒 Place Order';
-        showToast('Payment cancelled', 'error');
       }
     };
-
     const rzp = new window.Razorpay(options);
-    rzp.on('payment.failed', function (response) {
-      placeOrderBtn.disabled = false;
-      placeOrderBtn.textContent = '🛒 Place Order';
-      showPaymentFailure(response.error.description || 'Payment failed');
-      showToast('Payment failed: ' + (response.error.description || 'Unknown error'), 'error');
-    });
-    
     rzp.open();
   } catch (err) {
-    console.error('Order creation error:', err);
-    const placeOrderBtn = document.getElementById('placeOrderBtn');
-    placeOrderBtn.disabled = false;
-    placeOrderBtn.textContent = '🛒 Place Order';
-    
-    const errBox = document.getElementById('orderSubmitError');
-    errBox.textContent = '⚠️ ' + (err.message || 'Failed to create order. Please try again.');
-    errBox.style.display = 'block';
-    showToast('Error: ' + (err.message || 'Failed to create order'), 'error');
+    console.error(err);
+    alert("Payment failed");
   }
-}
-
-// Show payment success screen
-function showPaymentSuccess(orderId, amount) {
-  document.getElementById('confirmTitle').textContent = '✅ Payment Successful!';
-  document.getElementById('confirmSubtitle').textContent = 'Your order has been confirmed and verified.';
-  document.getElementById('confirmedOrderId').textContent = orderId || 'ORDER-' + Date.now();
-  
-  const confirmDetails = document.getElementById('confirmDetails');
-  confirmDetails.innerHTML = `
-    <div style="background:var(--cream);padding:16px;border-radius:12px;margin:16px 0;text-align:center;">
-      <div style="color:var(--brown-light);font-size:0.9rem;">Total Amount Paid</div>
-      <div style="font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:700;color:var(--gold);">₹${amount.toLocaleString()}</div>
-    </div>
-    <div style="background:#f1f8e9;border:1px solid #c5e1a5;padding:12px;border-radius:8px;font-size:0.85rem;color:#558b2f;margin:12px 0;">
-      ✓ Payment verified securely<br>
-      ✓ Order confirmation sent to your email<br>
-      ✓ We'll ship within 24 hours
-    </div>
-  `;
-  document.getElementById('confirmEmailNote').textContent = '📧 Confirmation email sent to ' + (document.getElementById('f-email').value || 'your email');
-  
-  document.getElementById('orderFormSection').style.display = 'none';
-  document.getElementById('paymentSection').style.display = 'none';
-  document.getElementById('codReviewScreen').classList.remove('show');
-  document.getElementById('confirmScreen').classList.add('show');
-}
-
-// Show payment failure
-function showPaymentFailure(error) {
-  const errBox = document.getElementById('paymentError');
-  errBox.textContent = '❌ ' + (error || 'Payment failed. Please try again.');
-  errBox.style.display = 'block';
 }
 
     // ── COD: SHOW REVIEW SCREEN ──────────────────────────────────
