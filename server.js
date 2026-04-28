@@ -536,6 +536,7 @@ app.post('/api/submit-review', (req, res) => {
     }
 
     const reviewData = {
+      id: Date.now(),
       name: name.trim(),
       location: location.trim(),
       rating: parseInt(rating),
@@ -544,8 +545,9 @@ app.post('/api/submit-review', (req, res) => {
       approved: false // Default to unapproved for moderation
     };
 
-    // TODO: Save to Google Sheets or database
-    console.log("✅ Review received:", reviewData);
+    // Save to in-memory reviews array
+    reviews.push(reviewData);
+    console.log("✅ Review received and saved:", reviewData);
 
     return res.status(200).json({ 
       success: true, 
@@ -615,14 +617,14 @@ const sampleReviews = [
 
 app.get('/api/get-reviews', (req, res) => {
   try {
-    // Filter only approved reviews and sort by date (newest first)
-    const approvedReviews = sampleReviews
-      .filter(r => r.approved === true)
-      .sort((a, b) => new Date(b.date) - new Date(a.date))
-      .slice(0, 6); // Return latest 6 reviews
-
-    // TODO: Fetch from Google Sheets or database
+    // Combine sample reviews and user-submitted reviews
+    const allReviews = [...sampleReviews, ...reviews.filter(r => r.approved === true)];
     
+    // Sort by date (newest first) and get latest 10
+    const approvedReviews = allReviews
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 10);
+
     return res.status(200).json({
       success: true,
       reviews: approvedReviews
@@ -630,6 +632,50 @@ app.get('/api/get-reviews', (req, res) => {
   } catch (error) {
     console.error("❌ Error fetching reviews:", error);
     return res.status(500).json({ success: false, message: "Error fetching reviews" });
+  }
+});
+
+// ──────────────────────────────────────────────────────────
+//  GET /api/pending-reviews
+//  View all pending (unapproved) reviews for moderation
+// ──────────────────────────────────────────────────────────
+app.get('/api/pending-reviews', (req, res) => {
+  try {
+    const pendingReviews = reviews.filter(r => r.approved === false);
+    return res.status(200).json({
+      success: true,
+      count: pendingReviews.length,
+      reviews: pendingReviews
+    });
+  } catch (error) {
+    console.error("Error fetching pending reviews:", error);
+    return res.status(500).json({ success: false, message: "Error fetching pending reviews" });
+  }
+});
+
+// ──────────────────────────────────────────────────────────
+//  POST /api/approve-review
+//  Approve a review for display
+// ──────────────────────────────────────────────────────────
+app.post('/api/approve-review', (req, res) => {
+  try {
+    const { reviewId } = req.body;
+    const review = reviews.find(r => r.id === reviewId);
+    
+    if (!review) {
+      return res.status(404).json({ success: false, message: "Review not found" });
+    }
+    
+    review.approved = true;
+    console.log("✅ Review approved:", reviewId);
+    
+    return res.status(200).json({
+      success: true,
+      message: "Review approved successfully"
+    });
+  } catch (error) {
+    console.error("Error approving review:", error);
+    return res.status(500).json({ success: false, message: "Error approving review" });
   }
 });
 
