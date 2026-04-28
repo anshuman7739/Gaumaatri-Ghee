@@ -511,7 +511,7 @@ app.get('/api/order-status/:orderId', (req, res) => {
 //  Body: { name, location, rating, review }
 //  Returns: { success: true/false, message }
 // ──────────────────────────────────────────────────────────
-app.post('/api/submit-review', (req, res) => {
+app.post('/api/submit-review', async (req, res) => {
   try {
     const { name, location, rating, review } = req.body;
 
@@ -547,11 +547,36 @@ app.post('/api/submit-review', (req, res) => {
 
     // Save to in-memory reviews array
     reviews.push(reviewData);
-    console.log("✅ Review received and saved:", reviewData);
+    console.log("✅ Review received and saved locally:", reviewData);
+
+    // Try to save to Google Sheets
+    let sheetsSaved = false;
+    let sheetsError = null;
+    if (sheetsEnabled()) {
+      try {
+        await sheetsPost({
+          action: 'submitReview',
+          reviewId: reviewData.id,
+          name: reviewData.name,
+          location: reviewData.location,
+          rating: reviewData.rating,
+          review: reviewData.review,
+          date: reviewData.date,
+          approved: reviewData.approved ? 'Yes' : 'No'
+        });
+        sheetsSaved = true;
+        console.log("✅ Review also saved to Google Sheets");
+      } catch (err) {
+        sheetsError = err.message;
+        console.warn("⚠️ Failed to save review to Sheets:", err.message);
+      }
+    }
 
     return res.status(200).json({ 
       success: true, 
-      message: "Review submitted! Thank you for your feedback. It will appear after approval." 
+      message: "Review submitted! Thank you for your feedback. It will appear after approval.",
+      sheetsSaved,
+      sheetsError
     });
   } catch (error) {
     console.error("❌ Error submitting review:", error);
@@ -615,19 +640,48 @@ const sampleReviews = [
   }
 ];
 
-app.get('/api/get-reviews', (req, res) => {
+app.get('/api/get-reviews', async (req, res) => {
   try {
-    // Combine sample reviews and user-submitted reviews
-    const allReviews = [...sampleReviews, ...reviews.filter(r => r.approved === true)];
+    let allReviews = [];
+
+    // Try to fetch from Google Sheets first
+    if (sheetsEnabled()) {
+      try {
+        const sheetsResult = await sheetsGet({ action: 'getReviews' });
+        if (sheetsResult.success && sheetsResult.reviews) {
+          // Convert sheet data to review objects
+          allReviews = sheetsResult.reviews.map(r => ({
+            id: r.id || Date.now(),
+            name: r.name,
+            location: r.location,
+            rating: parseInt(r.rating) || 5,
+            review: r.review,
+            date: r.date,
+            approved: r.approved === 'Yes' || r.approved === true
+          }));
+          console.log("✅ Loaded reviews from Google Sheets:", allReviews.length);
+        }
+      } catch (err) {
+        console.warn("⚠️ Failed to fetch from Sheets, using local data:", err.message);
+      }
+    }
+
+    // Fallback to sample + in-memory reviews if Sheets fetch failed
+    if (allReviews.length === 0) {
+      allReviews = [...sampleReviews, ...reviews.filter(r => r.approved === true)];
+      console.log("✅ Using local reviews:", allReviews.length);
+    }
     
     // Sort by date (newest first) and get latest 10
     const approvedReviews = allReviews
+      .filter(r => r.approved === true)
       .sort((a, b) => new Date(b.date) - new Date(a.date))
       .slice(0, 10);
 
     return res.status(200).json({
       success: true,
-      reviews: approvedReviews
+      reviews: approvedReviews,
+      source: sheetsEnabled() ? 'google-sheets' : 'local'
     });
   } catch (error) {
     console.error("❌ Error fetching reviews:", error);
@@ -639,13 +693,42 @@ app.get('/api/get-reviews', (req, res) => {
 //  GET /api/pending-reviews
 //  View all pending (unapproved) reviews for moderation
 // ──────────────────────────────────────────────────────────
-app.get('/api/pending-reviews', (req, res) => {
+app.get('/api/pending-reviews', async (req, res) => {
   try {
-    const pendingReviews = reviews.filter(r => r.approved === false);
+    let allReviews = [];
+
+    // Try to fetch from Google Sheets first
+    if (sheetsEnabled()) {
+      try {
+        const sheetsResult = await sheetsGet({ action: 'getReviews' });
+        if (sheetsResult.success && sheetsResult.reviews) {
+          // Convert sheet data to review objects
+          allReviews = sheetsResult.reviews.map(r => ({
+            id: r.id || Date.now(),
+            name: r.name,
+            location: r.location,
+            rating: parseInt(r.rating) || 5,
+            review: r.review,
+            date: r.date,
+            approved: r.approved === 'Yes' || r.approved === true
+          }));
+        }
+      } catch (err) {
+        console.warn("⚠️ Failed to fetch from Sheets for pending, using local data:", err.message);
+      }
+    }
+
+    // Fallback to in-memory reviews if Sheets fetch failed
+    if (allReviews.length === 0) {
+      allReviews = reviews;
+    }
+
+    const pendingReviews = allReviews.filter(r => r.approved === false);
     return res.status(200).json({
       success: true,
       count: pendingReviews.length,
-      reviews: pendingReviews
+      reviews: pendingReviews,
+      source: sheetsEnabled() ? 'google-sheets' : 'local'
     });
   } catch (error) {
     console.error("Error fetching pending reviews:", error);
@@ -657,7 +740,7 @@ app.get('/api/pending-reviews', (req, res) => {
 //  POST /api/approve-review
 //  Approve a review for display
 // ──────────────────────────────────────────────────────────
-app.post('/api/approve-review', (req, res) => {
+app.post('/api/approve-review', async (req, res) => {
   try {
     const { reviewId } = req.body;
     const review = reviews.find(r => r.id === reviewId);
@@ -667,11 +750,30 @@ app.post('/api/approve-review', (req, res) => {
     }
     
     review.approved = true;
-    console.log("✅ Review approved:", reviewId);
+    console.log("✅ Review approved locally:", reviewId);
+
+    // Try to update in Google Sheets
+    let sheetsSaved = false;
+    let sheetsError = null;
+    if (sheetsEnabled()) {
+      try {
+        await sheetsPost({
+          action: 'approveReview',
+          reviewId: reviewId
+        });
+        sheetsSaved = true;
+        console.log("✅ Review approval also saved to Google Sheets");
+      } catch (err) {
+        sheetsError = err.message;
+        console.warn("⚠️ Failed to update Sheets:", err.message);
+      }
+    }
     
     return res.status(200).json({
       success: true,
-      message: "Review approved successfully"
+      message: "Review approved successfully",
+      sheetsSaved,
+      sheetsError
     });
   } catch (error) {
     console.error("Error approving review:", error);
