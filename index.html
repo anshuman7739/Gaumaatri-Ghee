@@ -579,6 +579,80 @@
     </div>
   </section>
 
+  <!-- SUBMIT YOUR REVIEW -->
+  <section id="submit-review" style="background: linear-gradient(135deg, rgba(139, 69, 19, 0.05) 0%, rgba(218, 165, 32, 0.05) 100%); padding: 60px 20px;">
+    <div class="container">
+      <div class="text-center fade-in" style="margin-bottom:40px;">
+        <div class="section-label">Share Your Experience</div>
+        <h2 class="section-title">Submit Your Review</h2>
+        <p class="section-sub">Help us improve and share your journey with Gaumaatri Ghee</p>
+      </div>
+      
+      <div class="review-form-container fade-in" style="max-width:600px;margin:0 auto;">
+        <form id="reviewForm" onsubmit="submitReview(event)" style="background:white;padding:40px;border-radius:12px;box-shadow:0 4px 20px rgba(139, 69, 19, 0.1);border:1px solid rgba(218, 165, 32, 0.2);">
+          
+          <!-- Name Field -->
+          <div class="form-group" style="margin-bottom:24px;">
+            <label style="display:block;margin-bottom:8px;font-family:'Playfair Display',serif;color:var(--brown);font-weight:500;">Your Name *</label>
+            <input type="text" id="reviewName" placeholder="e.g. Priya Sharma" style="width:100%;padding:12px 14px;border:1px solid #e0d5c8;border-radius:8px;font-family:'Inter',sans-serif;font-size:14px;box-sizing:border-box;transition:all 0.3s;" required maxlength="50">
+            <small style="color:#999;font-size:12px;margin-top:4px;display:block;">Max 50 characters</small>
+          </div>
+
+          <!-- City/Location Field -->
+          <div class="form-group" style="margin-bottom:24px;">
+            <label style="display:block;margin-bottom:8px;font-family:'Playfair Display',serif;color:var(--brown);font-weight:500;">City / Location *</label>
+            <input type="text" id="reviewLocation" placeholder="e.g. Delhi, NCR" style="width:100%;padding:12px 14px;border:1px solid #e0d5c8;border-radius:8px;font-family:'Inter',sans-serif;font-size:14px;box-sizing:border-box;transition:all 0.3s;" required maxlength="50">
+            <small style="color:#999;font-size:12px;margin-top:4px;display:block;">Max 50 characters</small>
+          </div>
+
+          <!-- Rating Field -->
+          <div class="form-group" style="margin-bottom:24px;">
+            <label style="display:block;margin-bottom:12px;font-family:'Playfair Display',serif;color:var(--brown);font-weight:500;">Your Rating *</label>
+            <div id="starRating" style="font-size:36px;letter-spacing:8px;cursor:pointer;user-select:none;">
+              <span data-rating="1" style="transition:all 0.2s;opacity:0.3;">★</span>
+              <span data-rating="2" style="transition:all 0.2s;opacity:0.3;">★</span>
+              <span data-rating="3" style="transition:all 0.2s;opacity:0.3;">★</span>
+              <span data-rating="4" style="transition:all 0.2s;opacity:0.3;">★</span>
+              <span data-rating="5" style="transition:all 0.2s;opacity:0.3;">★</span>
+            </div>
+            <input type="hidden" id="reviewRating" value="">
+            <small style="color:var(--gold);font-size:12px;margin-top:8px;display:block;font-weight:500;" id="ratingText">Click to rate</small>
+          </div>
+
+          <!-- Review Text Field -->
+          <div class="form-group" style="margin-bottom:24px;">
+            <label style="display:block;margin-bottom:8px;font-family:'Playfair Display',serif;color:var(--brown);font-weight:500;">Your Review *</label>
+            <textarea id="reviewText" placeholder="Share your experience with Gaumaatri Ghee... What did you love about it?" style="width:100%;padding:12px 14px;border:1px solid #e0d5c8;border-radius:8px;font-family:'Inter',sans-serif;font-size:14px;box-sizing:border-box;min-height:120px;resize:vertical;transition:all 0.3s;" required maxlength="500"></textarea>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+              <small style="color:#999;font-size:12px;">Max 500 characters</small>
+              <small style="color:var(--gold);font-size:12px;font-weight:500;" id="charCount">0/500</small>
+            </div>
+          </div>
+
+          <!-- Submit Button -->
+          <button type="submit" id="submitReviewBtn" style="width:100%;padding:14px 20px;background:linear-gradient(135deg, var(--gold) 0%, #c9a961 100%);color:white;border:none;border-radius:8px;font-family:'Playfair Display',serif;font-size:16px;font-weight:500;cursor:pointer;transition:all 0.3s;box-shadow:0 4px 15px rgba(218, 165, 32, 0.3);">Submit Review →</button>
+
+          <!-- Form Message -->
+          <div id="reviewFormMessage" style="margin-top:16px;padding:12px 14px;border-radius:8px;text-align:center;display:none;font-size:14px;"></div>
+
+        </form>
+      </div>
+
+      <!-- Recent Reviews Display -->
+      <div style="margin-top:60px;">
+        <div class="text-center fade-in" style="margin-bottom:30px;">
+          <h3 style="font-family:'Playfair Display',serif;color:var(--brown);font-size:24px;">Recently Submitted Reviews</h3>
+        </div>
+        <div id="recentReviewsGrid" class="reviews-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;">
+          <!-- Reviews will be loaded here via JavaScript -->
+          <div style="text-align:center;grid-column:1/-1;padding:40px 20px;color:#999;">
+            <p>Loading reviews...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- TRACKING -->
   <section id="tracking">
     <div class="container">
@@ -1547,6 +1621,196 @@
         if (!wasOpen) item.classList.add('open');
       });
     });
+
+    // ── REVIEW SYSTEM ────────────────────────────────────────────
+    let selectedRating = 0;
+
+    // Star Rating Handler
+    document.querySelectorAll('#starRating span[data-rating]').forEach(star => {
+      star.addEventListener('click', function() {
+        selectedRating = parseInt(this.getAttribute('data-rating'));
+        document.getElementById('reviewRating').value = selectedRating;
+        updateStarDisplay(selectedRating);
+        updateRatingText(selectedRating);
+      });
+      star.addEventListener('mouseover', function() {
+        const hoverRating = parseInt(this.getAttribute('data-rating'));
+        updateStarDisplay(hoverRating);
+      });
+    });
+
+    document.getElementById('starRating').addEventListener('mouseleave', function() {
+      updateStarDisplay(selectedRating);
+    });
+
+    function updateStarDisplay(rating) {
+      document.querySelectorAll('#starRating span[data-rating]').forEach(star => {
+        const starRating = parseInt(star.getAttribute('data-rating'));
+        star.style.opacity = starRating <= rating ? '1' : '0.3';
+      });
+    }
+
+    function updateRatingText(rating) {
+      const texts = ['', '⭐ Poor', '⭐⭐ Fair', '⭐⭐⭐ Good', '⭐⭐⭐⭐ Very Good', '⭐⭐⭐⭐⭐ Excellent'];
+      document.getElementById('ratingText').textContent = texts[rating] || 'Click to rate';
+    }
+
+    // Character Counter
+    document.getElementById('reviewText').addEventListener('input', function() {
+      const count = this.value.length;
+      document.getElementById('charCount').textContent = count + '/500';
+    });
+
+    // Submit Review Function
+    async function submitReview(e) {
+      e.preventDefault();
+
+      const name = document.getElementById('reviewName').value.trim();
+      const location = document.getElementById('reviewLocation').value.trim();
+      const rating = document.getElementById('reviewRating').value;
+      const review = document.getElementById('reviewText').value.trim();
+      const messageEl = document.getElementById('reviewFormMessage');
+      const submitBtn = document.getElementById('submitReviewBtn');
+
+      // Validation
+      if (!name) {
+        showMessage('Please enter your name', 'error', messageEl);
+        return;
+      }
+      if (!location) {
+        showMessage('Please enter your city/location', 'error', messageEl);
+        return;
+      }
+      if (!rating) {
+        showMessage('Please select a rating', 'error', messageEl);
+        return;
+      }
+      if (!review || review.length < 10) {
+        showMessage('Review must be at least 10 characters', 'error', messageEl);
+        return;
+      }
+      if (review.length > 500) {
+        showMessage('Review cannot exceed 500 characters', 'error', messageEl);
+        return;
+      }
+
+      // Show loading state
+      submitBtn.disabled = true;
+      submitBtn.textContent = '⏳ Submitting...';
+
+      try {
+        const response = await fetch('/api/submit-review.js', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: name,
+            location: location,
+            rating: parseInt(rating),
+            review: review
+          })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          showMessage('✅ Thank you! Your review has been submitted and will appear after approval.', 'success', messageEl);
+          showToast('Review submitted successfully! 🎉', 'success');
+          
+          // Reset form
+          document.getElementById('reviewForm').reset();
+          selectedRating = 0;
+          document.getElementById('reviewRating').value = '';
+          updateStarDisplay(0);
+          updateRatingText(0);
+          document.getElementById('charCount').textContent = '0/500';
+
+          // Reload reviews after 2 seconds
+          setTimeout(loadReviews, 2000);
+        } else {
+          showMessage(data.message || 'Failed to submit review', 'error', messageEl);
+        }
+      } catch (error) {
+        console.error('Error submitting review:', error);
+        showMessage('Error submitting review. Please try again.', 'error', messageEl);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Review →';
+      }
+    }
+
+    function showMessage(msg, type, el) {
+      el.textContent = msg;
+      el.style.background = type === 'success' ? '#f1f8f4' : '#fff3f1';
+      el.style.color = type === 'success' ? '#2e8b57' : '#d32f2f';
+      el.style.border = type === 'success' ? '1px solid #a8d5ba' : '1px solid #ffcccc';
+      el.display = 'block';
+      el.style.display = 'block';
+    }
+
+    // Load and Display Reviews
+    async function loadReviews() {
+      const grid = document.getElementById('recentReviewsGrid');
+      
+      try {
+        const response = await fetch('/api/get-reviews.js');
+        const data = await response.json();
+
+        if (data.success && data.reviews && data.reviews.length > 0) {
+          grid.innerHTML = data.reviews.map(review => `
+            <div class="review-card fade-in" style="background:white;padding:24px;border-radius:12px;box-shadow:0 2px 10px rgba(139, 69, 19, 0.08);border-left:4px solid var(--gold);transition:all 0.3s;">
+              <div class="stars" style="font-size:18px;margin-bottom:12px;letter-spacing:2px;color:var(--gold);">
+                ${'★'.repeat(review.rating)}${'☆'.repeat(5 - review.rating)}
+              </div>
+              <p class="review-text" style="color:var(--brown);font-size:14px;line-height:1.6;margin-bottom:16px;min-height:60px;">
+                "${review.review}"
+              </p>
+              <div class="reviewer" style="display:flex;align-items:center;gap:12px;">
+                <div class="reviewer-avatar" style="width:40px;height:40px;background:var(--gold);color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;">
+                  ${review.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <div class="reviewer-name" style="font-weight:600;color:var(--brown);font-size:14px;">${review.name}</div>
+                  <div class="reviewer-loc" style="color:#999;font-size:12px;">${review.location}</div>
+                </div>
+              </div>
+            </div>
+          `).join('');
+        } else {
+          grid.innerHTML = `
+            <div style="text-align:center;grid-column:1/-1;padding:40px 20px;color:#999;">
+              <p>No reviews yet. Be the first to share your experience!</p>
+            </div>
+          `;
+        }
+      } catch (error) {
+        console.error('Error loading reviews:', error);
+        grid.innerHTML = `
+          <div style="text-align:center;grid-column:1/-1;padding:40px 20px;color:#999;">
+            <p>Unable to load reviews at the moment.</p>
+          </div>
+        `;
+      }
+    }
+
+    // Load reviews on page load
+    document.addEventListener('DOMContentLoaded', loadReviews);
+    
+    // Also load on scroll to reviews section
+    if (window.IntersectionObserver) {
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting && entry.target.id === 'submit-review') {
+            loadReviews();
+            observer.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.1 });
+      
+      const submitReviewSection = document.getElementById('submit-review');
+      if (submitReviewSection) {
+        observer.observe(submitReviewSection);
+      }
+    }
   </script>
 
 </body>
