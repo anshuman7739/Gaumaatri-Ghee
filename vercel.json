@@ -1,12 +1,8 @@
 {
   "version": 2,
-  "buildCommand": "echo 'No build needed'",
   "routes": [
     { "handle": "filesystem" },
     { "src": "/api/(.*)", "dest": "/api/$1" },
-    { "src": "/sitemap.xml", "dest": "/sitemap.xml" },
-    { "src": "/robots.txt", "dest": "/robots.txt" },
-    { "src": "/(.*)\\.html$", "dest": "/$1.html" },
-    { "src": "/[^.]+$", "dest": "/index.html" }
+    { "src": "/(.*)", "dest": "/index.html", "status": 404 }
   ]
 }
