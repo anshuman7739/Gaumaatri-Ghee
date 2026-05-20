@@ -805,12 +805,18 @@ app.use((err, req, res, next) => {
 });
 
 // ── Serve static files AFTER API routes (index.html, images, etc.) ───────────
-app.use(express.static(path.join(__dirname)));
+app.use(express.static(path.join(__dirname), { extensions: ['html'] }));
 
 // ──────────────────────────────────────────────────────────
 //  Catch-all: Serve index.html
 // ──────────────────────────────────────────────────────────
 app.get('*', (req, res) => {
+  // If the request looks like a direct file request (e.g. .html, .png, .xml),
+  // don't mask it by serving index.html.
+  if (path.extname(req.path)) {
+    return res.status(404).send('Not Found');
+  }
+
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
