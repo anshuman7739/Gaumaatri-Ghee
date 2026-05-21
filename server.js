@@ -825,23 +825,29 @@ app.use(express.static(staticDir, {
 }));
 
 // ──────────────────────────────────────────────────────────
-//  Catch-all: Serve index.html for SPA routes ONLY
+//  Catch-all: Handle all other requests
 // ──────────────────────────────────────────────────────────
 app.get('*', (req, res, next) => {
-  console.log('🔍 Request:', req.path, 'Extension:', path.extname(req.path));
-  
-  // For any path without an extension, serve index.html (SPA fallback)
   const ext = path.extname(req.path);
+  
+  console.log('🔍 Request:', req.path, 'Extension:', ext);
+  
+  // For paths without extension, serve index.html (SPA fallback)
   if (!ext || ext === '') {
     console.log('➡️  Serving index.html');
     return res.sendFile(path.join(__dirname, 'index.html'));
   }
   
-  // Check if the file actually exists
+  // For files with extensions, try to serve them directly  
   const filePath = path.join(__dirname, req.path);
-  console.log('📂 Looking for:', filePath, 'Exists:', fs.existsSync(filePath));
+  console.log('📂 Looking for:', filePath);
   
-  // If a file with an extension reaches here, it means express.static didn't find it
+  // Check if file exists before trying to serve
+  if (fs.existsSync(filePath)) {
+    console.log('✅ Found! Serving:', req.path);
+    return res.sendFile(filePath);
+  }
+  
   console.log('❌ File not found:', req.path);
   res.status(404).send('Not Found');
 });
