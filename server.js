@@ -806,8 +806,19 @@ app.use((err, req, res, next) => {
 
 // ── Serve static files AFTER API routes (index.html, images, etc.) ───────────
 // This serves ALL files from the root directory (.html, .xml, images, etc.)
+const fs = require('fs');
 const staticDir = path.join(__dirname);
+console.log('📁 __dirname:', __dirname);
 console.log('📁 Serving static files from:', staticDir);
+
+// Log files in the directory for debugging
+try {
+  const files = fs.readdirSync(staticDir).filter(f => f.endsWith('.html'));
+  console.log('📄 HTML files found:', files.length, files.slice(0, 5).join(', ') + (files.length > 5 ? '...' : ''));
+} catch (err) {
+  console.error('❌ Error reading directory:', err.message);
+}
+
 app.use(express.static(staticDir, {
   index: 'index.html',
   dotfiles: 'allow'
@@ -825,6 +836,10 @@ app.get('*', (req, res, next) => {
     console.log('➡️  Serving index.html');
     return res.sendFile(path.join(__dirname, 'index.html'));
   }
+  
+  // Check if the file actually exists
+  const filePath = path.join(__dirname, req.path);
+  console.log('📂 Looking for:', filePath, 'Exists:', fs.existsSync(filePath));
   
   // If a file with an extension reaches here, it means express.static didn't find it
   console.log('❌ File not found:', req.path);
