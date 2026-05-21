@@ -823,20 +823,31 @@ app.use((err, req, res, next) => {
 });
 
 // ── Serve static files AFTER API routes (index.html, images, etc.) ───────────
-// This serves ALL files from the root directory (.html, .xml, images, etc.)
+// This serves ALL files from the root directory and public directory
 const fs = require('fs');
 const staticDir = path.join(__dirname);
+const publicDir = path.join(__dirname, 'public');
 console.log('📁 __dirname:', __dirname);
 console.log('📁 Serving static files from:', staticDir);
+console.log('📁 Serving public files from:', publicDir);
 
-// Log files in the directory for debugging
+// Log files in the directories for debugging
 try {
-  const files = fs.readdirSync(staticDir).filter(f => f.endsWith('.html'));
-  console.log('📄 HTML files found:', files.length, files.slice(0, 5).join(', ') + (files.length > 5 ? '...' : ''));
+  const rootFiles = fs.readdirSync(staticDir).filter(f => f.endsWith('.html'));
+  const publicFiles = fs.readdirSync(publicDir).filter(f => f.endsWith('.html'));
+  console.log('📄 HTML files in root:', rootFiles.length);
+  console.log('📄 HTML files in public:', publicFiles.length);
 } catch (err) {
   console.error('❌ Error reading directory:', err.message);
 }
 
+// Serve from public directory first (for Vercel deployment)
+app.use(express.static(publicDir, {
+  index: 'index.html',
+  dotfiles: 'allow'
+}));
+
+// Also serve from root directory (for local development)
 app.use(express.static(staticDir, {
   index: 'index.html',
   dotfiles: 'allow'

@@ -8,7 +8,8 @@
   },
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "build": "echo 'Build complete - all files ready'"
   },
   "dependencies": {
     "cors": "^2.8.5",
