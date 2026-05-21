@@ -784,6 +784,24 @@ app.post('/api/approve-review', async (req, res) => {
 // ──────────────────────────────────────────────────────────
 //  Health Check Endpoint
 // ──────────────────────────────────────────────────────────
+app.get('/api/debug', (req, res) => {
+  try {
+    const files = fs.readdirSync(__dirname).filter(f => f.endsWith('.html'));
+    res.json({
+      __dirname,
+      cwd: process.cwd(),
+      env: process.env.NODE_ENV,
+      htmlFiles: files.length,
+      sampleFiles: files.slice(0, 5)
+    });
+  } catch (err) {
+    res.json({
+      error: err.message,
+      __dirname
+    });
+  }
+});
+
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
