@@ -1,7 +1,9 @@
 {
   "version": 2,
+  "buildCommand": "ls -la",
+  "outputDirectory": ".",
   "routes": [
-    { "handle": "filesystem" },
-    { "src": "/api/(.*)", "dest": "/api/$1" }
+    { "src": "/api/(.*)", "dest": "/api/$1" },
+    { "src": "/(.*)", "dest": "/$1" }
   ]
 }
