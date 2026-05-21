@@ -805,19 +805,20 @@ app.use((err, req, res, next) => {
 });
 
 // ── Serve static files AFTER API routes (index.html, images, etc.) ───────────
-app.use(express.static(path.join(__dirname), { extensions: ['html'] }));
+// This serves ALL files from the root directory (.html, .xml, images, etc.)
+app.use(express.static(path.join(__dirname)));
 
 // ──────────────────────────────────────────────────────────
-//  Catch-all: Serve index.html for SPA routes
+//  Catch-all: Serve index.html for SPA routes ONLY
 // ──────────────────────────────────────────────────────────
 app.get('*', (req, res) => {
   // Only serve index.html for paths without extensions
-  // This allows .html, .xml, .txt files to be served by express.static
+  // This allows .html, .xml, .txt files to be served by express.static above
   if (!path.extname(req.path)) {
     return res.sendFile(path.join(__dirname, 'index.html'));
   }
   
-  // Let static middleware handle files with extensions
+  // Files with extensions that weren't found by static middleware = 404
   res.status(404).send('Not Found');
 });
 
