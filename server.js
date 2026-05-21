@@ -808,16 +808,17 @@ app.use((err, req, res, next) => {
 app.use(express.static(path.join(__dirname), { extensions: ['html'] }));
 
 // ──────────────────────────────────────────────────────────
-//  Catch-all: Serve index.html
+//  Catch-all: Serve index.html for SPA routes
 // ──────────────────────────────────────────────────────────
 app.get('*', (req, res) => {
-  // If the request looks like a direct file request (e.g. .html, .png, .xml),
-  // don't mask it by serving index.html.
-  if (path.extname(req.path)) {
-    return res.status(404).send('Not Found');
+  // Only serve index.html for paths without extensions
+  // This allows .html, .xml, .txt files to be served by express.static
+  if (!path.extname(req.path)) {
+    return res.sendFile(path.join(__dirname, 'index.html'));
   }
-
-  res.sendFile(path.join(__dirname, 'index.html'));
+  
+  // Let static middleware handle files with extensions
+  res.status(404).send('Not Found');
 });
 
 // ──────────────────────────────────────────────────────────
