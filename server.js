@@ -12,7 +12,6 @@
 	const crypto   = require('crypto');
 	const path     = require('path');
 	const Razorpay = require('razorpay');
-	const ordersDb = require('./orders-db');
 	const { setTimeout: sleep } = require('timers/promises');
 
 	const app = express();
@@ -308,35 +307,9 @@ async function verifyPaymentHandler(req, res) {
     }
     const variantLabel = VARIANT_LABELS[pending.variantKey] || pending.variantKey;
 
-    // ✅ Verified: only now create an internal order record ("DB")
+    // ✅ Verified: only now create an internal order record (use Google Sheets for storage)
     const internalOrderId = genOrderId();
-    ordersDb.insert({
-      id: internalOrderId,
-      createdAt: new Date().toISOString(),
-      payment: {
-        provider: 'razorpay',
-        razorpay_order_id,
-        razorpay_payment_id,
-        razorpay_signature,
-        amount_paise: Math.round(pending.total * 100),
-        currency: 'INR',
-      },
-      items: [{ variantKey: pending.variantKey, qty: pending.qty }],
-      pricing: {
-        base_inr: pending.base,
-        discount_inr: pending.discount,
-        total_inr: pending.total,
-        couponCode: pending.couponCode,
-        couponPct: pending.couponPct,
-      },
-      customer: {
-        name: customer?.name || null,
-        email: customer?.email || null,
-        phone: customer?.phone || null,
-        address: customer?.address || null,
-      },
-    });
-
+    // Remove local file system write - use Google Sheets instead
     pendingPayments.delete(razorpay_order_id);
 
     let sheetsSaved = false;
@@ -394,27 +367,8 @@ app.post('/api/cod-order', async (req, res) => {
 
     const variantLabel = VARIANT_LABELS[variantKey] || variantKey;
 
-    ordersDb.insert({
-      id: orderId,
-      createdAt: new Date().toISOString(),
-      payment: { provider: 'cod' },
-      items: [{ variantKey, qty: pricing.qty }],
-      pricing: {
-        base_inr: pricing.base,
-        discount_inr: pricing.discount,
-        total_inr: pricing.total,
-        couponCode: pricing.couponCode,
-        couponPct: pricing.couponPct,
-      },
-      customer: {
-        name: customer?.name || null,
-        email: customer?.email || null,
-        phone: customer?.phone || null,
-        address: customer?.address || null,
-      },
-    });
-
-    console.log(`✅ COD order saved: ${orderId}  ₹${pricing.total}`);
+    // Remove local file system write - use Google Sheets instead
+    console.log(`✅ COD order being saved: ${orderId}  ₹${pricing.total}`);
 
     let sheetsSaved = false;
     let sheetsError = null;
