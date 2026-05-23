@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://gaumaatri.co.in/sitemap.xml
+Sitemap: https://www.gaumaatri.co.in/sitemap.xml
