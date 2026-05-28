@@ -1757,9 +1757,7 @@
         const data = await response.json();
 
         if (response.ok) {
-          showMessage('✅ Thank you! Your review has been submitted and will appear after approval.', 'success', messageEl);
-          showToast('Review submitted successfully! 🎉', 'success');
-          
+          // Silent submission - no message displayed
           // Reset form
           document.getElementById('reviewForm').reset();
           selectedRating = 0;
