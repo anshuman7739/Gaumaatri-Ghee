@@ -1743,7 +1743,7 @@
       submitBtn.textContent = '⏳ Submitting...';
 
       try {
-        const response = await fetch('/api/submit-review.js', {
+        const response = await fetch('/api/submit-review', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
