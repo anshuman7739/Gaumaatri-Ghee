@@ -1,0 +1,45 @@
+{
+  "coupons": [
+    {
+      "code": "ANKIT25",
+      "discount": 25,
+      "expiryDate": null,
+      "usageLimit": null,
+      "minAmount": 0,
+      "used": 0,
+      "active": true,
+      "createdAt": "2026-06-01T00:00:00.000Z"
+    },
+    {
+      "code": "FITNESS25",
+      "discount": 25,
+      "expiryDate": null,
+      "usageLimit": 50,
+      "minAmount": 0,
+      "used": 0,
+      "active": true,
+      "createdAt": "2026-06-01T00:00:00.000Z"
+    },
+    {
+      "code": "MOM25",
+      "discount": 25,
+      "expiryDate": null,
+      "usageLimit": null,
+      "minAmount": 0,
+      "used": 0,
+      "active": true,
+      "createdAt": "2026-06-01T00:00:00.000Z"
+    },
+    {
+      "code": "WELCOME25",
+      "discount": 25,
+      "expiryDate": "2026-12-31",
+      "usageLimit": null,
+      "minAmount": 0,
+      "used": 0,
+      "active": true,
+      "createdAt": "2026-06-01T00:00:00.000Z"
+    }
+  ],
+  "usage": []
+}

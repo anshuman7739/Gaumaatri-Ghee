@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Dashboard - Gaumaatri Coupons</title>
-  <meta name="api-base" content="http://localhost:3000">
+  <meta name="api-base" content="auto">
   <style>
     * {
       margin: 0;
@@ -441,7 +441,15 @@
   </div>
 
   <script>
-    const API_BASE = document.querySelector('meta[name="api-base"]')?.content || 'https://www.gaumaatri.co.in';
+    // Get API base URL - auto-detect based on current location
+    let API_BASE = document.querySelector('meta[name="api-base"]')?.content || '';
+    if (API_BASE === 'auto') {
+      // Use current domain/port
+      API_BASE = `${window.location.protocol}//${window.location.host}`;
+    } else if (!API_BASE) {
+      // Fallback to current domain
+      API_BASE = `${window.location.protocol}//${window.location.host}`;
+    }
 
     function switchTab(tabName) {
       document.querySelectorAll('.tab-content').forEach((el) => el.classList.remove('active'));
