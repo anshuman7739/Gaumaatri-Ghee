@@ -12,7 +12,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-API_BASE="${1:-http://localhost:4000}"
+API_BASE="${1:-http://localhost:3000}"
 PASS_COUNT=0
 FAIL_COUNT=0
 
