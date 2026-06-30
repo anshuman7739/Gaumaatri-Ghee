@@ -37,12 +37,13 @@
           <th>Total</th>
           <th>Coupon</th>
           <th>Discount</th>
+          <th>Influencer/User</th>
           <th>Payment</th>
           <th>Status</th>
           <th>Date</th>
         </tr>
       </thead>
-      <tbody><tr><td class="empty" colspan="11">Loading...</td></tr></tbody>
+      <tbody><tr><td class="empty" colspan="12">Loading...</td></tr></tbody>
     </table>
   </div>
 
@@ -51,7 +52,7 @@
 
     async function load(){
       const tb=document.querySelector('#t tbody');
-      tb.innerHTML='<tr><td class="empty" colspan="11">Loading...</td></tr>';
+      tb.innerHTML='<tr><td class="empty" colspan="12">Loading...</td></tr>';
       try{
         // Primary source: direct list endpoint
         const r=await fetch('/api/orders');
@@ -65,7 +66,7 @@
         }
 
         if(!Array.isArray(rows) || rows.length===0){
-          tb.innerHTML='<tr><td class="empty" colspan="11">No orders found</td></tr>';
+          tb.innerHTML='<tr><td class="empty" colspan="12">No orders found</td></tr>';
           return;
         }
 
@@ -77,15 +78,16 @@
             <td>${esc(o.product || '-')}</td>
             <td>${esc(o.quantity || o.qty || '-')}</td>
             <td>${esc(o.total || o.amount || '-')}</td>
-            <td>${esc(o.couponCode || o.coupon_code || '-')}</td>
+            <td>${esc(o.couponCode || o.coupon_code || 'No Coupon')}</td>
             <td>${esc(o.couponDiscount || o.coupon_discount || '0')}</td>
+            <td>${esc(o.influencerName || o.influencer_name || 'No Coupon')}</td>
             <td>${esc(o.paymentMethod || o.payment_method || '-')}</td>
             <td>${esc(o.orderStatus || o.status || '-')}</td>
             <td>${esc(o.date || o.timestamp || '-')}</td>
           </tr>
         `).join('');
       }catch(e){
-        tb.innerHTML='<tr><td class="empty" colspan="11">Failed to load orders</td></tr>';
+        tb.innerHTML='<tr><td class="empty" colspan="12">Failed to load orders</td></tr>';
       }
     }
 

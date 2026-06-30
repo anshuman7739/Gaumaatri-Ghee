@@ -24,7 +24,7 @@ const SHEET_NAME = 'Orders';
 const HEADERS = [
   'Order ID', 'Timestamp', 'Name', 'Email', 'Phone',
   'Address', 'Product', 'Quantity', 'Total (₹)',
-  'Coupon Code', 'Coupon Discount (₹)',
+  'Coupon Code', 'Coupon Discount (₹)', 'Influencer/User',
   'Payment Method', 'Payment Status', 'Order Status', 'Notes'
 ];
 
@@ -146,6 +146,7 @@ function handleSubmitOrder(data) {
     data.total,
     data.couponCode || '',
     Number(data.couponDiscount || 0),
+    data.influencerName || 'No Coupon',
     data.paymentMethod,
     paymentStatus,      // Payment Status
     orderStatus,        // Order Status
@@ -180,10 +181,10 @@ function handleUpdatePayment(data) {
   const row   = findRowByOrderId(sheet, data.orderId);
   if (!row) return jsonResponse({ success: false, error: 'Order not found' }, 404);
 
-  // Column 13 = Payment Status
-  sheet.getRange(row, 13).setValue('Payment Submitted – Verification Pending');
-  // Column 15 = Notes
-  sheet.getRange(row, 15).setValue('Payment proof uploaded by customer at ' + new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }));
+  // Column 14 = Payment Status
+  sheet.getRange(row, 14).setValue('Payment Submitted – Verification Pending');
+  // Column 16 = Notes
+  sheet.getRange(row, 16).setValue('Payment proof uploaded by customer at ' + new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }));
 
   // Notify admin of payment submission
   try {
@@ -206,7 +207,7 @@ function handleUpdateStatus(data) {
   const row   = findRowByOrderId(sheet, data.orderId);
   if (!row) return jsonResponse({ success: false, error: 'Order not found' }, 404);
 
-  sheet.getRange(row, 14).setValue(data.status); // Column 14 = Order Status
+  sheet.getRange(row, 15).setValue(data.status); // Column 15 = Order Status
   return jsonResponse({ success: true, message: 'Order status updated to: ' + data.status });
 }
 
@@ -232,9 +233,10 @@ function handleTrackOrder(orderId) {
     total:          r[8],
     couponCode:     r[9],
     couponDiscount: r[10],
-    paymentMethod:  r[11],
-    paymentStatus:  r[12],
-    orderStatus:    r[13]
+    influencerName: r[11] || 'No Coupon',
+    paymentMethod:  r[12],
+    paymentStatus:  r[13],
+    orderStatus:    r[14]
   });
 }
 
@@ -259,10 +261,11 @@ function handleGetOrders() {
       total: r[8] || '',
       couponCode: r[9] || '',
       couponDiscount: r[10] || 0,
-      paymentMethod: r[11] || '',
-      paymentStatus: r[12] || '',
-      orderStatus: r[13] || '',
-      notes: r[14] || ''
+      influencerName: r[11] || 'No Coupon',
+      paymentMethod: r[12] || '',
+      paymentStatus: r[13] || '',
+      orderStatus: r[14] || '',
+      notes: r[15] || ''
     });
   }
   return jsonResponse({ success: true, orders: orders });
@@ -296,10 +299,11 @@ function getOrCreateSheet() {
     sheet.setColumnWidth(7, 160);  // Product
     sheet.setColumnWidth(10, 140); // Coupon Code
     sheet.setColumnWidth(11, 150); // Coupon Discount
-    sheet.setColumnWidth(12, 120); // Payment Method
-    sheet.setColumnWidth(13, 240); // Payment Status
-    sheet.setColumnWidth(14, 160); // Order Status
-    sheet.setColumnWidth(15, 200); // Notes
+    sheet.setColumnWidth(12, 180); // Influencer/User
+    sheet.setColumnWidth(13, 120); // Payment Method
+    sheet.setColumnWidth(14, 240); // Payment Status
+    sheet.setColumnWidth(15, 160); // Order Status
+    sheet.setColumnWidth(16, 200); // Notes
   }
   return sheet;
 }
@@ -319,8 +323,8 @@ function getOrderDataFromRow(sheet, row) {
   return {
     orderId: r[0], timestamp: r[1], name: r[2], email: r[3],
     phone: r[4], address: r[5], product: r[6], quantity: r[7],
-    total: r[8], couponCode: r[9], couponDiscount: r[10],
-    paymentMethod: r[11], paymentStatus: r[12], orderStatus: r[13]
+    total: r[8], couponCode: r[9], couponDiscount: r[10], influencerName: r[11],
+    paymentMethod: r[12], paymentStatus: r[13], orderStatus: r[14]
   };
 }
 

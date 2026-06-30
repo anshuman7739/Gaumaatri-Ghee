@@ -13,6 +13,7 @@
 	const path     = require('path');
 	const Razorpay = require('razorpay');
 	const { setTimeout: sleep } = require('timers/promises');
+	const influencerEngine = require('./backend/influencer-engine');
 
 	const app = express();
 	app.disable('x-powered-by');
@@ -141,7 +142,21 @@ async function sheetsGet(params, { attempts = 3 } = {}) {
 	  return `GM-${dateStr}-${rand}`;
 	}
 
-	function computeTotalInr({ variantKey, qty, couponCode }) {
+function resolveCouponOwner(couponCode) {
+  const code = String(couponCode || '').trim().toUpperCase();
+  if (!code) return null;
+  try {
+    const analytics = influencerEngine.getAnalytics();
+    const byCoupon = (analytics?.coupons || []).find(c => String(c.couponCode || '').toUpperCase() === code);
+    if (byCoupon?.influencerName) return byCoupon.influencerName;
+    const byInfluencer = (analytics?.influencers || []).find(i => String(i.couponCode || '').toUpperCase() === code);
+    return byInfluencer?.influencerName || null;
+  } catch {
+    return null;
+  }
+}
+
+function computeTotalInr({ variantKey, qty, couponCode }) {
 	  if (!PRICES_INR[variantKey]) {
 	    const err = new Error('Invalid variant');
 	    err.statusCode = 400;
@@ -316,6 +331,7 @@ async function verifyPaymentHandler(req, res) {
     let sheetsError = null;
     if (sheetsEnabled()) {
       try {
+        const couponOwner = resolveCouponOwner(pending.couponCode);
         await sheetsPost({
           action: 'submitOrder',
           orderId: internalOrderId,
@@ -328,6 +344,7 @@ async function verifyPaymentHandler(req, res) {
           total: pending.total,
           couponCode: pending.couponCode || '',
           couponDiscount: pending.discount || 0,
+          influencerName: couponOwner || '',
           paymentMethod: 'UPI',
           paymentStatus: `Paid - ${razorpay_payment_id}`,
           orderStatus: 'Order Received',
@@ -376,6 +393,7 @@ app.post('/api/cod-order', async (req, res) => {
     let sheetsError = null;
     if (sheetsEnabled()) {
       try {
+        const couponOwner = resolveCouponOwner(pricing.couponCode);
         await sheetsPost({
           action: 'submitOrder',
           orderId,
@@ -388,6 +406,7 @@ app.post('/api/cod-order', async (req, res) => {
           total: pricing.total,
           couponCode: pricing.couponCode || '',
           couponDiscount: pricing.discount || 0,
+          influencerName: couponOwner || '',
           paymentMethod: 'COD',
           paymentStatus: 'COD – Pay on Delivery',
           orderStatus: 'Order Received',
