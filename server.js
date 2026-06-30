@@ -434,6 +434,24 @@ app.get('/api/track-order', async (req, res) => {
 });
 
 // ──────────────────────────────────────────────────────────
+//  Orders List for Dashboard (Proxy to Google Sheets)
+// ──────────────────────────────────────────────────────────
+app.get('/api/orders', async (req, res) => {
+  try {
+    if (!sheetsEnabled()) {
+      return res.status(500).json({ success: false, error: 'Sheets API not configured' });
+    }
+
+    const qs = new URLSearchParams({ action: 'getOrders', token: sheetsConfig.token }).toString();
+    const sheetRes = await fetch(`${sheetsConfig.url}?${qs}`, { method: 'GET' });
+    const json = await parseJsonResponse(sheetRes);
+    return res.status(sheetRes.status).json(json);
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message || 'Failed to fetch orders' });
+  }
+});
+
+// ──────────────────────────────────────────────────────────
 //  Get Order Status (Order Tracking)
 // ──────────────────────────────────────────────────────────
 app.get('/api/order-status/:orderId', (req, res) => {

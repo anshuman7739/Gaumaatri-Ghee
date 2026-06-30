@@ -6,29 +6,85 @@
   <title>View Orders - Gaumaatri</title>
   <style>
     body{font-family:Arial,sans-serif;background:#f7f7f7;margin:0;padding:20px}
-    .box{max-width:900px;margin:auto;background:#fff;border-radius:10px;padding:20px;box-shadow:0 4px 16px rgba(0,0,0,.08)}
+    .box{max-width:1100px;margin:auto;background:#fff;border-radius:10px;padding:20px;box-shadow:0 4px 16px rgba(0,0,0,.08)}
     h1{margin-top:0}
-    table{width:100%;border-collapse:collapse}
-    th,td{padding:10px;border-bottom:1px solid #eee;text-align:left}
+    .row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
     .muted{color:#666;font-size:14px}
     .btn{padding:8px 12px;border:0;border-radius:6px;background:#222;color:#fff;cursor:pointer}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{padding:10px;border-bottom:1px solid #eee;text-align:left;font-size:14px}
+    .empty{padding:16px;color:#666}
   </style>
 </head>
 <body>
   <div class="box">
-    <h1>Orders Dashboard</h1>
-    <p class="muted">Basic working dashboard restored.</p>
-    <button class="btn" onclick="load()">Refresh</button>
+    <div class="row">
+      <div>
+        <h1>Orders Dashboard</h1>
+        <p class="muted">Live orders from backend</p>
+      </div>
+      <button class="btn" onclick="load()">Refresh</button>
+    </div>
+
     <table id="t">
-      <thead><tr><th>Order ID</th><th>Status</th><th>Amount</th></tr></thead>
-      <tbody><tr><td colspan="3">No local order data</td></tr></tbody>
+      <thead>
+        <tr>
+          <th>Order ID</th>
+          <th>Name</th>
+          <th>Phone</th>
+          <th>Product</th>
+          <th>Qty</th>
+          <th>Total</th>
+          <th>Payment</th>
+          <th>Status</th>
+          <th>Date</th>
+        </tr>
+      </thead>
+      <tbody><tr><td class="empty" colspan="9">Loading...</td></tr></tbody>
     </table>
   </div>
+
   <script>
-    function load(){
+    function esc(v){ return String(v ?? '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'<','>':'>','"':'"',"'":'&#39;'}[s])); }
+
+    async function load(){
       const tb=document.querySelector('#t tbody');
-      tb.innerHTML='<tr><td colspan="3">No local order data</td></tr>';
+      tb.innerHTML='<tr><td class="empty" colspan="9">Loading...</td></tr>';
+      try{
+        // Primary source: direct list endpoint
+        const r=await fetch('/api/orders');
+        const d=await r.json();
+
+        let rows = d.orders || d.data || d.rows || [];
+        if (!Array.isArray(rows) || rows.length===0 || d.success===false) {
+          // Fallback: fetch by known order IDs saved on this browser
+          const local = JSON.parse(localStorage.getItem('gaumaatriOrders') || '{}');
+          rows = Object.values(local || {});
+        }
+
+        if(!Array.isArray(rows) || rows.length===0){
+          tb.innerHTML='<tr><td class="empty" colspan="9">No orders found</td></tr>';
+          return;
+        }
+
+        tb.innerHTML = rows.map(o => `
+          <tr>
+            <td>${esc(o.orderId || o.order_id || '-')}</td>
+            <td>${esc(o.name || '-')}</td>
+            <td>${esc(o.phone || '-')}</td>
+            <td>${esc(o.product || '-')}</td>
+            <td>${esc(o.quantity || o.qty || '-')}</td>
+            <td>${esc(o.total || o.amount || '-')}</td>
+            <td>${esc(o.paymentMethod || o.payment_method || '-')}</td>
+            <td>${esc(o.orderStatus || o.status || '-')}</td>
+            <td>${esc(o.date || o.timestamp || '-')}</td>
+          </tr>
+        `).join('');
+      }catch(e){
+        tb.innerHTML='<tr><td class="empty" colspan="9">Failed to load orders</td></tr>';
+      }
     }
+
     load();
   </script>
 </body>
