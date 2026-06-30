@@ -13,7 +13,6 @@
 	const path     = require('path');
 	const Razorpay = require('razorpay');
 	const { setTimeout: sleep } = require('timers/promises');
-	const influencerEngine = require('./backend/influencer-engine');
 
 	const app = express();
 	app.disable('x-powered-by');
@@ -145,12 +144,16 @@ async function sheetsGet(params, { attempts = 3 } = {}) {
 function resolveCouponOwner(couponCode) {
   const code = String(couponCode || '').trim().toUpperCase();
   if (!code) return null;
+
+  // Vercel-safe lookup from existing coupons-data.json
   try {
-    const analytics = influencerEngine.getAnalytics();
-    const byCoupon = (analytics?.coupons || []).find(c => String(c.couponCode || '').toUpperCase() === code);
-    if (byCoupon?.influencerName) return byCoupon.influencerName;
-    const byInfluencer = (analytics?.influencers || []).find(i => String(i.couponCode || '').toUpperCase() === code);
-    return byInfluencer?.influencerName || null;
+    const filePath = path.join(__dirname, 'coupons-data.json');
+    if (!fs.existsSync(filePath)) return null;
+    const raw = fs.readFileSync(filePath, 'utf8');
+    const data = raw ? JSON.parse(raw) : {};
+    const coupons = Array.isArray(data.coupons) ? data.coupons : [];
+    const hit = coupons.find(c => String(c.code || c.couponCode || '').trim().toUpperCase() === code);
+    return hit ? String(hit.influencer || hit.influencerName || hit.owner || '').trim() || null : null;
   } catch {
     return null;
   }
