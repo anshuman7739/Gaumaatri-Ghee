@@ -981,6 +981,14 @@
     const PRICES   = { '200ml': 356, '500ml': 789, '1L': 1599 };
     const VARIANTS = { '200ml': '200ml Starter Pack', '500ml': '500ml Family Pack', '1L': '1 Litre Bulk Pack' };
     const COUPONS  = { 'GAUMAATRI10': 10, 'GHEE10': 10, 'WELCOME10': 10 };
+    function getCouponsMap(){
+      try{
+        const arr=JSON.parse(localStorage.getItem('gaumaatriCoupons')||'[]');
+        const map={...COUPONS};
+        arr.forEach(c=>{ if(c?.code && c?.off) map[String(c.code).toUpperCase()]=Number(c.off); });
+        return map;
+      }catch(e){ return COUPONS; }
+    }
 
     // ── RAZORPAY KEY ─────────────────────────────────────────────
     // Not a secret, but prefer using the key returned by your backend.
@@ -1107,8 +1115,9 @@
     function applyCoupon() {
       const code = document.getElementById('couponInput').value.trim().toUpperCase();
       if (couponApplied) { showToast('Coupon already applied!', 'error'); return; }
-      if (COUPONS[code]) {
-        discountPct   = COUPONS[code];
+      const couponsMap = getCouponsMap();
+      if (couponsMap[code]) {
+        discountPct   = couponsMap[code];
         couponApplied = true;
         updatePrice();
         showToast('🎉 Coupon ' + code + ' applied! ' + discountPct + '% off!', 'success');
@@ -1757,7 +1766,9 @@
         const data = await response.json();
 
         if (response.ok) {
-          // Silent submission - no message displayed
+          showMessage('✅ Thank you! Your review has been submitted and will appear after approval.', 'success', messageEl);
+          showToast('Review submitted successfully! 🎉', 'success');
+          
           // Reset form
           document.getElementById('reviewForm').reset();
           selectedRating = 0;
