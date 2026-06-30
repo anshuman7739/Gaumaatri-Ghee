@@ -6,41 +6,101 @@
   <title>Admin Coupons - Gaumaatri</title>
   <style>
     body{font-family:Arial,sans-serif;background:#f7f7f7;margin:0;padding:20px}
-    .box{max-width:900px;margin:auto;background:#fff;border-radius:10px;padding:20px;box-shadow:0 4px 16px rgba(0,0,0,.08)}
-    h1{margin-top:0}
-    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .box{max-width:980px;margin:auto;background:#fff;border-radius:10px;padding:20px;box-shadow:0 4px 16px rgba(0,0,0,.08)}
+    h1{margin:0 0 12px}
+    .muted{color:#666;font-size:13px}
+    .row{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
     input{padding:10px;border:1px solid #ddd;border-radius:6px}
     .btn{padding:10px 14px;border:0;border-radius:6px;background:#222;color:#fff;cursor:pointer}
-    ul{padding-left:18px}
+    .btn.red{background:#b91c1c}
+    table{width:100%;border-collapse:collapse;margin-top:14px}
+    th,td{padding:10px;border-bottom:1px solid #eee;text-align:left}
+    .tag{font-size:12px;padding:2px 8px;border-radius:12px;background:#eef}
   </style>
 </head>
 <body>
   <div class="box">
     <h1>Coupons Dashboard</h1>
+    <div class="muted">Shows coupons stored in browser localStorage key: <b>gaumaatriCoupons</b></div>
+
     <div class="row">
-      <input id="code" placeholder="Coupon code" />
-      <input id="off" placeholder="% off" type="number" />
-      <button class="btn" onclick="add()">Add Coupon</button>
+      <input id="code" placeholder="Coupon code (e.g. FEST20)" />
+      <input id="off" placeholder="% off" type="number" min="1" max="90" />
+      <button class="btn" onclick="addOrUpdate()">Save Coupon</button>
+      <button class="btn" onclick="resetDefaults()">Reset Default</button>
     </div>
-    <ul id="list"></ul>
+
+    <div class="muted">Total coupons: <b id="count">0</b> · Last updated: <b id="updated">-</b></div>
+
+    <table>
+      <thead>
+        <tr><th>Code</th><th>Discount</th><th>Status</th><th>Action</th></tr>
+      </thead>
+      <tbody id="list"></tbody>
+    </table>
   </div>
+
   <script>
     const KEY='gaumaatriCoupons';
-    const defaults=[{code:'GAUMAATRI10',off:10},{code:'WELCOME10',off:10}];
-    let data=JSON.parse(localStorage.getItem(KEY)||'null')||defaults;
-    function save(){ localStorage.setItem(KEY, JSON.stringify(data)); }
+    const defaults=[{code:'GAUMAATRI10',off:10},{code:'GHEE10',off:10},{code:'WELCOME10',off:10}];
+
+    function now(){ return new Date().toLocaleString(); }
+    function load(){ return JSON.parse(localStorage.getItem(KEY)||'null') || [...defaults]; }
+    function save(data){ localStorage.setItem(KEY, JSON.stringify(data)); }
+
     function render(){
-      document.getElementById('list').innerHTML=data.map(c=>`<li><b>${c.code}</b> - ${c.off}%</li>`).join('');
+      const data=load();
+      const tb=document.getElementById('list');
+      document.getElementById('count').textContent=data.length;
+      document.getElementById('updated').textContent=localStorage.getItem(KEY+'_updated')||'-';
+
+      if(!data.length){
+        tb.innerHTML='<tr><td colspan="4">No coupons found</td></tr>';
+        return;
+      }
+
+      tb.innerHTML=data.map(c=>`
+        <tr>
+          <td><b>${c.code}</b></td>
+          <td>${c.off}%</td>
+          <td><span class="tag">ACTIVE</span></td>
+          <td><button class="btn red" onclick="removeCoupon('${c.code}')">Delete</button></td>
+        </tr>
+      `).join('');
     }
-    function add(){
+
+    function addOrUpdate(){
       const code=document.getElementById('code').value.trim().toUpperCase();
       const off=Number(document.getElementById('off').value);
-      if(!code||!off)return alert('Enter valid coupon');
+      if(!code || !off || off<1 || off>90){ alert('Enter valid code and % (1-90)'); return; }
+
+      const data=load();
       const i=data.findIndex(x=>x.code===code);
-      if(i>=0)data[i].off=off; else data.push({code,off});
-      save(); render(); alert('Coupon saved');
+      if(i>=0) data[i].off=off; else data.push({code,off});
+      save(data);
+      localStorage.setItem(KEY+'_updated', now());
+      document.getElementById('code').value='';
+      document.getElementById('off').value='';
+      render();
+      alert('Saved: '+code);
     }
-    save(); render();
+
+    function removeCoupon(code){
+      const data=load().filter(x=>x.code!==code);
+      save(data);
+      localStorage.setItem(KEY+'_updated', now());
+      render();
+    }
+
+    function resetDefaults(){
+      save([...defaults]);
+      localStorage.setItem(KEY+'_updated', now());
+      render();
+      alert('Reset done');
+    }
+
+    if(!localStorage.getItem(KEY)){ save([...defaults]); localStorage.setItem(KEY+'_updated', now()); }
+    render();
   </script>
 </body>
 </html>
