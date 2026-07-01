@@ -1000,6 +1000,7 @@
     let paymentMethod    = 'COD';
     let discountPct      = 0;
     let couponApplied    = false;
+	let appliedCouponCode = "";
     let currentOrderId   = '';
     let _pendingOrderData = null;
     let _orderCache      = {};
@@ -1119,6 +1120,7 @@
       if (couponsMap[code]) {
         discountPct   = couponsMap[code];
         couponApplied = true;
+		appliedCouponCode = code;
         updatePrice();
         showToast('🎉 Coupon ' + code + ' applied! ' + discountPct + '% off!', 'success');
       } else {
@@ -1296,7 +1298,7 @@
             orderId,
             variantKey: data.variantKey,
             qty: data.qty,
-            couponCode: couponApplied ? document.getElementById('couponInput').value.trim().toUpperCase() : null,
+            couponCode: appliedCouponCode || null,
             customer: { name: data.name, email: data.email, phone: data.phone, address: data.address },
           })
         });
@@ -1361,7 +1363,7 @@
           body:    JSON.stringify({
             variantKey:  _pendingOrderData.variantKey,
             qty:         _pendingOrderData.qty,
-            couponCode:  couponApplied ? document.getElementById('couponInput').value.trim().toUpperCase() : null
+            couponCode: appliedCouponCode || null,
           })
         });
         const serverOrder = await parseJsonResponse(createRes);
