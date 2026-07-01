@@ -142,23 +142,13 @@ async function sheetsGet(params, { attempts = 3 } = {}) {
 	}
 
 function resolveCouponOwner(couponCode) {
-  const code = String(couponCode || '').trim().toUpperCase();
-  if (!code) return null;
+  const code = String(couponCode || "").trim().toUpperCase();
 
-  // Vercel-safe lookup from existing coupons-data.json
-  try {
-    const filePath = path.join(__dirname, 'coupons-data.json');
-    if (!fs.existsSync(filePath)) return null;
-    const raw = fs.readFileSync(filePath, 'utf8');
-    const data = raw ? JSON.parse(raw) : {};
-    const coupons = Array.isArray(data.coupons) ? data.coupons : [];
-    const hit = coupons.find(c => String(c.code || c.couponCode || '').trim().toUpperCase() === code);
-    return hit ? String(hit.influencer || hit.influencerName || hit.owner || '').trim() || null : null;
-  } catch {
-    return null;
-  }
+  if (!code) return "";
+
+  // For now use coupon code itself as influencer identifier
+  return code;
 }
-
 function computeTotalInr({ variantKey, qty, couponCode }) {
 	  if (!PRICES_INR[variantKey]) {
 	    const err = new Error('Invalid variant');
