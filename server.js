@@ -43,7 +43,7 @@ if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
 }
 
 const DEFAULT_SHEETS_API_URL =
-  'https://script.google.com/macros/s/AKfycbzu7MvB-cE1oJ517NYxMyIxp7RaLfybK1rfTPutB_YBdgnbKIfL90xqLxdIQLCqaumpVg/exec';
+  'https://script.google.com/macros/s/AKfycbzcXkkogvqjKxafSXcALeHNV7qkh4DESJtmTeKT-WAv29FhVVD3J4IjzobWU-86a_IbMA/exec';
 const DEFAULT_SHEETS_API_TOKEN = 'GAUMAATRI_SECRET_2026';
 
 const sheetsConfig = {
@@ -146,7 +146,6 @@ function resolveCouponOwner(couponCode) {
 
   if (!code) return "";
 
-  // For now use coupon code itself as influencer identifier
   return code;
 }
 function computeTotalInr({ variantKey, qty, couponCode }) {
