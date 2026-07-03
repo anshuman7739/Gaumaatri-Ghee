@@ -21,13 +21,12 @@
 <body>
   <div class="box">
     <h1>Coupons Dashboard</h1>
-    <div class="muted">Shows coupons stored in browser localStorage key: <b>gaumaatriCoupons</b></div>
+    <div class="muted">Coupons are stored in Google Sheets.</div>
 
     <div class="row">
       <input id="code" placeholder="Coupon code (e.g. FEST20)" />
       <input id="off" placeholder="% off" type="number" min="1" max="90" />
       <button class="btn" onclick="addOrUpdate()">Save Coupon</button>
-      <button class="btn" onclick="resetDefaults()">Reset Default</button>
     </div>
 
     <div class="muted">Total coupons: <b id="count">0</b> · Last updated: <b id="updated">-</b></div>
@@ -41,66 +40,97 @@
   </div>
 
   <script>
-    const KEY='gaumaatriCoupons';
-    const defaults=[{code:'GAUMAATRI10',off:10},{code:'GHEE10',off:10},{code:'WELCOME10',off:10}];
+    const APPS_SCRIPT = "https://script.google.com/macros/s/AKfycbzcXkkogvqjKxafSXcALeHNV7qkh4DESJtmTeKT-WAv29FhVVD3J4IjzobWU-86a_IbMA/exec";
+    const TOKEN = "GAUMAATRI_SECRET_2026";
 
     function now(){ return new Date().toLocaleString(); }
-    function load(){ return JSON.parse(localStorage.getItem(KEY)||'null') || [...defaults]; }
-    function save(data){ localStorage.setItem(KEY, JSON.stringify(data)); }
 
-    function render(){
-      const data=load();
-      const tb=document.getElementById('list');
-      document.getElementById('count').textContent=data.length;
-      document.getElementById('updated').textContent=localStorage.getItem(KEY+'_updated')||'-';
+  async function render() {
+  try {
+    const res = await fetch(APPS_SCRIPT, {
+      method: "POST",
+      body: JSON.stringify({
+        token: TOKEN,
+        action: "getCoupons"
+      })
+    });
 
-      if(!data.length){
-        tb.innerHTML='<tr><td colspan="4">No coupons found</td></tr>';
+    const data = await res.json();
+
+    const coupons = data.coupons || [];
+
+    document.getElementById("count").textContent = coupons.length;
+    document.getElementById("updated").textContent = now();
+
+    document.getElementById("list").innerHTML = coupons.map(c => `
+      <tr>
+        <td><b>${c.code}</b></td>
+        <td>${c.discount}%</td>
+        <td><span class="tag">ACTIVE</span></td>
+        <td>-</td>
+      </tr>
+    `).join("");
+
+  } catch (err) {
+    console.error(err);
+    alert("Unable to load coupons.");
+  }
+}
+
+    async function addOrUpdate(){
+
+    const code=document.getElementById("code").value.trim().toUpperCase();
+    const off=Number(document.getElementById("off").value);
+
+    if(!code || !off){
+        alert("Enter Coupon");
         return;
-      }
-
-      tb.innerHTML=data.map(c=>`
-        <tr>
-          <td><b>${c.code}</b></td>
-          <td>${c.off}%</td>
-          <td><span class="tag">ACTIVE</span></td>
-          <td><button class="btn red" onclick="removeCoupon('${c.code}')">Delete</button></td>
-        </tr>
-      `).join('');
     }
 
-    function addOrUpdate(){
-      const code=document.getElementById('code').value.trim().toUpperCase();
-      const off=Number(document.getElementById('off').value);
-      if(!code || !off || off<1 || off>90){ alert('Enter valid code and % (1-90)'); return; }
+    const res=await fetch(APPS_SCRIPT,{
+        method:"POST",
+        body:JSON.stringify({
+            token:TOKEN,
+            action:"createCoupon",
+            code:code,
+            discount:off
+        })
+    });
 
-      const data=load();
-      const i=data.findIndex(x=>x.code===code);
-      if(i>=0) data[i].off=off; else data.push({code,off});
-      save(data);
-      localStorage.setItem(KEY+'_updated', now());
-      document.getElementById('code').value='';
-      document.getElementById('off').value='';
-      render();
-      alert('Saved: '+code);
+    const data=await res.json();
+
+    if(data.success){
+
+        alert("Coupon Saved");
+
+        document.getElementById("code").value="";
+        document.getElementById("off").value="";
+
+        render();
+
+    }else{
+
+        alert(data.error);
+
     }
 
-    function removeCoupon(code){
-      const data=load().filter(x=>x.code!==code);
-      save(data);
-      localStorage.setItem(KEY+'_updated', now());
-      render();
-    }
+}
+render();
 
-    function resetDefaults(){
-      save([...defaults]);
-      localStorage.setItem(KEY+'_updated', now());
-      render();
-      alert('Reset done');
-    }
+    // function removeCoupon(code){
+    //   const data=load().filter(x=>x.code!==code);
+    //   save(data);
+    //   localStorage.setItem(KEY+'_updated', now());
+    //   render();
+    // }
 
-    if(!localStorage.getItem(KEY)){ save([...defaults]); localStorage.setItem(KEY+'_updated', now()); }
-    render();
+    // function resetDefaults(){
+    //   save([...defaults]);
+    //   localStorage.setItem(KEY+'_updated', now());
+    //   render();
+    //   alert('Reset done');
+    // }
+
   </script>
 </body>
 </html>
