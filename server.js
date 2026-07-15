@@ -123,8 +123,6 @@ async function sheetsGet(params, { attempts = 3 } = {}) {
 	// Keep these in sync with the frontend options in index.html.
 	const PRICES_INR = { '200ml': 356, '500ml': 789, '1L': 1599 };
 	const VARIANT_LABELS = { '200ml': '200ml Starter Pack', '500ml': '500ml Family Pack', '1L': '1 Litre Bulk Pack' };
-	const COUPONS = { GAUMAATRI10: 10, GHEE10: 10, WELCOME10: 10 };
-
 	// razorpay_order_id -> pending checkout context (kept until verification).
 	const pendingPayments = new Map();
 
@@ -148,7 +146,7 @@ function resolveCouponOwner(couponCode) {
 
   return code;
 }
-function computeTotalInr({ variantKey, qty, couponCode }) {
+async function computeTotalInr({ variantKey, qty, couponCode })  {
 	  if (!PRICES_INR[variantKey]) {
 	    const err = new Error('Invalid variant');
 	    err.statusCode = 400;
@@ -162,12 +160,30 @@ function computeTotalInr({ variantKey, qty, couponCode }) {
 	  }
 
 	  const base = PRICES_INR[variantKey] * qtyNum;
-	  const code = String(couponCode || '').trim().toUpperCase();
-	  const pct = code && COUPONS[code] ? COUPONS[code] : 0;
-	  const discount = pct ? Math.round(base * pct / 100) : 0;
-	  const total = base - discount;
 
-	  return { base, discount, total, qty: qtyNum, couponCode: code || null, couponPct: pct };
+const code = String(couponCode || "").trim().toUpperCase();
+
+let pct = 0;
+let influencer = "";
+
+if (code) {
+
+  const coupon = await sheetsPost({
+    action: "validateCoupon",
+    code: code
+  });
+
+  if (coupon.success && coupon.valid) {
+    pct = Number(coupon.discount);
+    influencer = coupon.influencer || "";
+  }
+
+}
+
+const discount = Math.round(base * pct / 100);
+const total = base - discount;
+
+	  return { base, discount, total, qty: qtyNum, couponCode: code || null, couponPct: pct, influencer };
 	}
 
 // ⚠️ IMPORTANT: Define API routes BEFORE static files middleware
@@ -183,7 +199,7 @@ function computeTotalInr({ variantKey, qty, couponCode }) {
 async function createOrderHandler(req, res) {
   try {
     const { variantKey, qty, couponCode } = req.body;
-    const pricing = computeTotalInr({ variantKey, qty, couponCode });
+    const pricing = await computeTotalInr({ variantKey, qty, couponCode });
 
     const amountPaise = Math.round(pricing.total * 100);
     const orderOptions = {
@@ -209,6 +225,7 @@ async function createOrderHandler(req, res) {
       total: pricing.total,
       couponCode: pricing.couponCode,
       couponPct: pricing.couponPct,
+      influencer: pricing.influencer,
     });
 
     console.log(`✅ Razorpay order created: ${order.id}  ₹${pricing.total}`);
@@ -290,7 +307,7 @@ async function verifyPaymentHandler(req, res) {
         const variantKey = rpOrder?.notes?.variantKey;
         const qty = rpOrder?.notes?.qty;
         const couponCode = rpOrder?.notes?.couponCode || null;
-        const pricing = computeTotalInr({ variantKey, qty, couponCode });
+        const pricing = await computeTotalInr({ variantKey, qty, couponCode });
         const expectedPaise = Math.round(pricing.total * 100);
         if (Number(rpOrder?.amount) !== expectedPaise) {
           return res.status(400).json({ success: false, error: 'Amount mismatch' });
@@ -304,6 +321,7 @@ async function verifyPaymentHandler(req, res) {
           total: pricing.total,
           couponCode: pricing.couponCode,
           couponPct: pricing.couponPct,
+          influencer: pricing.influencer,
         };
       } catch (err) {
         return res.status(400).json({
@@ -323,7 +341,7 @@ async function verifyPaymentHandler(req, res) {
     let sheetsError = null;
     if (sheetsEnabled()) {
       try {
-        const couponOwner = resolveCouponOwner(pending.couponCode);
+        
         await sheetsPost({
           action: 'submitOrder',
           orderId: internalOrderId,
@@ -336,7 +354,7 @@ async function verifyPaymentHandler(req, res) {
           total: pending.total,
           couponCode: pending.couponCode || '',
           couponDiscount: pending.discount || 0,
-          influencerName: couponOwner || '',
+          influencerName: pending.influencer || "",
           paymentMethod: 'UPI',
           paymentStatus: `Paid - ${razorpay_payment_id}`,
           orderStatus: 'Order Received',
@@ -374,7 +392,7 @@ app.post('/api/cod-order', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Missing customer details' });
     }
 
-    const pricing = computeTotalInr({ variantKey, qty, couponCode });
+    const pricing = await computeTotalInr({ variantKey, qty, couponCode });
 
     const variantLabel = VARIANT_LABELS[variantKey] || variantKey;
 
@@ -385,7 +403,7 @@ app.post('/api/cod-order', async (req, res) => {
     let sheetsError = null;
     if (sheetsEnabled()) {
       try {
-        const couponOwner = resolveCouponOwner(pricing.couponCode);
+        
         await sheetsPost({
           action: 'submitOrder',
           orderId,
@@ -398,7 +416,7 @@ app.post('/api/cod-order', async (req, res) => {
           total: pricing.total,
           couponCode: pricing.couponCode || '',
           couponDiscount: pricing.discount || 0,
-          influencerName: couponOwner || '',
+          influencerName: pricing.influencer || "",
           paymentMethod: 'COD',
           paymentStatus: 'COD – Pay on Delivery',
           orderStatus: 'Order Received',
