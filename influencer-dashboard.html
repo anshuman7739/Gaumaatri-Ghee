@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Influencer Dashboard — Gaumaatri</title>
+<style>
+:root{
+  --bg:#0f1115; --card:#1a1d24; --card2:#21252e; --line:#2c313c;
+  --txt:#eef1f6; --mut:#9aa3b2; --acc:#c9922a; --acc2:#e8b34b;
+  --ok:#34d399; --warn:#fbbf24; --bad:#f87171;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--txt)}
+.wrap{max-width:1000px;margin:0 auto;padding:16px}
+header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:14px 0;border-bottom:1px solid var(--line);margin-bottom:16px}
+.ava{width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,var(--acc),var(--acc2));display:flex;align-items:center;justify-content:center;font-weight:700;color:#0e0f12;font-size:1.2rem}
+.sec{font-size:.78rem;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;margin:18px 0 8px}
+.grid{display:grid;gap:12px}
+.cards{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+.card .k{color:var(--mut);font-size:.76rem;text-transform:uppercase;letter-spacing:.04em}
+.card .v{font-size:1.4rem;font-weight:700;margin-top:6px}
+.card .s{color:var(--ok);font-size:.85rem;margin-top:4px}
+.earn{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.card2{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+code{background:var(--card2);padding:3px 8px;border-radius:6px}
+table{width:100%;border-collapse:collapse;font-size:.84rem}
+th,td{text-align:left;padding:10px;border-bottom:1px solid var(--line)}
+th{color:var(--mut);font-weight:600;font-size:.74rem;text-transform:uppercase;letter-spacing:.03em}
+.tag{display:inline-block;padding:2px 9px;border-radius:14px;font-size:.72rem;font-weight:600}
+.tag.g{background:#103;color:var(--ok)} .tag.r{background:#301;color:var(--bad)} .tag.y{background:#332;color:var(--warn)} .tag.b{background:#112;color:#60a5fa}
+.empty{padding:22px;text-align:center;color:var(--mut)}
+.mut{color:var(--mut);font-size:.84rem}
+.lang{position:fixed;bottom:16px;right:16px;background:#081;color:#fff;padding:10px 14px;border-radius:10px;display:none;font-size:.86rem;z-index:20}
+@media(max-width:640px){ th,td{font-size:.74rem;padding:7px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="ava" id="ava">?</div>
+      <div>
+        <h1 style="margin:0;font-size:1.2rem" id="name">Loading…</h1>
+        <div class="mut" id="handle"></div>
+      </div>
+    </div>
+    <div class="card2" style="margin:0">
+      <div class="mut" style="font-size:.72rem">YOUR COUPON</div>
+      <code id="coupon" style="font-size:1.1rem">—</code>
+    </div>
+  </header>
+
+  <div class="grid cards" id="mainCards"></div>
+
+  <div class="sec">Earnings</div>
+  <div class="grid earn" id="earnCards"></div>
+
+  <div class="sec">Recent Orders</div>
+  <div class="card2" style="overflow-x:auto">
+    <table>
+      <thead><tr><th>Order</th><th>Customer</th><th>Amount</th><th>Discount</th><th>Commission</th><th>Status</th><th>Date</th></tr></thead>
+      <tbody id="orderRows"></tbody>
+    </table>
+  </div>
+</div>
+<div class="lang" id="toast"></div>
+<script>
+const token = new URLSearchParams(location.search).get('token') || '';
+const API = '';
+function esc(v){ return String(v ?? '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
+function money(n){ return '₹' + Number(n||0).toLocaleString('en-IN'); }
+function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.style.display='block'; clearTimeout(t._x); t._x=setTimeout(()=>t.style.display='none',2500); }
+
+async function get(path){
+  const res = await fetch(API + path, { headers:{ 'X-Influencer-Token': token } });
+  return res.json();
+}
+
+async function load(){
+  if (!token){ document.getElementById('name').textContent='No token provided'; return; }
+  const d = await get('/api/influencer/dashboard');
+  if (!d.success){ document.getElementById('name').textContent='Access denied'; document.getElementById('coupon').textContent='—'; return; }
+  const inf = d.influencer || {};
+  document.getElementById('ava').textContent = (inf.influencerName||'?').charAt(0).toUpperCase();
+  document.getElementById('name').textContent = inf.influencerName || 'Influencer';
+  document.getElementById('handle').textContent = '@' + (inf.instagramUsername || '—');
+  document.getElementById('coupon').textContent = (d.couponStatus && inf.couponCode) ? inf.couponCode : '—';
+
+  document.getElementById('mainCards').innerHTML = [
+    { k:'Coupon Uses', v:d.couponUsed||0, s: d.couponStatus ? 'limit: '+(d.couponStatus.maximumUses==null?'∞':d.couponStatus.maximumUses) : '' },
+    { k:'Orders', v:d.orders||0 },
+    { k:'Sales (₹)', v:money(d.sales) },
+    { k:'Discount Given', v:money(d.discounted) },
+    { k:'Commission Earned', v:money(d.commission), s:'rate: '+(d.commissionRate||0)+'%' },
+  ].map(x=>`<div class="card"><div class="k">${x.k}</div><div class="v">${x.v}</div><div class="s">${x.s||''}</div></div>`).join('');
+
+  const e = d.earnings || {};
+  document.getElementById('earnCards').innerHTML = [
+    { k:'Pending', v:money(e.pending) },
+    { k:'Approved / Paid', v:money(e.approved) },
+    { k:'Total Paid Out', v:money(e.paid) },
+  ].map(x=>`<div class="card"><div class="k">${x.k}</div><div class="v">${x.v}</div></div>`).join('');
+
+  const orders = d.orderList || [];
+  document.getElementById('orderRows').innerHTML = orders.length ? orders.map(o=>{
+    const stClass = (o.orderStatus==='Refunded'||o.orderStatus==='Cancelled')?'r':(o.commissionPaid?'g':'b');
+    const badge = o.orderStatus==='Refunded'||o.orderStatus==='Cancelled'
+      ? '<span class="tag r">'+esc(o.orderStatus)+'</span>'
+      : (o.commissionPaid ? '<span class="tag g">PAID</span>' : '<span class="tag b">'+esc(o.orderStatus||'Received')+'</span>');
+    return `<tr>
+      <td><code>${esc(o.orderId)}</code></td>
+      <td>${esc(o.customerName||'—')}</td>
+      <td>${money(o.finalPaidAmount)}</td>
+      <td>${money(o.discountGiven)}</td>
+      <td>${money(o.commissionAmount)}</td>
+      <td>${badge}</td>
+      <td>${esc(new Date(o.timestamp).toLocaleDateString())}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="7" class="empty">No orders yet — share your coupon to get started!</td></tr>';
+}
+load();
+</script>
+</body>
+</html>
+

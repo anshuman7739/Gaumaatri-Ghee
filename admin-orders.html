@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Admin · Order Management — Gaumaatri</title>
+<style>
+  :root{
+    --bg:#eef1f5; --card:#ffffff; --line:#dfe3e8;
+    --txt:#1c2333; --mut:#6b7280;
+    --acc:#1d4ed8; --ok:#16a34a; --warn:#b45309; --bad:#dc2626; --info:#2563eb;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--txt)}
+  .wrap{max-width:1280px;margin:0 auto;padding:20px}
+
+  /* LOGIN */
+  .login{max-width:380px;margin:80px auto;padding:28px;background:var(--card);border:1px solid var(--line);border-radius:10px}
+  .login h1{font-size:1.2rem;margin-top:0;color:var(--acc)}
+  .login label{display:block;font-size:.82rem;color:var(--mut);margin-bottom:6px}
+  .login input{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:6px;font-size:.95rem}
+  .login input:focus{outline:none;border-color:var(--acc)}
+  .login .msg{color:var(--bad);font-size:.85rem;margin-top:8px}
+  .btn{border:0;border-radius:6px;padding:8px 14px;background:var(--acc);color:#fff;cursor:pointer;font-size:.88rem}
+  .btn:hover{background:#1b3fb0}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--txt)}
+  .btn.red{background:var(--bad);color:#fff}
+
+  /* HEADER */
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 0;border-bottom:1px solid var(--line);margin-bottom:18px}
+  header h1{margin:0;font-size:1.25rem;color:var(--acc)}
+  header .sub{color:var(--mut);font-size:.8rem}
+
+  /* SUMMARY CARDS */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+  .card .k{color:var(--mut);font-size:.74rem;text-transform:uppercase;letter-spacing:.03em}
+  .card .v{font-size:1.4rem;font-weight:700;margin-top:4px}
+
+  /* TOOLBAR */
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  .toolbar input[type=text]{flex:1;min-width:220px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;font-size:.9rem}
+  .toolbar select{padding:8px 10px;border:1px solid var(--line);border-radius:6px;font-size:.88rem;background:#fff}
+  .toolbar input[type=date]{padding:7px 8px;border:1px solid var(--line);border-radius:6px;font-size:.85rem}
+
+  /* TABLE */
+  table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);font-size:.86rem}
+  th{color:var(--mut);font-weight:600;text-align:left;padding:10px;background:#f5f6f8;border-bottom:1px solid var(--line);white-space:nowrap}
+  td{padding:9px 10px;border-bottom:1px solid var(--line)}
+  tbody tr{cursor:pointer}
+  tbody tr:hover{background:#f3f6fb}
+  .empty{text-align:center;padding:30px;color:var(--mut)}
+  .err{color:var(--bad);font-weight:600}
+  @media(max-width:760px){ .wrap{padding:8px} header h1{font-size:1.05rem} .cards{grid-template-columns:repeat(auto-fit,minmax(120px,1fr))} table{font-size:.78rem} }
+
+  /* BADGES */
+  .badge{display:inline-block;padding:2px 9px;border-radius:12px;font-size:.72rem;font-weight:600;white-space:nowrap}
+  .badge.pending{background:#eef2ff;color:var(--info)}
+  .badge.confirmed{background:#e0f2fe;color:#0e7490}
+  .badge.shipped{background:#fef3c7;color:var(--warn)}
+  .badge.delivered{background:#dcfce7;color:var(--ok)}
+  .badge.cancelled{background:#fee2e2;color:var(--bad)}
+  .badge.refunded{background:#fee2e2;color:var(--bad)}
+  .badge.order_received{background:#eef2ff;color:var(--info)}
+  .badge.paid{background:#dcfce7;color:var(--ok)}
+  .badge.cod{background:#eef2ff;color:var(--info)}
+
+  /* MODAL */
+  .overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:flex-start;justify-content:center;overflow:auto;padding:24px;z-index:50}
+  .overlay.open{display:flex}
+  .modal{background:#fff;border:1px solid var(--line);border-radius:12px;max-width:860px;width:100%;padding:20px}
+  .modal h2{margin:0;font-size:1.15rem;color:var(--acc)}
+  .modal .x{float:right;border:0;background:transparent;font-size:1.2rem;cursor:pointer;color:var(--mut)}
+  .sec{font-size:.74rem;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;margin:16px 0 6px;border-bottom:1px solid var(--line);padding-bottom:4px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+  .kv b{color:var(--txt);font-size:.85rem}
+  .kv span{color:var(--mut);font-size:.78rem;display:block;margin-bottom:1px}
+  .statusbar{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+  .statusbar button{padding:7px 12px;border-radius:16px;border:1px solid var(--line);background:#fff;color:var(--txt);cursor:pointer;font-size:.82rem}
+  .statusbar button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+  .statusbar button:disabled{opacity:.5;cursor:not-allowed}
+  .hist{padding:0;margin:6px 0;font-size:.82rem}
+  .hist li{margin:3px 0}
+  .toast{position:fixed;bottom:16px;right:16px;padding:11px 14px;border-radius:8px;color:#fff;font-size:.87rem;display:none;z-index:100}
+  .toast.ok{background:var(--ok)}
+  .toast.err{background:var(--bad)}
+</style>
+</head>
+<body>
+<!-- LOGIN GATE -->
+<div class="login">
+  <h1>Gaumaatri · Admin</h1>
+  <p style="color:var(--mut);font-size:.85rem">Enter the admin token to manage orders.</p>
+  <p>
+    <label for="loginToken">Admin Token</label>
+    <input type="password" id="loginToken" placeholder="••••••••" autocomplete="off" />
+  </p>
+  <button class="btn" style="width:100%" onclick="doLogin()">Unlock Dashboard</button>
+  <div class="msg" id="loginMsg"></div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="app" style="display:none">
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Order Management Dashboard</h1>
+        <div class="sub">Every customer order, status management & more</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn ghost" onclick="loadAll()">↻ Refresh</button>
+        <button class="btn red" onclick="logout()">Lock</button>
+      </div>
+    </header>
+
+    <div class="cards">
+      <div class="card"><div class="k">Total Orders</div><div class="v" id="cTotal">0</div></div>
+      <div class="card"><div class="k">Pending</div><div class="v" id="cPending">0</div></div>
+      <div class="card"><div class="k">Confirmed</div><div class="v" id="cConfirmed">0</div></div>
+      <div class="card"><div class="k">Shipped</div><div class="v" id="cShipped">0</div></div>
+      <div class="card"><div class="k">Delivered</div><div class="v" id="cDelivered">0</div></div>
+      <div class="card"><div class="k">Cancelled</div><div class="v" id="cCancelled">0</div></div>
+      <div class="card"><div class="k">Total Revenue</div><div class="v" id="cRevenue">₹0</div></div>
+    </div>
+
+    <div class="toolbar">
+      <input type="text" id="q" placeholder="Search by Order ID, name, phone or email…" oninput="renderTable()" />
+      <select id="fStatus" onchange="renderTable()">
+        <option value="">All statuses</option>
+        <option value="Pending">Pending</option>
+        <option value="Confirmed">Confirmed</option>
+        <option value="Shipped">Shipped</option>
+        <option value="Delivered">Delivered</option>
+        <option value="Cancelled">Cancelled</option>
+      </select>
+      <select id="fPay" onchange="renderTable()">
+        <option value="">All payment</option>
+        <option value="COD">COD</option>
+        <option value="UPI">UPI</option>
+        <option value="Paid">Paid</option>
+      </select>
+      <input type="date" id="fFrom" title="From" onchange="renderTable()" />
+      <span style="color:var(--mut)">→</span>
+      <input type="date" id="fTo" title="To" onchange="renderTable()" />
+      <button class="btn ghost" onclick="resetFilters()">Reset</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Order ID</th><th>Date</th><th>Customer</th><th>Phone</th><th>Email</th>
+          <th>Product</th><th>Qty</th><th>Total</th><th>Coupon</th><th>Discount</th>
+          <th>Payment</th><th>Status</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <button class="x" onclick="closeDetail()">✕</button>
+    <h2 id="dTitle">Order</h2>
+    <div id="dBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+const TOKEN_KEY = 'gaumaatri_admin_token';
+let ORDERS = [];
+let currentOrder = null;
+
+const CANON = ['Pending','Confirmed','Shipped','Delivered','Cancelled'];
+const norm = s => {
+  s = String(s || '').trim();
+  if (!s || s === 'Order Received') return 'Pending';
+  if (s === 'Refunded') return 'Cancelled';
+  return s;
+};
+
+function esc(v){ return String(v ?? '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
+function money(n){ return '₹' + Number(n||0).toLocaleString('en-IN'); }
+function fmtIso(d){ try{ const x=new Date(d); return isNaN(x.getTime())?'':x.toLocaleString(); }catch(e){ return ''; } }
+function savedToken(){ return sessionStorage.getItem(TOKEN_KEY) || ''; }
+
+function toast(msg, type){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast ' + type; t.style.display = 'block';
+  clearTimeout(t._x); t._x = setTimeout(()=>{ t.style.display='none'; }, 2800);
+}
+
+async function api(path, opts={}){
+  const headers = Object.assign({ 'Content-Type':'application/json' }, opts.headers||{});
+  if (savedToken()) headers['X-Admin-Token'] = savedToken();
+  const res = await fetch(path, Object.assign({}, opts, { headers, body: opts.body ? JSON.stringify(opts.body) : undefined }));
+  const data = await res.json().catch(()=>({ success:false, error:'Invalid response from server' }));
+  if (!res.ok) throw new Error(data.error || ('HTTP '+res.status));
+  return data;
+}
+
+/* ── AUTH (reuses existing shared admin-token auth) ── */
+function doLogin(){
+  sessionStorage.setItem(TOKEN_KEY, document.getElementById('loginToken').value.trim());
+  verifyLogin();
+}
+async function verifyLogin(){
+  document.getElementById('loginMsg').textContent = '';
+  if (!savedToken()) return;
+  try {
+    await api('/api/admin/db');
+    document.querySelector('.login').style.display = '';
+    document.getElementById('app').style.display = '';
+    loadAll();
+  } catch(e){
+    sessionStorage.removeItem(TOKEN_KEY);
+    document.getElementById('loginMsg').textContent = 'Unauthorized — check the admin token.';
+  }
+}
+function logout(){ sessionStorage.removeItem(TOKEN_KEY); location.reload(); }
+document.getElementById('loginToken').addEventListener('keydown', e=>{ if (e.key==='Enter') doLogin(); });
+
+/* ── DATA ── */
+async function loadAll(){
+  let data;
+  try { data = await api('/api/admin/db'); }
+  catch(e){ document.getElementById('tbody').innerHTML = '<tr><td colspan="13" class="empty err">Failed to load orders: '+esc(e.message||'network error')+'. Retry.</td></tr>'; return; }
+  ORDERS = Array.isArray(data.orders) ? data.orders : [];
+  document.getElementById('app').style.display = '';
+  renderCards(); renderTable();
+}
+
+function renderCards(){
+  const st = {};
+  let revenue = 0;
+  ORDERS.forEach(o => { const k = norm(o.orderStatus); st[k] = (st[k]||0) + 1; revenue += Number(o.finalPaidAmount||0); });
+  document.getElementById('cTotal').textContent     = ORDERS.length;
+  document.getElementById('cPending').textContent   = st.Pending||0;
+  document.getElementById('cConfirmed').textContent = st.Confirmed||0;
+  document.getElementById('cShipped').textContent   = st.Shipped||0;
+  document.getElementById('cDelivered').textContent = st.Delivered||0;
+  document.getElementById('cCancelled').textContent = st.Cancelled||0;
+  document.getElementById('cRevenue').textContent   = money(revenue);
+}
+
+function filtered(){
+  const q    = document.getElementById('q').value.trim().toLowerCase();
+  const fSt  = document.getElementById('fStatus').value;
+  const fPay = document.getElementById('fPay').value;
+  const fFrom= document.getElementById('fFrom').value;
+  const fTo  = document.getElementById('fTo').value;
+  return ORDERS.filter(o => {
+    const nrm = norm(o.orderStatus);
+    if (fSt && nrm !== fSt) return false;
+    if (fPay) {
+      const pay = String(o.paymentMethod||'').toUpperCase();
+      const st  = String(o.paymentStatus||'');
+      if (fPay==='COD' && pay!=='COD') return false;
+      if (fPay==='UPI' && pay!=='UPI') return false;
+      if (fPay==='Paid' && !/paid/i.test(st)) return false;
+    }
+    if (fFrom && new Date(o.timestamp||0) < new Date(fFrom)) return false;
+    if (fTo   && new Date(o.timestamp||0) > new Date(fTo+'T23:59:59')) return false;
+    if (q) { const hay = (o.orderId+' '+o.customerName+' '+o.phone+' '+o.email).toLowerCase(); if (!hay.includes(q)) return false; }
+    return true;
+  });
+}
+
+function renderTable(){
+  const rows = filtered().slice().sort((a,b)=> new Date(b.timestamp||0) - new Date(a.timestamp||0));
+  const tb = document.getElementById('tbody');
+  if (!rows.length){
+    tb.innerHTML = '<tr><td colspan="13" class="empty">'+(ORDERS.length ? 'No orders match your search / filters.' : 'No orders yet.')+'</td></tr>';
+    return;
+  }
+  tb.innerHTML = rows.map(o => {
+    const p = (o.purchasedProducts && o.purchasedProducts[0]) || {};
+    const st = norm(o.orderStatus);
+    return `<tr onclick="openDetail('${esc(o.orderId)}')">
+      <td>${esc(o.orderId)}</td>
+      <td>${esc((o.timestamp||'').slice(0,10))}</td>
+      <td>${esc(o.customerName||'—')}</td>
+      <td>${esc(o.phone||'—')}</td>
+      <td>${esc(o.email||'—')}</td>
+      <td>${esc(p.name||'—')}</td>
+      <td>${esc(o.quantity||p.qty||'—')}</td>
+      <td>${money(o.finalPaidAmount)}</td>
+      <td>${o.couponUsed?esc(o.couponUsed):'—'}</td>
+      <td>${o.discountGiven?money(o.discountGiven):'—'}</td>
+      <td>${payBadge(o)}</td>
+      <td>${badge(st)}</td>
+      <td><button class="btn ghost" onclick="event.stopPropagation();openDetail('${esc(o.orderId)}')">View</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function payBadge(o){
+  if (/upi/i.test(o.paymentMethod||'')) return '<span class="badge paid">UPI</span>';
+  if (/cod/i.test(o.paymentMethod||'')) return '<span class="badge cod">COD</span>';
+  return esc(o.paymentStatus||'—');
+}
+function badge(st){
+  const key = (st||'pending').toLowerCase().replace(/[^a-z]+/g,'_');
+  return `<span class="badge ${key}">${esc(st)}</span>`;
+}
+/* ── DETAIL MODAL ── */
+function openDetail(orderId){
+  currentOrder = ORDERS.find(o => o.orderId === orderId);
+  if (!currentOrder){ toast('Order not found','err'); return; }
+  const o = currentOrder;
+  const p = (o.purchasedProducts && o.purchasedProducts[0]) || {};
+  const pin = (String(o.address||'').match(/\b\d{6}\b/)||[''])[0];
+  const paymentId = String(o.paymentStatus||'').replace(/^Paid\s*[-:]\s*/i,'');
+  const isUpi = /upi/i.test(o.paymentMethod||'');
+
+  document.getElementById('dTitle').textContent = 'Order '+o.orderId;
+  document.getElementById('dBody').innerHTML = `
+    <div class="sec">Customer</div>
+    <div class="grid">
+      <div class="kv"><b>${esc(o.customerName||'—')}</b><span>Full name</span></div>
+      <div class="kv"><b>${esc(o.phone||'—')}</b><span>Phone</span></div>
+      <div class="kv"><b>${esc(o.email||'—')}</b><span>Email</span></div>
+    </div>
+    <div class="sec">Delivery</div>
+    <div class="grid">
+      <div class="kv" style="grid-column:span 2"><b>${esc(o.address||'—')}</b><span>Complete address</span></div>
+      <div class="kv"><b>${esc(o.city||'—')}</b><span>City</span></div>
+      <div class="kv"><b>${esc(o.state||'—')}</b><span>State</span></div>
+      <div class="kv"><b>${esc(pin||'—')}</b><span>PIN code</span></div>
+    </div>
+    <div class="sec">Order</div>
+    <div class="grid">
+      <div class="kv"><b>${esc(o.orderId)}</b><span>Order ID</span></div>
+      <div class="kv"><b>${esc(p.name||'—')}</b><span>Product</span></div>
+      <div class="kv"><b>${esc(o.quantity||p.qty||'—')}</b><span>Quantity</span></div>
+      <div class="kv"><b>${money(p.price)}</b><span>Product price</span></div>
+      <div class="kv"><b>${o.couponUsed?esc(o.couponUsed):'—'}</b><span>Coupon code</span></div>
+      <div class="kv"><b>${o.discountGiven?money(o.discountGiven):'—'}</b><span>Coupon discount</span></div>
+      <div class="kv"><b>${money(o.finalPaidAmount)}</b><span>Final amount</span></div>
+      <div class="kv"><b>${esc(fmtIso(o.timestamp))}</b><span>Order date/time</span></div>
+    </div>
+    <div class="sec">Payment</div>
+    <div class="grid">
+      <div class="kv"><b>${esc(o.paymentMethod||'—')}</b><span>Payment method</span></div>
+      <div class="kv"><b>${isUpi ? esc(paymentId||'—') : '—'}</b><span>Payment ID</span></div>
+      <div class="kv">${payBadge(o)}<span>Payment status</span></div>
+      <div class="kv"><b>${money(o.finalPaidAmount)}</b><span>Payment amount</span></div>
+    </div>
+    <div class="sec">Order Status</div>
+    <div class="statusbar" id="statusButtons">${statusButtons()}</div>
+    <ul class="hist" id="statusHistory"></ul>`;
+  renderStatusHistory();
+  document.getElementById('overlay').classList.add('open');
+}
+function statusButtons(){
+  const cur = norm(currentOrder.orderStatus);
+  let html = '';
+  CANON.forEach(s => {
+    const on = s === cur ? ' on' : '';
+    html += `<button data-s="${s}" class="${on}" ${s===cur?'disabled':''}>${s}</button>`;
+  });
+  return html;
+}
+function renderStatusHistory(){
+  const h = currentOrder.statusHistory || [];
+  document.getElementById('statusHistory').innerHTML = h.length
+    ? h.slice().reverse().map(x=>`<li>${esc(x.status)} — ${esc(fmtIso(x.timestamp))}${x.note?(' &middot; '+esc(x.note)):''}</li>`).join('')
+    : '<li style="color:var(--mut)">No status changes recorded yet.</li>';
+}
+function closeDetail(){ document.getElementById('overlay').classList.remove('open'); currentOrder=null; }
+document.getElementById('overlay').addEventListener('click', e => { if (e.target.id==='overlay') closeDetail(); });
+
+document.addEventListener('click', async e => {
+  const src = e.target && e.target.tagName === 'BUTTON' ? e.target : null;
+  if (!src || !src.dataset || !currentOrder) return;
+  const s = src.dataset.s;
+  if (norm(currentOrder.orderStatus) === s) return;
+  src.disabled = true;
+  try {
+    const d = await api('/api/admin/orders/'+encodeURIComponent(currentOrder.orderId)+'/status', { method:'PATCH', body:{ status:s } });
+    const idx = ORDERS.findIndex(x => x.orderId === currentOrder.orderId);
+    if (idx >= 0) ORDERS[idx] = d.order;
+    currentOrder = d.order;
+    renderCards(); renderTable();
+    document.getElementById('dTitle').textContent = 'Order '+currentOrder.orderId;
+    document.getElementById('statusButtons').innerHTML = statusButtons();
+    renderStatusHistory();
+    toast('Status updated to '+s, 'ok');
+  } catch(err){
+    toast('Failed to update status: '+(err.message||'network error'), 'err');
+    src.disabled = false;
+  }
+});
+
+function resetFilters(){
+  document.getElementById('q').value='';
+  document.getElementById('fStatus').value='';
+  document.getElementById('fPay').value='';
+  document.getElementById('fFrom').value='';
+  document.getElementById('fTo').value='';
+  renderTable();
+}
+
+verifyLogin();
+</script>
+</body>
+</html>

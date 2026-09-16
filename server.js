@@ -13,6 +13,7 @@
 	const path     = require('path');
 	const Razorpay = require('razorpay');
 	const { setTimeout: sleep } = require('timers/promises');
+	const engine   = require('./backend/influencer-engine');
 
 	const app = express();
 	app.disable('x-powered-by');
@@ -34,12 +35,40 @@ const {
   PORT = 3000,
   SHEETS_API_URL,
   SHEETS_API_TOKEN,
+  ADMIN_TOKEN,
+  EMAILJS_ACCESS_TOKEN,
+  EMAILJS_SERVICE_ID,
+  EMAILJS_USER_ID,
+  EMAILJS_STATUS_TEMPLATE_ID,
 } = process.env;
 
 if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
   console.error('\n❌  Missing Razorpay credentials in .env file.');
   console.error('    Ensure RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are set.\n');
   process.exit(1);
+}
+
+// Admin API token. Prefer env var; generate a random one otherwise and log it.
+const adminToken = ADMIN_TOKEN || crypto.randomBytes(24).toString('hex');
+if (!ADMIN_TOKEN) {
+  console.warn('⚠️  ADMIN_TOKEN not set — generated a temporary one: ' + adminToken);
+  console.warn('    Set ADMIN_TOKEN in your environment/production.');
+}
+
+function requireAdmin(req, res, next) {
+  const provided = (req.headers['x-admin-token'] || req.query.token || '').toString().trim();
+  if (!adminToken || provided !== adminToken) {
+    return res.status(401).json({ success: false, error: 'Unauthorized' });
+  }
+  next();
+}
+
+function requireInfluencer(req, res, next) {
+  const token = (req.query.token || req.headers['x-influencer-token'] || '').toString().trim();
+  const inf = engine.getInfluencerByToken(token);
+  if (!inf) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  req.influencer = inf;
+  next();
 }
 
 const DEFAULT_SHEETS_API_URL =
@@ -113,6 +142,65 @@ async function sheetsGet(params, { attempts = 3 } = {}) {
   throw lastErr || new Error('Sheets request failed.');
 }
 
+// ============================================================
+//  Order status-change confirmation emails (server-side)
+//  Sends to the customer's email when the admin changes an
+//  order's status (Pending -> Confirmed -> Shipped -> Delivered).
+//  Config-gated by EMAILJS_* env vars. If not configured, this is
+//  a harmless no-op and NEVER blocks the status update in the DB.
+//  No secrets are exposed to the browser.
+// ============================================================
+const emailConfig = {
+  accessToken: (EMAILJS_ACCESS_TOKEN || '').trim(),        // EmailJS private key (server-only)
+  serviceId:   (EMAILJS_SERVICE_ID || '').trim(),
+  userId:      (EMAILJS_USER_ID || '').trim(),
+  templateId:  (EMAILJS_STATUS_TEMPLATE_ID || '').trim(),
+};
+
+function emailEnabled() {
+  return Boolean(emailConfig.accessToken && emailConfig.serviceId && emailConfig.templateId);
+}
+
+async function sendStatusEmail(order, newStatus) {
+  if (!emailEnabled()) return false;
+  const product = (order.purchasedProducts && order.purchasedProducts[0]) || {};
+  const params = {
+    to_email:         order.email,
+    customer_name:    order.customerName || '',
+    order_id:         order.orderId,
+    product_name:     product.name || '',
+    quantity:         order.quantity || product.qty || '',
+    total_amount:     '₹' + Number(order.finalPaidAmount || 0).toLocaleString('en-IN'),
+    shipping_address: order.address || '',
+    order_date:       new Date(order.timestamp).toLocaleString('en-IN'),
+    status:           newStatus,
+    email_subject:    `Your Gaumaatri order ${order.orderId} is now ${newStatus}`,
+  };
+  try {
+    const res = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accessToken:   emailConfig.accessToken,
+        service_id:    emailConfig.serviceId,
+        template_id:   emailConfig.templateId,
+        user_id:       emailConfig.userId,
+        template_params: params,
+      }),
+    });
+    const text = await res.text();
+    if (res.ok) {
+      console.log(`✅ Status email sent to ${order.email} (order ${order.orderId} -> ${newStatus})`);
+      return true;
+    }
+    console.warn(`⚠️ Status email rejected (HTTP ${res.status}): ${text}`);
+    return false;
+  } catch (e) {
+    console.warn('⚠️ Status email failed:', e.message);
+    return false;
+  }
+}
+
 // ── Razorpay instance ────────────────────────────────────────
 	const razorpay = new Razorpay({
 	  key_id:     RAZORPAY_KEY_ID,
@@ -165,26 +253,133 @@ const code = String(couponCode || "").trim().toUpperCase();
 
 let pct = 0;
 let influencer = "";
+let influencerId = null;
+let commissionPercent = 0;
+let valid = false;
 
 if (code) {
+  // Coupon validation happens SERVER-SIDE against the DB (source of truth).
+  // Discount %/amount, eligibility, expiry, usage limit and influencer are all
+  // resolved here — never trusted from the client.
+  const v = engine.validateCoupon({ couponCode: code, cartValue: base, productKey: variantKey });
 
-  const coupon = await sheetsPost({
-    action: "validateCoupon",
-    code: code
-  });
-
-  if (coupon.success && coupon.valid) {
-    pct = Number(coupon.discount);
-    influencer = coupon.influencer || "";
+  if (v.valid) {
+    pct = v.coupon.discountType === 'fixed'
+      ? Math.round((v.discount / base) * 100)
+      : safePct(v.coupon.discountValue);
+    const r = engine.resolveInfluencerForCoupon(code);
+    influencer = r.influencer ? r.influencer.influencerName : (v.coupon.influencerName || "");
+    influencerId = r.influencer ? r.influencer.influencerId : null;
+    commissionPercent = r.influencer ? r.influencer.commissionPercent : 0;
+    influencer = influencer || "";
+    valid = true;
   }
-
 }
 
 const discount = Math.round(base * pct / 100);
 const total = base - discount;
 
-	  return { base, discount, total, qty: qtyNum, couponCode: code || null, couponPct: pct, influencer };
+	  return { base, discount, total, qty: qtyNum, couponCode: valid ? code : null, couponPct: pct, influencer, influencerId, commissionPercent };
 	}
+
+function safePct(n) {
+  const v = Number(n);
+  return Number.isFinite(v) ? Math.max(0, Math.min(v, 100)) : 0;
+}
+
+// ============================================================
+//  Order persistence (DB = source of truth) + Google Sheets sync
+//  Sheets is only a MIRROR. If Sheets fails, the order still
+//  succeeds and the row is queued for retry (outbox pattern).
+// ============================================================
+function cityStateFromAddress(address) {
+  const parts = String(address || '').split(',').map(s => s.trim()).filter(Boolean);
+  const state = parts.length >= 2 ? parts[parts.length - 2] : '';
+  const city = parts.length >= 3 ? parts[parts.length - 3] : '';
+  return { city, state };
+}
+
+// Record order in the DB (influencer/coupon engine) — idempotent by orderId.
+function persistOrderToDb({ orderId, pricing, customer, paymentMethod, paymentStatus, orderStatus, productLabel }) {
+  const { city, state } = cityStateFromAddress(customer.address);
+  return engine.recordInfluencerOrder({
+    orderId,
+    couponUsed: pricing.couponCode || '',
+    influencerId: pricing.influencerId,
+    influencerName: pricing.influencer,
+    commissionPercent: pricing.commissionPercent,
+    discountGiven: pricing.discount,
+    originalPrice: pricing.base,
+    finalPaidAmount: pricing.total,
+    paymentMethod,
+    paymentStatus,
+    orderStatus,
+    customerName: customer.name,
+    phone: customer.phone,
+    email: customer.email,
+    city,
+    state,
+    address: customer.address,
+    purchasedProducts: [{ name: productLabel, qty: pricing.qty, price: pricing.base }],
+    quantity: pricing.qty,
+  });
+}
+
+// Build the payload that mirrors the order + coupon usage into Google Sheets.
+function sheetsOrderPayload({ orderId, pricing, customer, paymentMethod, paymentStatus, orderStatus, productLabel }) {
+  return {
+    orderId,
+    name: customer.name,
+    email: customer.email,
+    phone: customer.phone,
+    address: customer.address,
+    product: productLabel,
+    quantity: pricing.qty,
+    total: pricing.total,
+    couponCode: pricing.couponCode || '',
+    couponDiscount: pricing.discount,
+    influencerName: pricing.influencer || '',
+    paymentMethod,
+    paymentStatus,
+    orderStatus,
+  };
+}
+
+async function attemptSheetSync(entry) {
+  const payload = entry.payload || {};
+  try {
+    if (!sheetsEnabled()) throw new Error('Sheets API not configured');
+    // If not already the full submitOrder shape, wrap it.
+    const body = payload.action ? payload : { ...payload, action: 'submitOrder' };
+    await sheetsPost(body);
+    engine.markSyncAttempt(entry.syncId, { success: true });
+    return true;
+  } catch (err) {
+    engine.markSyncAttempt(entry.syncId, { success: false, error: err.message });
+    return false;
+  }
+}
+
+async function processPendingSyncs() {
+  const due = engine.pendingSyncEntries();
+  const results = [];
+  for (const entry of due) {
+    results.push(await attemptSheetSync(entry));
+  }
+  return { attempted: due.length, results };
+}
+
+// Record order in DB + enqueue Sheets sync, then fire-and-forget an
+// immediate attempt. The order's success never depends on Sheets.
+async function recordOrderAndSync({ orderId, pricing, customer, paymentMethod, paymentStatus, orderStatus = 'Order Received', productLabel }) {
+  const dbOrder = persistOrderToDb({ orderId, pricing, customer, paymentMethod, paymentStatus, orderStatus, productLabel });
+  const sheetsPayload = sheetsOrderPayload({ orderId, pricing, customer, paymentMethod, paymentStatus, orderStatus, productLabel });
+  const entry = engine.enqueueSync(sheetsPayload);
+  if (entry) {
+    attemptSheetSync(entry).catch(() => { /* outbox will retry */ });
+  }
+  return dbOrder;
+}
 
 // ⚠️ IMPORTANT: Define API routes BEFORE static files middleware
 // This ensures /api/* requests are handled as JSON, not served as static files
@@ -226,6 +421,8 @@ async function createOrderHandler(req, res) {
       couponCode: pricing.couponCode,
       couponPct: pricing.couponPct,
       influencer: pricing.influencer,
+      influencerId: pricing.influencerId,
+      commissionPercent: pricing.commissionPercent,
     });
 
     console.log(`✅ Razorpay order created: ${order.id}  ₹${pricing.total}`);
@@ -322,6 +519,8 @@ async function verifyPaymentHandler(req, res) {
           couponCode: pricing.couponCode,
           couponPct: pricing.couponPct,
           influencer: pricing.influencer,
+          influencerId: pricing.influencerId,
+          commissionPercent: pricing.commissionPercent,
         };
       } catch (err) {
         return res.status(400).json({
@@ -332,39 +531,42 @@ async function verifyPaymentHandler(req, res) {
     }
     const variantLabel = VARIANT_LABELS[pending.variantKey] || pending.variantKey;
 
-    // ✅ Verified: only now create an internal order record (use Google Sheets for storage)
+    // ✅ Verified: only now create an internal order record
     const internalOrderId = genOrderId();
-    // Remove local file system write - use Google Sheets instead
     pendingPayments.delete(razorpay_order_id);
+
+    // DB is the source of truth; Sheets is synced as a mirror with retry (outbox).
+    const pricing = {
+      couponCode: pending.couponCode,
+      discount: pending.discount,
+      base: pending.base,
+      total: pending.total,
+      qty: pending.qty,
+      influencer: pending.influencer,
+      influencerId: pending.influencerId,
+      commissionPercent: pending.commissionPercent,
+    };
+    const customerInfo = { name: customer.name, email: customer.email, phone: customer.phone, address: customer.address };
 
     let sheetsSaved = false;
     let sheetsError = null;
-    if (sheetsEnabled()) {
-      try {
-        
-        await sheetsPost({
-          action: 'submitOrder',
-          orderId: internalOrderId,
-          name: customer?.name || '',
-          email: customer?.email || '',
-          phone: customer?.phone || '',
-          address: customer?.address || '',
-          product: variantLabel,
-          quantity: pending.qty,
-          total: pending.total,
-          couponCode: pending.couponCode || '',
-          couponDiscount: pending.discount || 0,
-          influencerName: pending.influencer || "",
-          paymentMethod: 'UPI',
-          paymentStatus: `Paid - ${razorpay_payment_id}`,
-          orderStatus: 'Order Received',
-        });
-        sheetsSaved = true;
-      } catch (err) {
-        sheetsError = err.message;
-        console.warn('⚠️ Sheets sync failed (payment verified, DB saved):', err.message);
-      }
+    try {
+      await recordOrderAndSync({
+        orderId: internalOrderId,
+        pricing,
+        customer: customerInfo,
+        paymentMethod: 'UPI',
+        paymentStatus: `Paid - ${razorpay_payment_id}`,
+        orderStatus: 'Order Received',
+        productLabel: variantLabel,
+      });
+      sheetsSaved = true;
+    } catch (err) {
+      sheetsError = err.message;
+      console.warn('⚠️ order save/sync issue (payment verified; DB is still authoritative):', err.message);
     }
+    // Fire-and-forget retry of any overdue outbox rows.
+    processPendingSyncs().catch(() => {});
 
     console.log(`✅ Payment verified + order saved: ${razorpay_payment_id} -> ${internalOrderId}`);
     return res.status(200).json({ success: true, orderId: internalOrderId, sheetsSaved, sheetsError });
@@ -401,32 +603,22 @@ app.post('/api/cod-order', async (req, res) => {
 
     let sheetsSaved = false;
     let sheetsError = null;
-    if (sheetsEnabled()) {
-      try {
-        
-        await sheetsPost({
-          action: 'submitOrder',
-          orderId,
-          name: customer?.name || '',
-          email: customer?.email || '',
-          phone: customer?.phone || '',
-          address: customer?.address || '',
-          product: variantLabel,
-          quantity: pricing.qty,
-          total: pricing.total,
-          couponCode: pricing.couponCode || '',
-          couponDiscount: pricing.discount || 0,
-          influencerName: pricing.influencer || "",
-          paymentMethod: 'COD',
-          paymentStatus: 'COD – Pay on Delivery',
-          orderStatus: 'Order Received',
-        });
-        sheetsSaved = true;
-      } catch (err) {
-        sheetsError = err.message;
-        console.warn('⚠️ Sheets sync failed (COD saved, DB saved):', err.message);
-      }
+    try {
+      await recordOrderAndSync({
+        orderId,
+        pricing,
+        customer,
+        paymentMethod: 'COD',
+        paymentStatus: 'COD – Pay on Delivery',
+        orderStatus: 'Order Received',
+        productLabel: variantLabel,
+      });
+      sheetsSaved = true;
+    } catch (err) {
+      sheetsError = err.message;
+      console.warn('⚠️ COD save/sync issue (DB is authoritative, outbox will retry):', err.message);
     }
+    processPendingSyncs().catch(() => {});
 
     return res.status(200).json({
       success: true,
@@ -816,6 +1008,263 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// ============================================================
+//  INFLUENCER COUPON SYSTEM — API
+//  DB (backend/influencer-engine) is the source of truth.
+// ============================================================
+function seedDefaultCoupons() {
+  try {
+    const db = engine.loadDb();
+    if (db.coupons && db.coupons.length > 0) return;
+    let seed = [];
+    try {
+      seed = JSON.parse(fs.readFileSync(path.join(__dirname, 'coupons-data.json'), 'utf8')).coupons || [];
+    } catch { seed = []; }
+    (Array.isArray(seed) ? seed : []).forEach(c => {
+      try {
+        engine.createCoupon({
+          couponCode: c.code || c.couponCode,
+          discountValue: c.discount || c.discountValue || 10,
+          discountType: 'percentage',
+          expiryDate: c.expiryDate || null,
+          maximumUses: c.usageLimit == null ? null : c.usageLimit,
+          minimumCartValue: c.minAmount || 0,
+          enabled: c.active !== false,
+        });
+      } catch (e) { /* duplicate — skip */ }
+    });
+    console.log('🌱 Seeded default coupons (' + (engine.loadDb().coupons || []).length + ' total).');
+  } catch (e) { console.warn('⚠️ Coupon seed skipped:', e.message); }
+}
+seedDefaultCoupons();
+
+// Public: live coupon validation for checkout (server-side, authoritative).
+app.post('/api/validate-coupon', (req, res) => {
+  try {
+    const { couponCode, cartValue, productKey } = req.body || {};
+    const base = Math.max(0, Number(cartValue) || 0);
+    const v = engine.validateCoupon({ couponCode: couponCode || '', cartValue: base, productKey: productKey || '' });
+    if (v.valid) {
+      const discount = Math.min(v.discount, base);
+      return res.status(200).json({
+        success: true, valid: true, code: v.coupon.couponCode,
+        discountPercent: v.coupon.discountType === 'fixed' ? Math.round((discount / base) * 100) : v.coupon.discountValue,
+        discountAmount: discount, message: v.message || 'Coupon applied',
+      });
+    }
+    return res.status(200).json({ success: false, valid: false, code: String(couponCode || '').toUpperCase(), message: v.message || 'Invalid coupon' });
+  } catch (e) {
+    return res.status(200).json({ success: false, valid: false, message: 'Coupon validation error' });
+  }
+});
+
+// ── INFLUENCER (self-service, gated by influencer access token) ──
+app.get('/api/influencer/dashboard', requireInfluencer, (req, res) => {
+  try {
+    const data = engine.getInfluencerDashboard(req.influencer.influencerId);
+    return res.status(200).json({ success: true, ...data });
+  } catch (e) {
+    return res.status(400).json({ success: false, error: e.message });
+  }
+});
+
+app.get('/api/influencer/orders', requireInfluencer, (req, res) => {
+  try {
+    const data = engine.getInfluencerDashboard(req.influencer.influencerId);
+    return res.status(200).json({ success: true, orders: data.orderList, totals: {
+      couponUsed: data.couponUsed, orders: data.orders, sales: data.sales, commission: data.commission, earnings: data.earnings,
+    } });
+  } catch (e) {
+    return res.status(400).json({ success: false, error: e.message });
+  }
+});
+
+
+// ── ADMIN: analytics + usage (filtered) ──
+app.get('/api/admin/analytics', requireAdmin, (req, res) => {
+  try {
+    const a = engine.getAnalytics();
+    return res.status(200).json({ success: true, ...a });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.get('/api/admin/usage', requireAdmin, (req, res) => {
+  try {
+    const filters = {
+      couponCode: req.query.coupon,
+      influencerId: req.query.influencer,
+      customer: req.query.customer,
+      orderId: req.query.order,
+      from: req.query.from,
+      to: req.query.to,
+      orderStatus: req.query.status,
+    };
+    const { records, totals } = engine.getUsageRecords(filters);
+    return res.status(200).json({ success: true, records, totals, filters });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.get('/api/admin/db', requireAdmin, (req, res) => {
+  try {
+    return res.status(200).json({ success: true, ...engine.getDbView() });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// ── ADMIN: coupon CRUD ──
+app.post('/api/admin/coupons', requireAdmin, (req, res) => {
+  try {
+    const b = req.body || {};
+    const coupon = engine.createCoupon({
+      couponCode: b.couponCode || b.code,
+      discountType: b.discountType === 'fixed' ? 'fixed' : 'percentage',
+      discountValue: b.discountValue,
+      expiryDate: b.expiryDate || null,
+      minimumCartValue: b.minimumCartValue || 0,
+      maximumDiscount: b.maximumDiscount ?? null,
+      maximumUses: b.maximumUses ?? null,
+      influencerId: b.influencerId || null,
+      influencerName: b.influencerName || null,
+      applicableProducts: b.applicableProducts || [],
+      enabled: b.enabled !== false,
+    });
+    return res.status(201).json({ success: true, coupon });
+  } catch (e) {
+    return res.status(400).json({ success: false, error: e.message });
+  }
+});
+
+app.put('/api/admin/coupons/:code', requireAdmin, (req, res) => {
+  try {
+    const b = req.body || {};
+    const coupon = engine.updateCoupon(req.params.code, {
+      discountType: b.discountType,
+      discountValue: b.discountValue,
+      expiryDate: b.expiryDate,
+      minimumCartValue: b.minimumCartValue,
+      maximumDiscount: b.maximumDiscount,
+      maximumUses: b.maximumUses,
+      influencerId: b.influencerId,
+      influencerName: b.influencerName,
+      applicableProducts: b.applicableProducts,
+    });
+    return res.status(200).json({ success: true, coupon });
+  } catch (e) {
+    return res.status(400).json({ success: false, error: e.message });
+  }
+});
+
+app.patch('/api/admin/coupons/:code/toggle', requireAdmin, (req, res) => {
+  try {
+    const coupon = engine.toggleCoupon(req.params.code, req.body.enabled !== false);
+    return res.status(200).json({ success: true, coupon });
+  } catch (e) {
+    return res.status(400).json({ success: false, error: e.message });
+  }
+});
+
+// ── ADMIN: influencer CRUD ──
+app.post('/api/admin/influencers', requireAdmin, (req, res) => {
+  try {
+    const b = req.body || {};
+    const inf = engine.createInfluencer({
+      influencerName: b.influencerName,
+      instagramUsername: b.instagramUsername,
+      couponCode: b.couponCode,
+      couponDiscountPercent: b.couponDiscountPercent || 0,
+      commissionPercent: b.commissionPercent || 0,
+      phone: b.phone,
+      email: b.email,
+      notes: b.notes,
+      status: b.status,
+    });
+    return res.status(201).json({ success: true, influencer: inf });
+  } catch (e) {
+    return res.status(400).json({ success: false, error: e.message });
+  }
+});
+
+app.put('/api/admin/influencers/:id', requireAdmin, (req, res) => {
+  try {
+    const inf = engine.updateInfluencer(req.params.id, req.body || {});
+    return res.status(200).json({ success: true, influencer: inf });
+  } catch (e) {
+    return res.status(400).json({ success: false, error: e.message });
+  }
+});
+
+// ── ADMIN: commission payout ──
+app.post('/api/admin/commission/:orderId/pay', requireAdmin, (req, res) => {
+  try {
+    const order = engine.markCommissionPaid({
+      orderId: req.params.orderId,
+      transactionId: (req.body || {}).transactionId,
+      notes: (req.body || {}).notes,
+    });
+    return res.status(200).json({ success: true, order });
+  } catch (e) {
+    return res.status(400).json({ success: false, error: e.message });
+  }
+});
+
+// ── ADMIN: void (cancel/refund) an order — reverses coupon usage ──
+app.post('/api/admin/orders/:orderId/void', requireAdmin, (req, res) => {
+  try {
+    const status = (req.body || {}).status === 'Refunded' ? 'Refunded' : 'Cancelled';
+    const order = engine.voidInfluencerOrder(req.params.orderId, status);
+    return res.status(200).json({ success: true, order });
+  } catch (e) {
+    return res.status(400).json({ success: false, error: e.message });
+  }
+});
+
+// ── ADMIN: update order status ──
+// DB is authoritative. Google Sheets is mirrored best-effort and NEVER blocks the
+// response (fire-and-forget), so admin status changes stay instant even if the
+// Sheets endpoint is slow/unreachable.
+app.patch('/api/admin/orders/:orderId/status', requireAdmin, (req, res) => {
+  try {
+    const { status } = req.body || {};
+    const order = engine.updateOrderStatus(req.params.orderId, status, { note: (req.body || {}).note });
+    if (sheetsEnabled()) {
+      Promise.resolve()
+        .then(() => sheetsPost({ action: 'updateStatus', orderId: order.orderId, status: order.orderStatus }))
+        .catch(() => { /* DB is authoritative; mirror is optional */ });
+    }
+    // Notify the customer of the new status (fire-and-forget; no-op if EMAILJS not configured).
+    Promise.resolve()
+      .then(() => sendStatusEmail(order, order.orderStatus))
+      .catch(() => { /* email is best-effort */ });
+    return res.status(200).json({ success: true, order });
+  } catch (e) {
+    return res.status(400).json({ success: false, error: e.message });
+  }
+});
+
+// ── ADMIN: Google Sheets outbox (retry) ──
+app.get('/api/admin/sync', requireAdmin, (req, res) => {
+  try {
+    return res.status(200).json({ success: true, stats: engine.syncQueueStats(), queue: engine.pendingSyncList(100) });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/admin/sync/retry', requireAdmin, async (req, res) => {
+  try {
+    const result = await processPendingSyncs();
+    return res.status(200).json({ success: true, ...result, stats: engine.syncQueueStats() });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+
 // ──────────────────────────────────────────────────────────
 //  Error Handling Middleware
 // ──────────────────────────────────────────────────────────
@@ -864,6 +1313,18 @@ app.get('/view-orders.html', (req, res) => {
 });
 
 app.get('/admin-coupons.html', (req, res) => {
+  return res.sendFile(path.join(__dirname, 'admin-coupons.html'));
+});
+
+app.get('/influencer-dashboard.html', (req, res) => {
+  return res.sendFile(path.join(__dirname, 'influencer-dashboard.html'));
+});
+
+app.get('/admin-orders.html', (req, res) => {
+  return res.sendFile(path.join(__dirname, 'admin-orders.html'));
+});
+
+app.get('/admin-dashboard.html', (req, res) => {
   return res.sendFile(path.join(__dirname, 'admin-coupons.html'));
 });
 

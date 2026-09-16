@@ -9,6 +9,8 @@ npm-debug.log*
 
 # Runtime order storage
 orders.json
+# Influencer/coupon engine DB (source of truth) — never commit
+influencers-data.json
 
 # OS
 .DS_Store

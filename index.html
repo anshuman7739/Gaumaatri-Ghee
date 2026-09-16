@@ -1292,7 +1292,13 @@ class="lab-btn">
     emailjs.init("IGPLEG5r-rO43M5EG");
 
     // ── CONFIG ────────────────────────────────────────────────────
-    const API_BASE = (document.querySelector('meta[name="api-base"]')?.content || '').replace(/\/$/, '');
+    const _apiBaseMeta = (document.querySelector('meta[name="api-base"]')?.content || '').replace(/\/$/, '');
+    // Use same-origin (relative) on localhost so local testing hits the local
+    // server; otherwise honor the configured base (in production it equals this
+    // site's own origin, so relative would work there too).
+    const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '')
+      ? ''
+      : _apiBaseMeta;
     const PRICES   = { '200ml': 356, '500ml': 789, '1L': 1599 };
     const VARIANTS = { '200ml': '200ml Starter Pack', '500ml': '500ml Family Pack', '1L': '1 Litre Bulk Pack' };
     const COUPONS  = { 'GAUMAATRI10': 10, 'GHEE10': 10, 'WELCOME10': 10 };
@@ -1428,18 +1434,38 @@ class="lab-btn">
         document.getElementById('discountAmt').textContent    = '—';
       }
     }
-    function applyCoupon() {
+    async function applyCoupon() {
       const code = document.getElementById('couponInput').value.trim().toUpperCase();
+      if (!code) { showToast('Enter a coupon code first', 'error'); return; }
       if (couponApplied) { showToast('Coupon already applied!', 'error'); return; }
-      const couponsMap = getCouponsMap();
-      if (couponsMap[code]) {
-        discountPct   = couponsMap[code];
-        couponApplied = true;
-		appliedCouponCode = code;
-        updatePrice();
-        showToast('🎉 Coupon ' + code + ' applied! ' + discountPct + '% off!', 'success');
-      } else {
-        showToast('Invalid coupon code. Try GAUMAATRI10', 'error');
+      const base  = PRICES[currentVariant] * qty;
+      showToast('Validating coupon…', 'success');
+      try {
+        const res = await fetch(API_BASE + '/api/validate-coupon', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ couponCode: code, cartValue: base, productKey: currentVariant })
+        });
+        const data = await parseJsonResponse(res);
+        if (data && data.valid) {
+          discountPct   = Number(data.discountPercent) || 0;
+          couponApplied = true;
+          appliedCouponCode = data.code || code;
+          updatePrice();
+          showToast('🎉 Coupon ' + appliedCouponCode + ' applied! ' + discountPct + '% off!', 'success');
+        } else {
+          showToast('Invalid or expired coupon: ' + (data && data.message ? data.message : 'try again'), 'error');
+        }
+      } catch (e) {
+        // Offline / server error fallback: still allow the coupon in the UI so
+        // checkout is never blocked; the backend re-validates authoritatively.
+        const couponsMap = getCouponsMap();
+        if (couponsMap[code]) {
+          discountPct = couponsMap[code]; couponApplied = true; appliedCouponCode = code;
+          updatePrice(); showToast('🎉 Coupon ' + code + ' applied! ' + discountPct + '% off!', 'success');
+        } else {
+          showToast('Invalid coupon code. Try GAUMAATRI10', 'error');
+        }
       }
     }
 

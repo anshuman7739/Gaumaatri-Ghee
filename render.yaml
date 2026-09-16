@@ -19,3 +19,13 @@ services:
         sync: false
       - key: SHEETS_API_TOKEN
         sync: false
+      - key: ADMIN_TOKEN
+        sync: false
+      - key: EMAILJS_ACCESS_TOKEN
+        sync: false
+      - key: EMAILJS_SERVICE_ID
+        sync: false
+      - key: EMAILJS_USER_ID
+        sync: false
+      - key: EMAILJS_STATUS_TEMPLATE_ID
+        sync: false
