@@ -1052,6 +1052,14 @@ app.get('/api/health', (req, res) => {
     status: 'ok',
     server: 'Gaumaatri Ghee Payment System',
     razorpay: 'connected',
+    // Non-secret presence flags only (never values): lets the owner verify
+    // production env wiring without exposing anything.
+    config: {
+      adminTokenSet: Boolean(ADMIN_TOKEN),
+      sheetsSet: Boolean(SHEETS_API_URL && SHEETS_API_TOKEN),
+      emailSet: Boolean(EMAILJS_ACCESS_TOKEN && EMAILJS_SERVICE_ID && EMAILJS_USER_ID && EMAILJS_STATUS_TEMPLATE_ID),
+      orderStoreSet: Boolean((process.env.ORDER_STORE_URL || '').trim() && (process.env.ORDER_STORE_SECRET || '').trim()),
+    },
     timestamp: new Date().toISOString()
   });
 });
