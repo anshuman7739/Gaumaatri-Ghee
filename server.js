@@ -299,10 +299,54 @@ function cityStateFromAddress(address) {
   return { city, state };
 }
 
+// ============================================================
+//  Shared serverless-safe store (Vercel: read-only disk, no shared
+//  filesystem between invocations). When ORDER_STORE_URL is set, order
+//  records are mirrored to this HTTP JSON store so all instances share
+//  state. Local dev keeps using the JSON file via the engine.
+//  Endpoint contract (POST): { secret, op, record? } where op is
+//  'upsert' | 'list'. Keep it minimal on purpose.
+// ============================================================
+const ORDER_STORE_URL = (process.env.ORDER_STORE_URL || '').trim();
+const ORDER_STORE_SECRET = (process.env.ORDER_STORE_SECRET || '').trim();
+
+function orderStoreEnabled() {
+  return Boolean(ORDER_STORE_URL && ORDER_STORE_SECRET);
+}
+
+async function orderStoreUpsert(record) {
+  if (!orderStoreEnabled() || !record) return;
+  try {
+    await fetch(ORDER_STORE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ secret: ORDER_STORE_SECRET, op: 'upsert', record }),
+    });
+  } catch (e) {
+    console.warn('⚠️ Order store mirror failed:', e.message);
+  }
+}
+
+async function orderStoreList() {
+  if (!orderStoreEnabled()) return null;
+  try {
+    const res = await fetch(ORDER_STORE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ secret: ORDER_STORE_SECRET, op: 'list' }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && Array.isArray(data.records)) return data.records;
+  } catch (e) {
+    console.warn('⚠️ Order store read failed:', e.message);
+  }
+  return null;
+}
+
 // Record order in the DB (influencer/coupon engine) — idempotent by orderId.
 function persistOrderToDb({ orderId, pricing, customer, paymentMethod, paymentStatus, orderStatus, productLabel }) {
   const { city, state } = cityStateFromAddress(customer.address);
-  return engine.recordInfluencerOrder({
+  const rec = engine.recordInfluencerOrder({
     orderId,
     couponUsed: pricing.couponCode || '',
     influencerId: pricing.influencerId,
@@ -323,6 +367,10 @@ function persistOrderToDb({ orderId, pricing, customer, paymentMethod, paymentSt
     purchasedProducts: [{ name: productLabel, qty: pricing.qty, price: pricing.base }],
     quantity: pricing.qty,
   });
+  // Fire-and-forget shared-store mirror (serverless-safe persistence).
+  const stored = Array.isArray(rec) ? rec.find(o => o.orderId === orderId) : rec;
+  if (stored && typeof stored === 'object') orderStoreUpsert(stored).catch(() => {});
+  return rec;
 }
 
 // Build the payload that mirrors the order + coupon usage into Google Sheets.
@@ -1115,9 +1163,14 @@ app.get('/api/admin/usage', requireAdmin, (req, res) => {
   }
 });
 
-app.get('/api/admin/db', requireAdmin, (req, res) => {
+app.get('/api/admin/db', requireAdmin, async (req, res) => {
   try {
-    return res.status(200).json({ success: true, ...engine.getDbView() });
+    const view = engine.getDbView();
+    if (orderStoreEnabled()) {
+      const shared = await orderStoreList();
+      if (Array.isArray(shared)) view.orders = shared;
+    }
+    return res.status(200).json({ success: true, ...view });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message });
   }
@@ -1247,6 +1300,8 @@ app.patch('/api/admin/orders/:orderId/status', requireAdmin, (req, res) => {
     Promise.resolve()
       .then(() => sendStatusEmail(order, order.orderStatus))
       .catch(() => { /* email is best-effort */ });
+    // Mirror to the shared store too (serverless-safe).
+    if (orderStoreEnabled()) orderStoreUpsert(order).catch(() => {});
     return res.status(200).json({ success: true, order });
   } catch (e) {
     return res.status(400).json({ success: false, error: e.message });
