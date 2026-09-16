@@ -198,7 +198,7 @@ async function api(path, opts={}){
   if (savedToken()) headers['X-Admin-Token'] = savedToken();
   const res = await fetch(API + path, Object.assign({}, opts, { headers, body: opts.body ? JSON.stringify(opts.body) : undefined }));
   const data = await res.json().catch(()=>({ success:false, error:'Invalid response from server' }));
-  if (!res.ok) throw new Error(data.error || ('HTTP '+res.status));
+  if (!res.ok) throw new Error('HTTP ' + res.status + ' — ' + (data.error || 'request failed'));
   return data;
 }
 
@@ -211,13 +211,17 @@ async function verifyLogin(){
   document.getElementById('loginMsg').textContent = '';
   if (!savedToken()) return;
   try {
-    await api('/api/admin/db');
+    await api('/api/admin/ping');
     document.querySelector('.login').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     loadAll();
   } catch(e){
     sessionStorage.removeItem(TOKEN_KEY);
-    document.getElementById('loginMsg').textContent = 'Unauthorized — check the admin token.';
+    const raw = String((e && e.message) || 'network error');
+    document.getElementById('loginMsg').textContent =
+      (raw.indexOf('HTTP 401') === 0 || /unauthorized/i.test(raw))
+        ? 'Unauthorized — check the admin token.'
+        : 'Login failed (' + raw + ') — please retry.';
   }
 }
 function logout(){ sessionStorage.removeItem(TOKEN_KEY); location.reload(); }

@@ -29,6 +29,9 @@ function safeNumber(n, fallback = 0) {
 }
 
 function ensureDbFile() {
+  // NOTE: serverless hosts (Vercel) have a read-only filesystem — a failed
+  // write must never crash a request. loadDb/saveDb fall back to memory.
+  try {
   if (!fs.existsSync(DB_PATH)) {
     fs.writeFileSync(DB_PATH, JSON.stringify(DEFAULT_DB, null, 2), 'utf8');
     return;
@@ -52,20 +55,37 @@ function ensureDbFile() {
     };
     fs.writeFileSync(DB_PATH, JSON.stringify(merged, null, 2), 'utf8');
   } catch {
-    fs.writeFileSync(DB_PATH, JSON.stringify(DEFAULT_DB, null, 2), 'utf8');
+    try {
+      fs.writeFileSync(DB_PATH, JSON.stringify(DEFAULT_DB, null, 2), 'utf8');
+    } catch (e) {
+      console.warn('⚠️ Order DB not writable (read-only filesystem?) — continuing in memory:', e.message);
+    }
+  }
+  } catch (e) {
+    console.warn('⚠️ Order DB not writable (read-only filesystem?) — continuing in memory:', e.message);
   }
 }
 
+// On serverless (read-only disk) the JSON file may be missing/unwritable:
+// fall back to an in-memory empty DB instead of crashing the request.
 function loadDb() {
-  ensureDbFile();
-  const raw = fs.readFileSync(DB_PATH, 'utf8');
-  return JSON.parse(raw);
+  try {
+    ensureDbFile();
+    const raw = fs.readFileSync(DB_PATH, 'utf8');
+    return JSON.parse(raw);
+  } catch {
+    return JSON.parse(JSON.stringify(DEFAULT_DB));
+  }
 }
 
 function saveDb(db) {
   db.meta = db.meta || {};
   db.meta.updatedAt = nowIso();
-  fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2), 'utf8');
+  try {
+    fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2), 'utf8');
+  } catch (e) {
+    console.warn('⚠️ Order DB persist skipped (read-only filesystem):', e.message);
+  }
   return db;
 }
 

@@ -1080,6 +1080,13 @@ app.get('/api/influencer/orders', requireInfluencer, (req, res) => {
 });
 
 
+// ── ADMIN: lightweight auth probe (no DB/filesystem access) ──
+// Used by admin dashboards to verify the token; isolates auth failures
+// from order-DB failures (important on read-only serverless disks).
+app.get('/api/admin/ping', requireAdmin, (req, res) => {
+  return res.status(200).json({ success: true, message: 'Admin authenticated' });
+});
+
 // ── ADMIN: analytics + usage (filtered) ──
 app.get('/api/admin/analytics', requireAdmin, (req, res) => {
   try {
