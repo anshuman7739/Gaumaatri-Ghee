@@ -170,7 +170,13 @@
 
 <div class="toast" id="toast"></div>
 <script>
-const API = '';
+/* Same-origin API calls. NOTE: the apex domain (gaumaatri.co.in) 307-redirects
+   to www, and fetch drops the X-Admin-Token header across that redirect —
+   which surfaced as a false "Unauthorized". Pinning the www host in the
+   browser avoids the redirect entirely. Local dev stays same-origin. */
+const API = (location.hostname === 'gaumaatri.co.in')
+  ? 'https://www.gaumaatri.co.in'
+  : '';
 const TOKEN_KEY = 'gaumaatri_admin_token';
 let ORDERS = [];
 let currentOrder = null;
