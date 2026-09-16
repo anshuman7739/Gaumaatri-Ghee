@@ -97,6 +97,7 @@
   </p>
   <button class="btn" style="width:100%" onclick="doLogin()">Unlock Dashboard</button>
   <div class="msg" id="loginMsg"></div>
+  <p id="diagLine" style="color:var(--mut);font-size:.72rem;margin-top:10px;word-break:break-all"></p>
 </div>
 
 <!-- DASHBOARD -->
@@ -209,6 +210,7 @@ function doLogin(){
 }
 async function verifyLogin(){
   document.getElementById('loginMsg').textContent = '';
+  document.getElementById('diagLine').textContent = '';
   if (!savedToken()) return;
   try {
     await api('/api/admin/ping');
@@ -218,10 +220,18 @@ async function verifyLogin(){
   } catch(e){
     sessionStorage.removeItem(TOKEN_KEY);
     const raw = String((e && e.message) || 'network error');
+    const is401 = (raw.indexOf('HTTP 401') === 0 || /unauthorized/i.test(raw));
     document.getElementById('loginMsg').textContent =
-      (raw.indexOf('HTTP 401') === 0 || /unauthorized/i.test(raw))
-        ? 'Unauthorized — check the admin token.'
-        : 'Login failed (' + raw + ') — please retry.';
+      is401 ? 'Unauthorized — check the admin token.'
+             : 'Login failed (' + raw + ') — please retry.';
+    try {
+      const probe = await fetch(API + '/api/health');
+      const h = await probe.json().catch(()=>({}));
+      document.getElementById('diagLine').textContent =
+        'diag: ping=' + (is401 ? '401-rejected' : raw) +
+        ' · api=' + location.origin +
+        ' · serverTime=' + (h.timestamp || '?');
+    } catch(e2){ /* best-effort */ }
   }
 }
 function logout(){ sessionStorage.removeItem(TOKEN_KEY); location.reload(); }
