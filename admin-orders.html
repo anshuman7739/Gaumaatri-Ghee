@@ -215,6 +215,14 @@ function doLogin(){
   verifyLogin();
 }
 async function verifyLogin(){
+  // Auto-login: allow ?token=... in the URL so the token never needs typing.
+  // The value stays in sessionStorage (per-tab) and is only ever sent as the
+  // X-Admin-Token header — never rendered or logged. URL copy is cleaned.
+  try {
+    const q = new URLSearchParams(location.search).get('token');
+    if (q && q.trim() && !savedToken()) sessionStorage.setItem(TOKEN_KEY, q.trim());
+    if (q) history.replaceState(null, '', location.pathname);
+  } catch(e){}
   document.getElementById('loginMsg').textContent = '';
   document.getElementById('diagLine').textContent = '';
   if (!savedToken()) return;
