@@ -49,7 +49,9 @@ if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
 }
 
 // Admin API token. Prefer env var; generate a random one otherwise and log it.
-const adminToken = ADMIN_TOKEN || crypto.randomBytes(24).toString('hex');
+// Trimmed: Vercel dashboard pastes often carry a trailing space/newline,
+// which would otherwise make every login 401 even with the right token.
+const adminToken = (ADMIN_TOKEN || '').trim() || crypto.randomBytes(24).toString('hex');
 if (!ADMIN_TOKEN) {
   console.warn('⚠️  ADMIN_TOKEN not set — generated a temporary one: ' + adminToken);
   console.warn('    Set ADMIN_TOKEN in your environment/production.');
