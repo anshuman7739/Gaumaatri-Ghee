@@ -211,7 +211,8 @@ async function api(path, opts={}){
 
 /* ── AUTH (reuses existing shared admin-token auth) ── */
 function doLogin(){
-  sessionStorage.setItem(TOKEN_KEY, document.getElementById('loginToken').value.trim());
+  // Strip whitespace (paste artefacts) — the server normalises identically.
+  sessionStorage.setItem(TOKEN_KEY, document.getElementById('loginToken').value.replace(/\s+/g, ''));
   verifyLogin();
 }
 async function verifyLogin(){
@@ -241,9 +242,12 @@ async function verifyLogin(){
     try {
       const probe = await fetch(API + '/api/health');
       const h = await probe.json().catch(()=>({}));
+      const cfg = h.config || {};
       document.getElementById('diagLine').textContent =
         'diag: ping=' + (is401 ? '401-rejected' : raw) +
         ' · api=' + location.origin +
+        ' · tokenLen=' + savedToken().length +
+        ' · serverTokenSet=' + (cfg.adminTokenSet === undefined ? '?' : cfg.adminTokenSet) +
         ' · serverTime=' + (h.timestamp || '?');
     } catch(e2){ /* best-effort */ }
   }

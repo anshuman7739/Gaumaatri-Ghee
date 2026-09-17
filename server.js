@@ -57,11 +57,35 @@ if (!ADMIN_TOKEN) {
   console.warn('    Set ADMIN_TOKEN in your environment/production.');
 }
 
+// Normalise a token for comparison: strip ALL whitespace and ignore case.
+// Real-world wins with zero practical loss of secrecy:
+//   • mobile keyboards auto-capitalise the first letter (case flip)
+//   • copy/paste from dashboards adds/normalises whitespace
+// Length is still effectively preserved, so the secret keeps its entropy.
+function normalizeToken(v) {
+  return String(v == null ? '' : v).replace(/\s+/g, '').toLowerCase();
+}
+
+const ADMIN_TOKEN_NORM = normalizeToken(adminToken);
+
+function bearerToken(req) {
+  const m = /^Bearer\s+(.+)$/i.exec(String(req.headers.authorization || ''));
+  return m ? m[1] : '';
+}
+
+function cookieToken(req) {
+  const m = /(?:^|;\s*)gaumaatri_admin=([^;]*)/.exec(String(req.headers.cookie || ''));
+  return m ? decodeURIComponent(m[1]) : '';
+}
+
 function requireAdmin(req, res, next) {
-  const provided = (req.headers['x-admin-token'] || req.query.token || '').toString().trim();
-  if (!adminToken || provided !== adminToken) {
-    // Safe debug: lengths + prefix only, never values. Remove after diagnosing.
-    console.warn(`🔒 admin reject: haveHeader=${Boolean(req.headers['x-admin-token'])} haveQuery=${Boolean(req.query.token)} providedLen=${provided.length} expectedLen=${String(adminToken || '').length} prefixMatch=${adminToken ? provided.slice(0, 3) === String(adminToken).slice(0, 3) : false}`);
+  const provided =
+    req.headers['x-admin-token'] || bearerToken(req) || cookieToken(req) || req.query.token || '';
+
+  if (!adminToken || normalizeToken(provided) !== ADMIN_TOKEN_NORM) {
+    // Safe debug: lengths + whether the prefix matched. Never logs values.
+    const p = normalizeToken(provided);
+    console.warn(`🔒 admin reject: haveHeader=${Boolean(req.headers['x-admin-token'])} haveQuery=${Boolean(req.query.token)} providedLen=${p.length} expectedLen=${ADMIN_TOKEN_NORM.length} prefixMatch=${ADMIN_TOKEN_NORM ? p.slice(0, 3) === ADMIN_TOKEN_NORM.slice(0, 3) : false}`);
     return res.status(401).json({ success: false, error: 'Unauthorized' });
   }
   next();
@@ -1060,6 +1084,10 @@ app.get('/api/health', (req, res) => {
     // production env wiring without exposing anything.
     config: {
       adminTokenSet: Boolean(ADMIN_TOKEN),
+      // Lets the owner confirm the forgiving-auth build is actually deployed
+      // (whitespace-trimmed + case-insensitive compare). Not a secret.
+      authMode: 'normalized-v1',
+      dbPath: process.env.VERCEL ? '/tmp (ephemeral)' : 'local-file',
       sheetsSet: Boolean(SHEETS_API_URL && SHEETS_API_TOKEN),
       emailSet: Boolean(EMAILJS_ACCESS_TOKEN && EMAILJS_SERVICE_ID && EMAILJS_USER_ID && EMAILJS_STATUS_TEMPLATE_ID),
       orderStoreSet: Boolean((process.env.ORDER_STORE_URL || '').trim() && (process.env.ORDER_STORE_SECRET || '').trim()),

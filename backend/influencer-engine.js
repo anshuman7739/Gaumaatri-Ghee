@@ -4,7 +4,19 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const DB_PATH = path.join(__dirname, '..', 'influencers-data.json');
+// Storage location.
+//  • Local / Render-with-disk : repo-root JSON file (as before).
+//  • Vercel (serverless)      : the deployment filesystem is READ-ONLY, so a
+//    repo-root file cannot be written. /tmp is the one writable path, which
+//    keeps orders working for the life of the instance instead of silently
+//    vanishing. (Still ephemeral across cold starts — a real DB is the
+//    long-term answer.)
+//  • INFLUENCER_DB_PATH       : explicit override if a persistent volume exists.
+const DB_PATH = process.env.INFLUENCER_DB_PATH
+  ? process.env.INFLUENCER_DB_PATH
+  : process.env.VERCEL
+    ? path.join('/tmp', 'influencers-data.json')
+    : path.join(__dirname, '..', 'influencers-data.json');
 
 const DEFAULT_DB = {
   influencers: [],
