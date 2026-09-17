@@ -60,6 +60,8 @@ if (!ADMIN_TOKEN) {
 function requireAdmin(req, res, next) {
   const provided = (req.headers['x-admin-token'] || req.query.token || '').toString().trim();
   if (!adminToken || provided !== adminToken) {
+    // Safe debug: lengths + prefix only, never values. Remove after diagnosing.
+    console.warn(`🔒 admin reject: haveHeader=${Boolean(req.headers['x-admin-token'])} haveQuery=${Boolean(req.query.token)} providedLen=${provided.length} expectedLen=${String(adminToken || '').length} prefixMatch=${adminToken ? provided.slice(0, 3) === String(adminToken).slice(0, 3) : false}`);
     return res.status(401).json({ success: false, error: 'Unauthorized' });
   }
   next();
