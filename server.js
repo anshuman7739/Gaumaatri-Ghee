@@ -1084,6 +1084,9 @@ app.get('/api/health', (req, res) => {
     // production env wiring without exposing anything.
     config: {
       adminTokenSet: Boolean(ADMIN_TOKEN),
+      // Length only (never the value). A length alone does not help brute-force
+      // a long random secret, but it instantly reveals a wrong-token paste.
+      adminTokenLen: ADMIN_TOKEN_NORM.length,
       // Lets the owner confirm the forgiving-auth build is actually deployed
       // (whitespace-trimmed + case-insensitive compare). Not a secret.
       authMode: 'normalized-v1',

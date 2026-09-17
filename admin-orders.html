@@ -247,6 +247,7 @@ async function verifyLogin(){
         'diag: ping=' + (is401 ? '401-rejected' : raw) +
         ' · api=' + location.origin +
         ' · tokenLen=' + savedToken().length +
+        (cfg.adminTokenLen ? ' (server expects ' + cfg.adminTokenLen + ') ' : '') +
         ' · serverTokenSet=' + (cfg.adminTokenSet === undefined ? '?' : cfg.adminTokenSet) +
         ' · serverTime=' + (h.timestamp || '?');
     } catch(e2){ /* best-effort */ }
