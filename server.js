@@ -1094,6 +1094,10 @@ app.get('/api/health', (req, res) => {
       sheetsSet: Boolean(SHEETS_API_URL && SHEETS_API_TOKEN),
       emailSet: Boolean(EMAILJS_ACCESS_TOKEN && EMAILJS_SERVICE_ID && EMAILJS_USER_ID && EMAILJS_STATUS_TEMPLATE_ID),
       orderStoreSet: Boolean((process.env.ORDER_STORE_URL || '').trim() && (process.env.ORDER_STORE_SECRET || '').trim()),
+      // Non-secret diagnostics: confirms the coupon seed actually ran in the
+      // live serverless bundle (coupon codes are public marketing codes).
+      couponsTotal: (() => { try { return (engine.loadDb().coupons || []).length; } catch { return -1; } })(),
+      couponsEnabled: (() => { try { return (engine.loadDb().coupons || []).filter(c => c.enabled !== false).length; } catch { return -1; } })(),
     },
     timestamp: new Date().toISOString()
   });
@@ -1103,18 +1107,50 @@ app.get('/api/health', (req, res) => {
 //  INFLUENCER COUPON SYSTEM — API
 //  DB (backend/influencer-engine) is the source of truth.
 // ============================================================
+// Built-in default coupons. Kept in CODE (not only in coupons-data.json)
+// because serverless bundlers (Vercel/@vercel/node) do not reliably include
+// plain data files read via fs.readFileSync — which silently left production
+// with ZERO valid coupons. The JSON file is still used as an optional overlay.
+const DEFAULT_COUPONS = [
+  { code: 'ANKIT25', discount: 25, expiryDate: null, usageLimit: null, minAmount: 0, active: true },
+  { code: 'FITNESS25', discount: 25, expiryDate: null, usageLimit: 50, minAmount: 0, active: true },
+  { code: 'MOM25', discount: 25, expiryDate: null, usageLimit: null, minAmount: 0, active: true },
+  { code: 'WELCOME25', discount: 25, expiryDate: null, usageLimit: null, minAmount: 0, active: true },
+];
+
+// Returns the set of seed coupons: built-ins, plus any extra codes found in
+// coupons-data.json when that file happens to be available.
+function seedCouponList() {
+  let fileSeed = [];
+  try {
+    const raw = fs.readFileSync(path.join(__dirname, 'coupons-data.json'), 'utf8');
+    const parsed = JSON.parse(raw);
+    fileSeed = Array.isArray(parsed?.coupons) ? parsed.coupons : [];
+  } catch { fileSeed = []; }
+
+  const byCode = new Map();
+  DEFAULT_COUPONS.forEach(c => byCode.set(String(c.code).toUpperCase(), c));
+  fileSeed.forEach(c => {
+    const code = String(c.code || c.couponCode || '').toUpperCase();
+    if (code) byCode.set(code, c);
+  });
+  return Array.from(byCode.values());
+}
+
 function seedDefaultCoupons() {
   try {
     const db = engine.loadDb();
-    if (db.coupons && db.coupons.length > 0) return;
-    let seed = [];
-    try {
-      seed = JSON.parse(fs.readFileSync(path.join(__dirname, 'coupons-data.json'), 'utf8')).coupons || [];
-    } catch { seed = []; }
-    (Array.isArray(seed) ? seed : []).forEach(c => {
+    for (const c of seedCouponList()) {
+      const code = c.code || c.couponCode;
+      if (!code) continue;
+      // Idempotent: skip codes that already exist (avoids wiping usage counts).
+      const exists = (db.coupons || []).some(
+        x => String(x.couponCode).toUpperCase() === String(code).toUpperCase()
+      );
+      if (exists) continue;
       try {
         engine.createCoupon({
-          couponCode: c.code || c.couponCode,
+          couponCode: code,
           discountValue: c.discount || c.discountValue || 10,
           discountType: 'percentage',
           expiryDate: c.expiryDate || null,
@@ -1123,8 +1159,7 @@ function seedDefaultCoupons() {
           enabled: c.active !== false,
         });
       } catch (e) { /* duplicate — skip */ }
-    });
-    console.log('🌱 Seeded default coupons (' + (engine.loadDb().coupons || []).length + ' total).');
+    }
   } catch (e) { console.warn('⚠️ Coupon seed skipped:', e.message); }
 }
 seedDefaultCoupons();
