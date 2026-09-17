@@ -526,6 +526,67 @@ function voidInfluencerOrder(orderId, status = 'Cancelled') {
   return order;
 }
 
+function isoOrNow(v) {
+  try {
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? nowIso() : d.toISOString();
+  } catch {
+    return nowIso();
+  }
+}
+
+// Insert orders discovered in an external source (the Google Sheets mirror) that
+// are missing from the local DB. Never overwrites an existing local record, so
+// local status changes + statusHistory always win. Returns how many were added.
+// This is what lets the admin dashboard show orders after a serverless cold
+// start, where the /tmp JSON DB has been wiped.
+function upsertOrdersBulk(records = []) {
+  if (!Array.isArray(records) || !records.length) return 0;
+  const db = loadDb();
+  const seen = new Set(db.orders.map(o => o.orderId));
+  let added = 0;
+  for (const rec of records) {
+    const orderId = String((rec && rec.orderId) || '').trim();
+    if (!orderId || seen.has(orderId)) continue;
+    seen.add(orderId);
+    const status = String(rec.orderStatus || '').trim() || 'Pending';
+    const stamp = isoOrNow(rec.timestamp);
+    db.orders.push({
+      orderId,
+      couponUsed: normalizeCouponCode(rec.couponUsed),
+      influencerId: rec.influencerId || null,
+      influencerName: rec.influencerName || null,
+      commissionPercent: safeNumber(rec.commissionPercent, 0),
+      commissionAmount: safeNumber(rec.commissionAmount, 0),
+      discountGiven: safeNumber(rec.discountGiven, 0),
+      originalPrice: safeNumber(rec.originalPrice, 0),
+      finalPaidAmount: safeNumber(rec.finalPaidAmount, 0),
+      paymentMethod: String(rec.paymentMethod || ''),
+      paymentStatus: String(rec.paymentStatus || ''),
+      orderStatus: status,
+      timestamp: stamp,
+      customerName: String(rec.customerName || ''),
+      phone: String(rec.phone || ''),
+      email: String(rec.email || '').toLowerCase(),
+      city: String(rec.city || ''),
+      state: String(rec.state || ''),
+      address: String(rec.address || '').trim(),
+      purchasedProducts: Array.isArray(rec.purchasedProducts) ? rec.purchasedProducts : [],
+      quantity: safeNumber(rec.quantity, 1),
+      commissionPaid: false,
+      paidDate: null,
+      transactionId: null,
+      payoutNotes: null,
+      // Seed history so the dashboard's timeline is never empty.
+      statusHistory: [{ status, timestamp: stamp, note: 'Imported from Sheets mirror' }],
+      importedFromSheets: true,
+    });
+    added++;
+  }
+  if (added) saveDb(db);
+  return added;
+}
+
 function listOrders(filters = {}) {
   const db = loadDb();
   let out = [...db.orders];
@@ -703,6 +764,7 @@ module.exports = {
   validateCoupon,
   recordReferralClick,
   recordInfluencerOrder,
+  upsertOrdersBulk,
   voidInfluencerOrder,
   markCommissionPaid,
   updateOrderStatus,

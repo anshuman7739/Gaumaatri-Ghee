@@ -327,6 +327,68 @@ function cityStateFromAddress(address) {
   return { city, state };
 }
 
+// ── Hydrate orders from the Google Sheets mirror ────────────
+// On serverless hosts the local JSON DB is ephemeral (/tmp), so after a cold
+// start or redeploy the admin dashboard would otherwise show zero orders.
+// Google Sheets is the durable mirror (written at order creation and on every
+// status update), so we map its rows back into order records and add any that
+// are missing locally. Existing local records are never overwritten, so local
+// status changes + history always win. Throttled to avoid hammering Sheets.
+let lastHydrateAt = 0;
+const HYDRATE_TTL_MS = 10000;
+
+function safeNum(v, fallback = 0) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function sheetRowToOrder(r = {}) {
+  const address = String(r.address || '').trim();
+  const { city, state } = cityStateFromAddress(address);
+  const product = String(r.product || '').trim();
+  const quantity = safeNum(r.quantity, 1);
+  const total = safeNum(r.total, 0);
+  const discount = safeNum(r.couponDiscount, 0);
+  const couponUsed = String(r.couponCode || '').trim();
+  const influencerName = String(r.influencerName || '').trim();
+  return {
+    orderId: String(r.orderId || '').trim(),
+    customerName: String(r.name || '').trim(),
+    phone: String(r.phone || '').trim(),
+    email: String(r.email || '').trim(),
+    address,
+    city,
+    state,
+    purchasedProducts: product ? [{ name: product, qty: quantity, price: total + discount }] : [],
+    quantity,
+    couponUsed,
+    discountGiven: discount,
+    originalPrice: total + discount,
+    finalPaidAmount: total,
+    paymentMethod: String(r.paymentMethod || '').trim(),
+    paymentStatus: String(r.paymentStatus || '').trim(),
+    orderStatus: String(r.orderStatus || '').trim(),
+    timestamp: r.timestamp || '',
+    influencerName: (influencerName && influencerName !== 'No Coupon') ? influencerName : null,
+  };
+}
+
+async function hydrateOrdersFromSheets({ force = false } = {}) {
+  if (!sheetsEnabled()) return 0;
+  const now = Date.now();
+  if (!force && now - lastHydrateAt < HYDRATE_TTL_MS) return 0;
+  lastHydrateAt = now;
+  try {
+    const json = await sheetsGet({ action: 'getOrders' });
+    const rows = Array.isArray(json && json.orders) ? json.orders : [];
+    if (!rows.length) return 0;
+    return engine.upsertOrdersBulk(rows.map(sheetRowToOrder));
+  } catch (e) {
+    console.warn('⚠️ Sheets order hydration skipped:', e.message);
+    return 0;
+  }
+}
+
 // ============================================================
 //  Shared serverless-safe store (Vercel: read-only disk, no shared
 //  filesystem between invocations). When ORDER_STORE_URL is set, order
@@ -1214,8 +1276,9 @@ app.get('/api/admin/ping', requireAdmin, (req, res) => {
 });
 
 // ── ADMIN: analytics + usage (filtered) ──
-app.get('/api/admin/analytics', requireAdmin, (req, res) => {
+app.get('/api/admin/analytics', requireAdmin, async (req, res) => {
   try {
+    await hydrateOrdersFromSheets();
     const a = engine.getAnalytics();
     return res.status(200).json({ success: true, ...a });
   } catch (e) {
@@ -1223,8 +1286,9 @@ app.get('/api/admin/analytics', requireAdmin, (req, res) => {
   }
 });
 
-app.get('/api/admin/usage', requireAdmin, (req, res) => {
+app.get('/api/admin/usage', requireAdmin, async (req, res) => {
   try {
+    await hydrateOrdersFromSheets();
     const filters = {
       couponCode: req.query.coupon,
       influencerId: req.query.influencer,
@@ -1243,6 +1307,9 @@ app.get('/api/admin/usage', requireAdmin, (req, res) => {
 
 app.get('/api/admin/db', requireAdmin, async (req, res) => {
   try {
+    // Serverless cold start: the /tmp JSON DB may be empty. Pull durable orders
+    // back from the Google Sheets mirror before rendering the dashboard.
+    await hydrateOrdersFromSheets();
     const view = engine.getDbView();
     if (orderStoreEnabled()) {
       const shared = await orderStoreList();
@@ -1365,10 +1432,23 @@ app.post('/api/admin/orders/:orderId/void', requireAdmin, (req, res) => {
 // DB is authoritative. Google Sheets is mirrored best-effort and NEVER blocks the
 // response (fire-and-forget), so admin status changes stay instant even if the
 // Sheets endpoint is slow/unreachable.
-app.patch('/api/admin/orders/:orderId/status', requireAdmin, (req, res) => {
+app.patch('/api/admin/orders/:orderId/status', requireAdmin, async (req, res) => {
   try {
     const { status } = req.body || {};
-    const order = engine.updateOrderStatus(req.params.orderId, status, { note: (req.body || {}).note });
+    const note = (req.body || {}).note;
+    let order;
+    try {
+      order = engine.updateOrderStatus(req.params.orderId, status, { note });
+    } catch (err) {
+      // Cold start / ephemeral DB: the order may only exist in the Sheets mirror.
+      // Pull it in, then retry the update once.
+      if (/not found/i.test(err.message)) {
+        await hydrateOrdersFromSheets({ force: true });
+        order = engine.updateOrderStatus(req.params.orderId, status, { note });
+      } else {
+        throw err;
+      }
+    }
     if (sheetsEnabled()) {
       Promise.resolve()
         .then(() => sheetsPost({ action: 'updateStatus', orderId: order.orderId, status: order.orderStatus }))
