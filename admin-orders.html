@@ -93,9 +93,9 @@
   <p style="color:var(--mut);font-size:.85rem">Enter the admin token to manage orders.</p>
   <p>
     <label for="loginToken">Admin Token</label>
-    <input type="password" id="loginToken" placeholder="••••••••" autocomplete="off" />
+    <input type="password" id="loginToken" placeholder="Paste token, then click Unlock" autocomplete="off" />
   </p>
-  <button class="btn" style="width:100%" onclick="doLogin()">Unlock Dashboard</button>
+  <button class="btn" id="unlockBtn" style="width:100%">Unlock Dashboard</button>
   <div class="msg" id="loginMsg"></div>
   <p id="diagLine" style="color:var(--mut);font-size:.72rem;margin-top:10px;word-break:break-all"></p>
 </div>
@@ -211,19 +211,13 @@ async function api(path, opts={}){
 
 /* ── AUTH (reuses existing shared admin-token auth) ── */
 function doLogin(){
-  // Strip whitespace (paste artefacts) — the server normalises identically.
-  sessionStorage.setItem(TOKEN_KEY, document.getElementById('loginToken').value.replace(/\s+/g, ''));
+  // Always read the box fresh (the box may hold a value while sessionStorage
+  // holds a stale/empty one — never verify with the stale copy).
+  const v = document.getElementById('loginToken').value.replace(/\s+/g, '');
+  if (v) sessionStorage.setItem(TOKEN_KEY, v);
   verifyLogin();
 }
 async function verifyLogin(){
-  // Auto-login: allow ?token=... in the URL so the token never needs typing.
-  // The value stays in sessionStorage (per-tab) and is only ever sent as the
-  // X-Admin-Token header — never rendered or logged. URL copy is cleaned.
-  try {
-    const q = new URLSearchParams(location.search).get('token');
-    if (q && q.trim() && !savedToken()) sessionStorage.setItem(TOKEN_KEY, q.trim());
-    if (q) history.replaceState(null, '', location.pathname);
-  } catch(e){}
   document.getElementById('loginMsg').textContent = '';
   document.getElementById('diagLine').textContent = '';
   if (!savedToken()) return;
@@ -253,8 +247,19 @@ async function verifyLogin(){
     } catch(e2){ /* best-effort */ }
   }
 }
-function logout(){ sessionStorage.removeItem(TOKEN_KEY); location.reload(); }
-document.getElementById('loginToken').addEventListener('keydown', e=>{ if (e.key==='Enter') doLogin(); });
+function logout(){ try{ sessionStorage.removeItem(TOKEN_KEY); }catch(e){} var b=document.getElementById('loginToken'); if(b) b.value=''; location.reload(); }
+document.getElementById('loginToken').addEventListener('keydown', function(e){ if (e.key==='Enter'){ e.preventDefault(); doLogin(); } });
+document.getElementById('unlockBtn').addEventListener('click', function(e){ e.preventDefault(); doLogin(); });
+// Auto-login only via ?token= (explicit share link). Never implicitly on load,
+// so a stale/empty tab value can never trigger a confusing 401 with tokenLen=0.
+try {
+  var _q = new URLSearchParams(location.search).get('token');
+  if (_q && _q.replace(/\s+/g, '')) {
+    sessionStorage.setItem(TOKEN_KEY, _q.replace(/\s+/g, ''));
+    history.replaceState(null, '', location.pathname);
+    verifyLogin();
+  }
+} catch(e){}
 
 /* ── DATA ── */
 async function loadAll(){
