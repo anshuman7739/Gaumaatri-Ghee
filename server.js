@@ -112,10 +112,24 @@ function sheetsEnabled() {
   return Boolean(sheetsConfig.url && sheetsConfig.token);
 }
 
+// Hydration reads BACK from Sheets, so it must only run when Sheets is
+// explicitly configured via env. The hardcoded defaults may point at a stale
+// Apps Script deployment, and local dev should never call out to it.
+function sheetsExplicitlyConfigured() {
+  return Boolean((SHEETS_API_URL || '').trim() && (SHEETS_API_TOKEN || '').trim());
+}
+
 async function parseJsonResponse(response) {
   const text = await response.text();
   const trimmed = text.trim();
-  if (trimmed.startsWith('<')) throw new Error('Sheets returned HTML (check deployment / permissions).');
+  if (trimmed.startsWith('<')) {
+    // A 302 is the classic symptom of an Apps Script web app that is NOT
+    // deployed with "Who has access: Anyone" (Google redirects to a login page).
+    const hint = response.status === 302 || response.status === 301
+      ? 'Apps Script redirected to a login page — redeploy it as a Web app with "Who has access: Anyone".'
+      : 'check deployment / permissions.';
+    throw new Error(`Sheets returned HTML (HTTP ${response.status}) — ${hint}`);
+  }
   try {
     return JSON.parse(trimmed);
   } catch {
@@ -123,17 +137,29 @@ async function parseJsonResponse(response) {
   }
 }
 
-async function sheetsPost(payload, { attempts = 3 } = {}) {
+// Wrap fetch with a hard timeout so a slow/unreachable Sheets endpoint can never
+// hang an admin request (used by order hydration, which runs on dashboard load).
+async function fetchWithTimeout(url, options = {}, timeoutMs = 5000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function sheetsPost(payload, { attempts = 3, timeoutMs = 5000 } = {}) {
   if (!sheetsEnabled()) throw new Error('Sheets API not configured.');
 
   let lastErr = null;
   for (let i = 0; i < attempts; i++) {
     try {
-      const res = await fetch(sheetsConfig.url, {
+      const res = await fetchWithTimeout(sheetsConfig.url, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ ...payload, token: sheetsConfig.token }),
-      });
+      }, timeoutMs);
       const json = await parseJsonResponse(res);
       if (!res.ok || !json?.success) {
         throw new Error(json?.error || `Sheets error (HTTP ${res.status})`);
@@ -147,7 +173,7 @@ async function sheetsPost(payload, { attempts = 3 } = {}) {
   throw lastErr || new Error('Sheets request failed.');
 }
 
-async function sheetsGet(params, { attempts = 3 } = {}) {
+async function sheetsGet(params, { attempts = 3, timeoutMs = 5000 } = {}) {
   if (!sheetsEnabled()) throw new Error('Sheets API not configured.');
 
   const qs = new URLSearchParams({ ...params, token: sheetsConfig.token }).toString();
@@ -156,7 +182,7 @@ async function sheetsGet(params, { attempts = 3 } = {}) {
   let lastErr = null;
   for (let i = 0; i < attempts; i++) {
     try {
-      const res = await fetch(url, { method: 'GET' });
+      const res = await fetchWithTimeout(url, { method: 'GET' }, timeoutMs);
       const json = await parseJsonResponse(res);
       if (!res.ok || !json?.success) {
         throw new Error(json?.error || `Sheets error (HTTP ${res.status})`);
@@ -335,7 +361,9 @@ function cityStateFromAddress(address) {
 // are missing locally. Existing local records are never overwritten, so local
 // status changes + history always win. Throttled to avoid hammering Sheets.
 let lastHydrateAt = 0;
+let hydrateBackoffUntil = 0;
 const HYDRATE_TTL_MS = 10000;
+const HYDRATE_FAIL_BACKOFF_MS = 60000;
 
 function safeNum(v, fallback = 0) {
   const n = Number(v);
@@ -374,16 +402,22 @@ function sheetRowToOrder(r = {}) {
 }
 
 async function hydrateOrdersFromSheets({ force = false } = {}) {
-  if (!sheetsEnabled()) return 0;
+  if (!sheetsExplicitlyConfigured()) return 0;
   const now = Date.now();
+  // After a failure, back off so a broken/slow Sheets endpoint can't add latency
+  // to every dashboard request. Successful loads use the short TTL above.
+  if (!force && now < hydrateBackoffUntil) return 0;
   if (!force && now - lastHydrateAt < HYDRATE_TTL_MS) return 0;
   lastHydrateAt = now;
   try {
-    const json = await sheetsGet({ action: 'getOrders' });
+    // Single attempt + short timeout: hydration must never delay the dashboard.
+    const json = await sheetsGet({ action: 'getOrders' }, { attempts: 1, timeoutMs: 3000 });
     const rows = Array.isArray(json && json.orders) ? json.orders : [];
+    hydrateBackoffUntil = 0;
     if (!rows.length) return 0;
     return engine.upsertOrdersBulk(rows.map(sheetRowToOrder));
   } catch (e) {
+    hydrateBackoffUntil = Date.now() + HYDRATE_FAIL_BACKOFF_MS;
     console.warn('⚠️ Sheets order hydration skipped:', e.message);
     return 0;
   }
@@ -489,7 +523,10 @@ async function attemptSheetSync(entry) {
     if (!sheetsEnabled()) throw new Error('Sheets API not configured');
     // If not already the full submitOrder shape, wrap it.
     const body = payload.action ? payload : { ...payload, action: 'submitOrder' };
-    await sheetsPost(body);
+    // Apps Script cold starts + spreadsheet writes regularly exceed 5s; the old
+    // 5s cap aborted valid syncs with "This operation was aborted". Retry once
+    // with a generous timeout instead of hammering it three times quickly.
+    await sheetsPost(body, { attempts: 2, timeoutMs: 25000 });
     engine.markSyncAttempt(entry.syncId, { success: true });
     return true;
   } catch (err) {

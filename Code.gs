@@ -105,7 +105,11 @@ function handleSubmitOrder(data) {
   // ── Field Validation ──────────────────────────────────────
   const required = ['orderId','name','email','phone','address','product','quantity','total','paymentMethod'];
   for (const field of required) {
-    if (!data[field]) {
+    // NOTE: must not use a falsy check here — a 100%-off coupon legitimately
+    // produces total = 0, and `!0` is true, which used to reject valid orders
+    // with "Missing field: total".
+    const v = data[field];
+    if (v === undefined || v === null || String(v).trim() === '') {
       return jsonResponse({ success: false, error: 'Missing field: ' + field }, 400);
     }
   }
