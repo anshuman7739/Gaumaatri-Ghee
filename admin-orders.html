@@ -221,6 +221,7 @@ async function verifyLogin(){
   document.getElementById('loginMsg').textContent = '';
   document.getElementById('diagLine').textContent = '';
   if (!savedToken()) return;
+  var attemptLen = String(savedToken() || '').length; // capture BEFORE any clearing
   try {
     await api('/api/admin/ping');
     document.querySelector('.login').style.display = 'none';
@@ -240,7 +241,7 @@ async function verifyLogin(){
       document.getElementById('diagLine').textContent =
         'diag: ping=' + (is401 ? '401-rejected' : raw) +
         ' · api=' + location.origin +
-        ' · tokenLen=' + savedToken().length +
+        ' · tokenLen=' + attemptLen +
         (cfg.adminTokenLen ? ' (server expects ' + cfg.adminTokenLen + ') ' : '') +
         ' · serverTokenSet=' + (cfg.adminTokenSet === undefined ? '?' : cfg.adminTokenSet) +
         ' · serverTime=' + (h.timestamp || '?');
