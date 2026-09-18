@@ -1,6 +1,6 @@
-const DEFAULT_SHEETS_API_URL =
-  "https://script.google.com/macros/s/AKfycbzu7MvB-cE1oJ517NYxMyIxp7RaLfybK1rfTPutB_YBdgnbKIfL90xqLxdIQLCqaumpVg/exec";
-const DEFAULT_SHEETS_API_TOKEN = "GAUMAATRI_SECRET_2026";
+// Google Sheets config comes from env only (SHEETS_API_URL / SHEETS_API_TOKEN).
+// No hardcoded default deployment — a baked-in URL silently pointed at a
+// different, private script. See server.js for the full note.
 
 const PRICES_INR = { "200ml": 356, "500ml": 789, "1L": 1599 };
 const VARIANT_LABELS = { "200ml": "200ml Starter Pack", "500ml": "500ml Family Pack", "1L": "1 Litre Bulk Pack" };
@@ -60,8 +60,8 @@ export default async function handler(req, res) {
     }
 
     const pricing = computeTotalInr({ variantKey, qty, couponCode });
-    const url = process.env.SHEETS_API_URL || DEFAULT_SHEETS_API_URL;
-    const token = process.env.SHEETS_API_TOKEN || DEFAULT_SHEETS_API_TOKEN;
+    const url = (process.env.SHEETS_API_URL || "").trim();
+    const token = (process.env.SHEETS_API_TOKEN || "").trim();
     const product = VARIANT_LABELS[variantKey] || String(variantKey);
 
     const sheetRes = await fetch(url, {

@@ -99,14 +99,20 @@ function requireInfluencer(req, res, next) {
   next();
 }
 
-const DEFAULT_SHEETS_API_URL =
-  'https://script.google.com/macros/s/AKfycbxn_NTxyT2SWzkpN9WHEGJch2wE85g3qjLn0Vbs7zJ1C0jlky38rkPZ52HPd1jktws8tw/exec';
-const DEFAULT_SHEETS_API_TOKEN = 'GAUMAATRI_SECRET_2026';
-
+// Google Sheets (Apps Script Web App) mirror — CONFIG ONLY, no hardcoded URLs.
+// Previously these had baked-in default deployments, which meant a missing env
+// var silently pointed at a DIFFERENT (and private) script, so orders vanished
+// with no clear error. Now the env var is the single source of truth and a
+// missing config fails loudly and visibly in /api/health.
 const sheetsConfig = {
-  url: SHEETS_API_URL || DEFAULT_SHEETS_API_URL,
-  token: SHEETS_API_TOKEN || DEFAULT_SHEETS_API_TOKEN,
+  url: (SHEETS_API_URL || '').trim(),
+  token: (SHEETS_API_TOKEN || '').trim(),
 };
+
+if (!sheetsConfig.url || !sheetsConfig.token) {
+  console.warn('⚠️  Google Sheets mirror DISABLED — set SHEETS_API_URL and SHEETS_API_TOKEN.');
+  console.warn('    The Apps Script must be deployed as a Web app with "Who has access: Anyone".');
+}
 
 function sheetsEnabled() {
   return Boolean(sheetsConfig.url && sheetsConfig.token);
