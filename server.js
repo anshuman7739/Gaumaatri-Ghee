@@ -368,8 +368,8 @@ function cityStateFromAddress(address) {
 // status changes + history always win. Throttled to avoid hammering Sheets.
 let lastHydrateAt = 0;
 let hydrateBackoffUntil = 0;
-const HYDRATE_TTL_MS = 10000;
-const HYDRATE_FAIL_BACKOFF_MS = 60000;
+const HYDRATE_TTL_MS = 60000;
+const HYDRATE_FAIL_BACKOFF_MS = 20000;
 
 function safeNum(v, fallback = 0) {
   const n = Number(v);
@@ -416,8 +416,11 @@ async function hydrateOrdersFromSheets({ force = false } = {}) {
   if (!force && now - lastHydrateAt < HYDRATE_TTL_MS) return 0;
   lastHydrateAt = now;
   try {
-    // Single attempt + short timeout: hydration must never delay the dashboard.
-    const json = await sheetsGet({ action: 'getOrders' }, { attempts: 1, timeoutMs: 3000 });
+    // Apps Script cold starts regularly take 5-15s; give hydration a real
+    // chance (2 attempts, 20s each) instead of failing on the first slow call.
+    // Successful results stay fresh for HYDRATE_TTL_MS so one slow load feeds
+    // subsequent dashboard refreshes without re-hitting Sheets.
+    const json = await sheetsGet({ action: 'getOrders' }, { attempts: 2, timeoutMs: 20000 });
     const rows = Array.isArray(json && json.orders) ? json.orders : [];
     hydrateBackoffUntil = 0;
     if (!rows.length) return 0;
