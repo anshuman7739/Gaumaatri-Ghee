@@ -950,6 +950,15 @@ app.post('/api/admin/orders/:orderId/status', requireAdminToken, (req, res) => {
   }
 });
 
+app.patch('/api/admin/orders/:orderId/status', requireAdminToken, (req, res) => {
+  try {
+    const order = updateOrderStatus(req.params.orderId, req.body?.status, { note: req.body?.note });
+    res.json({ success: true, order });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message || 'Failed to update order status' });
+  }
+});
+
 // ──────────────────────────────────────────────────────────
 //  Error Handling Middleware
 // ──────────────────────────────────────────────────────────
