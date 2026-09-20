@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { execFileSync } = require('child_process');
 
 // Storage location.
 //  • Local / Render-with-disk : repo-root JSON file (as before).
@@ -12,11 +13,106 @@ const crypto = require('crypto');
 //    vanishing. (Still ephemeral across cold starts — a real DB is the
 //    long-term answer.)
 //  • INFLUENCER_DB_PATH       : explicit override if a persistent volume exists.
+const DEFAULT_DB_PATH = path.resolve(__dirname, '..', 'data', 'influencers-data.json');
 const DB_PATH = process.env.INFLUENCER_DB_PATH
   ? process.env.INFLUENCER_DB_PATH
-  : process.env.VERCEL
-    ? path.join('/tmp', 'influencers-data.json')
-    : path.join(__dirname, '..', 'influencers-data.json');
+  : (() => {
+      try {
+        const root = path.resolve(__dirname, '..');
+        if (!process.env.VERCEL && fs.existsSync(root)) {
+          return DEFAULT_DB_PATH;
+        }
+      } catch (e) {}
+
+      if (process.env.VERCEL) {
+        console.warn('⚠️ Vercel detected: using /tmp for influencer DB. Set INFLUENCER_DB_PATH or Upstash env vars to durable storage.');
+      }
+      return path.join('/tmp', 'influencers-data.json');
+    })();
+const REDIS_KEY = process.env.INFLUENCER_DB_KEY || 'gaumaatri:influencer-db';
+
+function getUpstashConfig() {
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return null;
+  return { url: url.replace(/\/$/, ''), token, key: REDIS_KEY };
+}
+
+function readUpstashDbSync() {
+  const cfg = getUpstashConfig();
+  if (!cfg) return null;
+  try {
+    const script = `
+      (async () => {
+        const url = process.env.UPSTASH_REDIS_REST_URL;
+        const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+        const key = process.env.INFLUENCER_DB_KEY || 'gaumaatri:influencer-db';
+        const res = await fetch(url + '/get/' + encodeURIComponent(key), {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        const text = await res.text();
+        if (!res.ok) throw new Error('Upstash get failed: ' + res.status + ' ' + text);
+        const json = JSON.parse(text || '{}');
+        process.stdout.write(JSON.stringify(json && Object.prototype.hasOwnProperty.call(json, 'result') ? json.result : null));
+      })().catch(err => { console.error(err.message); process.exit(1); });
+    `;
+    const out = execFileSync(process.execPath, ['-e', script], {
+      encoding: 'utf8',
+      env: { ...process.env, UPSTASH_REDIS_REST_URL: cfg.url, UPSTASH_REDIS_REST_TOKEN: cfg.token, INFLUENCER_DB_KEY: cfg.key },
+    });
+    const parsed = JSON.parse(out || 'null');
+    const raw = parsed && Object.prototype.hasOwnProperty.call(parsed, 'result') ? parsed.result : null;
+    if (raw == null) return null;
+    let value = raw;
+    if (typeof raw === 'string') {
+      try {
+        value = JSON.parse(raw);
+      } catch (e) {
+        value = raw;
+      }
+    }
+    if (!value || typeof value !== 'object') return null;
+    return value;
+  } catch (e) {
+    console.warn('⚠️ Upstash read failed — falling back to file cache:', e.message);
+    return null;
+  }
+}
+
+function writeUpstashDbSync(db) {
+  const cfg = getUpstashConfig();
+  if (!cfg) return false;
+  try {
+    const script = `
+      (async () => {
+        const url = process.env.UPSTASH_REDIS_REST_URL;
+        const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+        const key = process.env.INFLUENCER_DB_KEY || 'gaumaatri:influencer-db';
+        const value = process.argv[1];
+        const res = await fetch(url + '/set/' + encodeURIComponent(key), {
+          method: 'POST',
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ value })
+        });
+        const text = await res.text();
+        if (!res.ok) throw new Error('Upstash set failed: ' + res.status + ' ' + text);
+        process.stdout.write(text || '{}');
+      })().catch(err => { console.error(err.message); process.exit(1); });
+    `;
+    const payload = JSON.stringify(db);
+    execFileSync(process.execPath, ['-e', script, payload], {
+      encoding: 'utf8',
+      env: { ...process.env, UPSTASH_REDIS_REST_URL: cfg.url, UPSTASH_REDIS_REST_TOKEN: cfg.token, INFLUENCER_DB_KEY: cfg.key },
+    });
+    return true;
+  } catch (e) {
+    console.warn('⚠️ Upstash write failed — file persistence preserved:', e.message);
+    return false;
+  }
+}
 
 const DEFAULT_DB = {
   influencers: [],
@@ -31,6 +127,24 @@ const DEFAULT_DB = {
   },
 };
 
+function normalizeDbShape(raw = {}) {
+  return {
+    ...DEFAULT_DB,
+    ...raw,
+    influencers: Array.isArray(raw.influencers) ? raw.influencers : [],
+    coupons: Array.isArray(raw.coupons) ? raw.coupons : [],
+    referrals: Array.isArray(raw.referrals) ? raw.referrals : [],
+    orders: Array.isArray(raw.orders) ? raw.orders : [],
+    commissions: Array.isArray(raw.commissions) ? raw.commissions : [],
+    notifications: Array.isArray(raw.notifications) ? raw.notifications : [],
+    pendingSync: Array.isArray(raw.pendingSync) ? raw.pendingSync : [],
+    meta: {
+      ...DEFAULT_DB.meta,
+      ...(raw.meta || {}),
+    },
+  };
+}
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -41,63 +155,85 @@ function safeNumber(n, fallback = 0) {
 }
 
 function ensureDbFile() {
-  // NOTE: serverless hosts (Vercel) have a read-only filesystem — a failed
-  // write must never crash a request. loadDb/saveDb fall back to memory.
+  // NOTE: serverless hosts (Vercel) can have an ephemeral filesystem. If the
+  // configured DB path is not writable, fail gracefully and keep serving from
+  // memory instead of blanking the DB.
   try {
-  if (!fs.existsSync(DB_PATH)) {
-    fs.writeFileSync(DB_PATH, JSON.stringify(DEFAULT_DB, null, 2), 'utf8');
-    return;
-  }
-  try {
-    const raw = fs.readFileSync(DB_PATH, 'utf8');
-    const parsed = raw ? JSON.parse(raw) : {};
-    const merged = {
-      ...DEFAULT_DB,
-      ...parsed,
-      influencers: Array.isArray(parsed.influencers) ? parsed.influencers : [],
-      coupons: Array.isArray(parsed.coupons) ? parsed.coupons : [],
-      referrals: Array.isArray(parsed.referrals) ? parsed.referrals : [],
-      orders: Array.isArray(parsed.orders) ? parsed.orders : [],
-      commissions: Array.isArray(parsed.commissions) ? parsed.commissions : [],
-      notifications: Array.isArray(parsed.notifications) ? parsed.notifications : [],
-      meta: {
-        ...DEFAULT_DB.meta,
-        ...(parsed.meta || {}),
-      },
-    };
-    fs.writeFileSync(DB_PATH, JSON.stringify(merged, null, 2), 'utf8');
-  } catch {
-    try {
-      fs.writeFileSync(DB_PATH, JSON.stringify(DEFAULT_DB, null, 2), 'utf8');
-    } catch (e) {
-      console.warn('⚠️ Order DB not writable (read-only filesystem?) — continuing in memory:', e.message);
+    const dir = path.dirname(DB_PATH);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
     }
-  }
+    if (!fs.existsSync(DB_PATH)) {
+      fs.writeFileSync(DB_PATH, JSON.stringify(DEFAULT_DB, null, 2), 'utf8');
+    }
   } catch (e) {
-    console.warn('⚠️ Order DB not writable (read-only filesystem?) — continuing in memory:', e.message);
+    console.warn('⚠️ Order DB not writable (read-only filesystem or ephemeral store) — continuing in memory:', e.message);
   }
 }
+
+// In-process cache. Without it every request re-read the file from disk, so
+// two concurrent requests (e.g. an incoming order + a dashboard hydration)
+// could each load, mutate, and save — the last writer wins and silently
+// erases the other's orders ("orders vanish"). With the cache, mutations
+// always build on the newest in-memory state; the disk write is best-effort.
+let dbCache = null;
 
 // On serverless (read-only disk) the JSON file may be missing/unwritable:
 // fall back to an in-memory empty DB instead of crashing the request.
 function loadDb() {
+  if (dbCache) return dbCache;
+
   try {
     ensureDbFile();
     const raw = fs.readFileSync(DB_PATH, 'utf8');
-    return JSON.parse(raw);
-  } catch {
-    return JSON.parse(JSON.stringify(DEFAULT_DB));
+    const parsed = raw ? JSON.parse(raw) : {};
+    dbCache = normalizeDbShape(parsed);
+    return dbCache;
+  } catch (e) {
+    console.warn('⚠️ File-based DB read failed — checking Redis fallback:', e.message);
   }
+
+  try {
+    const redisDb = readUpstashDbSync();
+    if (redisDb && typeof redisDb === 'object') {
+      dbCache = normalizeDbShape(redisDb);
+      return dbCache;
+    }
+  } catch (e) {
+    console.warn('⚠️ Redis DB read failed — keeping existing in-memory state if any:', e.message);
+  }
+
+  // NEVER blank the database during a transient storage outage.
+  // If there is no durable data to load, keep the app on a bootstrap state
+  // rather than overwriting the in-memory cache with an empty default.
+  if (!dbCache) {
+    dbCache = normalizeDbShape(DEFAULT_DB);
+  }
+
+  return dbCache;
 }
 
 function saveDb(db) {
   db.meta = db.meta || {};
   db.meta.updatedAt = nowIso();
+  dbCache = db; // in-memory state is always the newest — never reload stale disk
+
   try {
-    fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2), 'utf8');
+    // Atomic write: a concurrent read must never catch a half-written file
+    // (which used to parse-fail and blank the whole DB).
+    const tmp = DB_PATH + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(db, null, 2), 'utf8');
+    fs.renameSync(tmp, DB_PATH);
   } catch (e) {
     console.warn('⚠️ Order DB persist skipped (read-only filesystem):', e.message);
   }
+
+  try {
+    writeUpstashDbSync(db);
+  } catch (e) {
+    console.warn('⚠️ Upstash sync skipped:', e.message);
+  }
+
   return db;
 }
 
@@ -180,7 +316,7 @@ function getInfluencerByToken(token) {
 
 function createCoupon(payload = {}) {
   const db = loadDb();
-  const couponCode = normalizeCouponCode(payload.couponCode);
+  const couponCode = normalizeCouponCode(payload.couponCode || payload.code);
   if (!couponCode) throw new Error('couponCode is required');
 
   const exists = db.coupons.find(c => normalizeCouponCode(c.couponCode) === couponCode);
@@ -535,56 +671,101 @@ function isoOrNow(v) {
   }
 }
 
-// Insert orders discovered in an external source (the Google Sheets mirror) that
-// are missing from the local DB. Never overwrites an existing local record, so
-// local status changes + statusHistory always win. Returns how many were added.
-// This is what lets the admin dashboard show orders after a serverless cold
-// start, where the /tmp JSON DB has been wiped.
+// Merge orders discovered in an external source (the Google Sheets mirror) into
+// the local DB. Rows missing locally are added; rows whose incoming timestamp is
+// NEWER than the local copy are refreshed (status, payment, totals, customer
+// fields) — this is what keeps every serverless instance / device consistent
+// after a cold start. Rows whose local copy is newer (a fresh admin status change
+// not yet mirrored to Sheets) are NEVER overwritten, so local edits always win.
+// Returns { added, updated }. This is what lets the admin dashboard show orders
+// after a serverless cold start, where the /tmp JSON DB has been wiped.
 function upsertOrdersBulk(records = []) {
-  if (!Array.isArray(records) || !records.length) return 0;
+  if (!Array.isArray(records) || !records.length) return { added: 0, updated: 0 };
   const db = loadDb();
-  const seen = new Set(db.orders.map(o => o.orderId));
-  let added = 0;
+  const byId = new Map(db.orders.map(o => [o.orderId, o]));
+  let added = 0, updated = 0;
   for (const rec of records) {
     const orderId = String((rec && rec.orderId) || '').trim();
-    if (!orderId || seen.has(orderId)) continue;
-    seen.add(orderId);
-    const status = String(rec.orderStatus || '').trim() || 'Pending';
-    const stamp = isoOrNow(rec.timestamp);
-    db.orders.push({
-      orderId,
-      couponUsed: normalizeCouponCode(rec.couponUsed),
-      influencerId: rec.influencerId || null,
-      influencerName: rec.influencerName || null,
-      commissionPercent: safeNumber(rec.commissionPercent, 0),
-      commissionAmount: safeNumber(rec.commissionAmount, 0),
-      discountGiven: safeNumber(rec.discountGiven, 0),
-      originalPrice: safeNumber(rec.originalPrice, 0),
-      finalPaidAmount: safeNumber(rec.finalPaidAmount, 0),
-      paymentMethod: String(rec.paymentMethod || ''),
-      paymentStatus: String(rec.paymentStatus || ''),
-      orderStatus: status,
-      timestamp: stamp,
-      customerName: String(rec.customerName || ''),
-      phone: String(rec.phone || ''),
-      email: String(rec.email || '').toLowerCase(),
-      city: String(rec.city || ''),
-      state: String(rec.state || ''),
-      address: String(rec.address || '').trim(),
-      purchasedProducts: Array.isArray(rec.purchasedProducts) ? rec.purchasedProducts : [],
-      quantity: safeNumber(rec.quantity, 1),
-      commissionPaid: false,
-      paidDate: null,
-      transactionId: null,
-      payoutNotes: null,
-      // Seed history so the dashboard's timeline is never empty.
-      statusHistory: [{ status, timestamp: stamp, note: 'Imported from Sheets mirror' }],
-      importedFromSheets: true,
-    });
-    added++;
+    if (!orderId) continue;
+    const incomingStamp = isoOrNow(rec.timestamp);
+    const existing = byId.get(orderId);
+    if (!existing) {
+      const status = String(rec.orderStatus || '').trim() || 'Pending';
+      const stamp = incomingStamp;
+      const created = {
+        orderId,
+        couponUsed: normalizeCouponCode(rec.couponUsed),
+        influencerId: rec.influencerId || null,
+        influencerName: rec.influencerName || null,
+        commissionPercent: safeNumber(rec.commissionPercent, 0),
+        commissionAmount: safeNumber(rec.commissionAmount, 0),
+        discountGiven: safeNumber(rec.discountGiven, 0),
+        originalPrice: safeNumber(rec.originalPrice, 0),
+        finalPaidAmount: safeNumber(rec.finalPaidAmount, 0),
+        paymentMethod: String(rec.paymentMethod || ''),
+        paymentStatus: String(rec.paymentStatus || ''),
+        orderStatus: status,
+        timestamp: stamp,
+        customerName: String(rec.customerName || ''),
+        phone: String(rec.phone || ''),
+        email: String(rec.email || '').toLowerCase(),
+        city: String(rec.city || ''),
+        state: String(rec.state || ''),
+        address: String(rec.address || '').trim(),
+        purchasedProducts: Array.isArray(rec.purchasedProducts) ? rec.purchasedProducts : [],
+        quantity: safeNumber(rec.quantity, 1),
+        commissionPaid: false,
+        paidDate: null,
+        transactionId: null,
+        payoutNotes: null,
+        // Seed history so the dashboard's timeline is never empty.
+        statusHistory: [{ status, timestamp: stamp, note: 'Imported from Sheets mirror' }],
+        importedFromSheets: true,
+      };
+      db.orders.push(created);
+      byId.set(orderId, created);
+      added++;
+      continue;
+    }
+    // Existing record: only refresh when Sheets is strictly newer. This guards
+    // the reverse race (admin just changed status locally; the mirror lags).
+    let incomingTime = NaN, localTime = NaN;
+    try { incomingTime = new Date(incomingStamp).getTime(); } catch { /* keep NaN */ }
+    try { localTime = new Date(existing.timestamp).getTime(); } catch { /* keep NaN */ }
+    const incomingStatus = String(rec.orderStatus || '').trim();
+    const sameStatus = !incomingStatus || incomingStatus === existing.orderStatus;
+    const sheetsIsNewer = Number.isFinite(incomingTime) && Number.isFinite(localTime)
+      ? incomingTime > localTime
+      : false;
+    if (!sheetsIsNewer || sameStatus) continue;
+    existing.orderStatus = incomingStatus;
+    existing.timestamp = incomingStamp;
+    if (rec.paymentStatus) existing.paymentStatus = String(rec.paymentStatus);
+    if (rec.paymentMethod) existing.paymentMethod = String(rec.paymentMethod);
+    if (Number.isFinite(Number(rec.finalPaidAmount)) && Number(rec.finalPaidAmount) > 0) {
+      existing.finalPaidAmount = Number(rec.finalPaidAmount);
+    }
+    if (Number.isFinite(Number(rec.discountGiven))) existing.discountGiven = Number(rec.discountGiven);
+    if (rec.customerName) existing.customerName = String(rec.customerName);
+    if (rec.phone) existing.phone = String(rec.phone);
+    if (rec.email) existing.email = String(rec.email).toLowerCase();
+    if (rec.address) existing.address = String(rec.address).trim();
+    if (Array.isArray(rec.purchasedProducts) && rec.purchasedProducts.length) {
+      existing.purchasedProducts = rec.purchasedProducts;
+    }
+    if (!Array.isArray(existing.statusHistory)) existing.statusHistory = [];
+    existing.statusHistory.push({ status: incomingStatus, timestamp: incomingStamp, note: 'Synced from Sheets mirror' });
+    existing.statusUpdatedAt = incomingStamp;
+    updated++;
   }
-  if (added) saveDb(db);
-  return added;
+  if (added || updated) saveDb(db);
+  return { added, updated };
+}
+
+// Backwards-compatible numeric form (older callers treat the return as a count).
+function upsertOrdersBulkCount(records = []) {
+  const r = upsertOrdersBulk(records);
+  return (r && typeof r === 'object') ? (r.added + r.updated) : 0;
 }
 
 function listOrders(filters = {}) {

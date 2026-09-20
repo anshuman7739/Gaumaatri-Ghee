@@ -381,7 +381,7 @@ async function saveCoupon(){
   try {
     const r = original
       ? await api('/api/admin/coupons/'+encodeURIComponent(original), { method:'PUT', body })
-      : await api('/api/admin/coupons', { method:'POST', body:{ ...body, code:document.getElementById('cpCode').value.trim().toUpperCase() } });
+      : await api('/api/admin/coupons', { method:'POST', body:{ ...body, couponCode:document.getElementById('cpCode').value.trim().toUpperCase() } });
     m.innerHTML = '<div class="msg ok">Coupon saved</div>';
     closeModal('couponModal'); await loadDb(); renderCoupons();
   } catch(e){ m.innerHTML = '<div class="msg err">' + esc(e.message||'Error') + '</div>'; }

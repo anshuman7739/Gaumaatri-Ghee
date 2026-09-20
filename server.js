@@ -13,7 +13,6 @@
 	const path     = require('path');
 	const Razorpay = require('razorpay');
 	const { setTimeout: sleep } = require('timers/promises');
-	const engine   = require('./backend/influencer-engine');
 
 	const app = express();
 	app.disable('x-powered-by');
@@ -35,11 +34,6 @@ const {
   PORT = 3000,
   SHEETS_API_URL,
   SHEETS_API_TOKEN,
-  ADMIN_TOKEN,
-  EMAILJS_ACCESS_TOKEN,
-  EMAILJS_SERVICE_ID,
-  EMAILJS_USER_ID,
-  EMAILJS_STATUS_TEMPLATE_ID,
 } = process.env;
 
 if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
@@ -48,94 +42,23 @@ if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
   process.exit(1);
 }
 
-// Admin API token. Prefer env var; generate a random one otherwise and log it.
-// Trimmed: Vercel dashboard pastes often carry a trailing space/newline,
-// which would otherwise make every login 401 even with the right token.
-const adminToken = (ADMIN_TOKEN || '').trim() || crypto.randomBytes(24).toString('hex');
-if (!ADMIN_TOKEN) {
-  console.warn('⚠️  ADMIN_TOKEN not set — generated a temporary one: ' + adminToken);
-  console.warn('    Set ADMIN_TOKEN in your environment/production.');
-}
+const DEFAULT_SHEETS_API_URL =
+  'https://script.google.com/macros/s/AKfycbzu7MvB-cE1oJ517NYxMyIxp7RaLfybK1rfTPutB_YBdgnbKIfL90xqLxdIQLCqaumpVg/exec';
+const DEFAULT_SHEETS_API_TOKEN = 'GAUMAATRI_SECRET_2026';
 
-// Normalise a token for comparison: strip ALL whitespace and ignore case.
-// Real-world wins with zero practical loss of secrecy:
-//   • mobile keyboards auto-capitalise the first letter (case flip)
-//   • copy/paste from dashboards adds/normalises whitespace
-// Length is still effectively preserved, so the secret keeps its entropy.
-function normalizeToken(v) {
-  return String(v == null ? '' : v).replace(/\s+/g, '').toLowerCase();
-}
-
-const ADMIN_TOKEN_NORM = normalizeToken(adminToken);
-
-function bearerToken(req) {
-  const m = /^Bearer\s+(.+)$/i.exec(String(req.headers.authorization || ''));
-  return m ? m[1] : '';
-}
-
-function cookieToken(req) {
-  const m = /(?:^|;\s*)gaumaatri_admin=([^;]*)/.exec(String(req.headers.cookie || ''));
-  return m ? decodeURIComponent(m[1]) : '';
-}
-
-function requireAdmin(req, res, next) {
-  const provided =
-    req.headers['x-admin-token'] || bearerToken(req) || cookieToken(req) || req.query.token || '';
-
-  if (!adminToken || normalizeToken(provided) !== ADMIN_TOKEN_NORM) {
-    // Safe debug: lengths + whether the prefix matched. Never logs values.
-    const p = normalizeToken(provided);
-    console.warn(`🔒 admin reject: haveHeader=${Boolean(req.headers['x-admin-token'])} haveQuery=${Boolean(req.query.token)} providedLen=${p.length} expectedLen=${ADMIN_TOKEN_NORM.length} prefixMatch=${ADMIN_TOKEN_NORM ? p.slice(0, 3) === ADMIN_TOKEN_NORM.slice(0, 3) : false}`);
-    return res.status(401).json({ success: false, error: 'Unauthorized' });
-  }
-  next();
-}
-
-function requireInfluencer(req, res, next) {
-  const token = (req.query.token || req.headers['x-influencer-token'] || '').toString().trim();
-  const inf = engine.getInfluencerByToken(token);
-  if (!inf) return res.status(401).json({ success: false, error: 'Unauthorized' });
-  req.influencer = inf;
-  next();
-}
-
-// Google Sheets (Apps Script Web App) mirror — CONFIG ONLY, no hardcoded URLs.
-// Previously these had baked-in default deployments, which meant a missing env
-// var silently pointed at a DIFFERENT (and private) script, so orders vanished
-// with no clear error. Now the env var is the single source of truth and a
-// missing config fails loudly and visibly in /api/health.
 const sheetsConfig = {
-  url: (SHEETS_API_URL || '').trim(),
-  token: (SHEETS_API_TOKEN || '').trim(),
+  url: SHEETS_API_URL || DEFAULT_SHEETS_API_URL,
+  token: SHEETS_API_TOKEN || DEFAULT_SHEETS_API_TOKEN,
 };
-
-if (!sheetsConfig.url || !sheetsConfig.token) {
-  console.warn('⚠️  Google Sheets mirror DISABLED — set SHEETS_API_URL and SHEETS_API_TOKEN.');
-  console.warn('    The Apps Script must be deployed as a Web app with "Who has access: Anyone".');
-}
 
 function sheetsEnabled() {
   return Boolean(sheetsConfig.url && sheetsConfig.token);
 }
 
-// Hydration reads BACK from Sheets, so it must only run when Sheets is
-// explicitly configured via env. The hardcoded defaults may point at a stale
-// Apps Script deployment, and local dev should never call out to it.
-function sheetsExplicitlyConfigured() {
-  return Boolean((SHEETS_API_URL || '').trim() && (SHEETS_API_TOKEN || '').trim());
-}
-
 async function parseJsonResponse(response) {
   const text = await response.text();
   const trimmed = text.trim();
-  if (trimmed.startsWith('<')) {
-    // A 302 is the classic symptom of an Apps Script web app that is NOT
-    // deployed with "Who has access: Anyone" (Google redirects to a login page).
-    const hint = response.status === 302 || response.status === 301
-      ? 'Apps Script redirected to a login page — redeploy it as a Web app with "Who has access: Anyone".'
-      : 'check deployment / permissions.';
-    throw new Error(`Sheets returned HTML (HTTP ${response.status}) — ${hint}`);
-  }
+  if (trimmed.startsWith('<')) throw new Error('Sheets returned HTML (check deployment / permissions).');
   try {
     return JSON.parse(trimmed);
   } catch {
@@ -143,29 +66,17 @@ async function parseJsonResponse(response) {
   }
 }
 
-// Wrap fetch with a hard timeout so a slow/unreachable Sheets endpoint can never
-// hang an admin request (used by order hydration, which runs on dashboard load).
-async function fetchWithTimeout(url, options = {}, timeoutMs = 5000) {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    return await fetch(url, { ...options, signal: ctrl.signal });
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-async function sheetsPost(payload, { attempts = 3, timeoutMs = 5000 } = {}) {
+async function sheetsPost(payload, { attempts = 3 } = {}) {
   if (!sheetsEnabled()) throw new Error('Sheets API not configured.');
 
   let lastErr = null;
   for (let i = 0; i < attempts; i++) {
     try {
-      const res = await fetchWithTimeout(sheetsConfig.url, {
+      const res = await fetch(sheetsConfig.url, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ ...payload, token: sheetsConfig.token }),
-      }, timeoutMs);
+      });
       const json = await parseJsonResponse(res);
       if (!res.ok || !json?.success) {
         throw new Error(json?.error || `Sheets error (HTTP ${res.status})`);
@@ -179,7 +90,7 @@ async function sheetsPost(payload, { attempts = 3, timeoutMs = 5000 } = {}) {
   throw lastErr || new Error('Sheets request failed.');
 }
 
-async function sheetsGet(params, { attempts = 3, timeoutMs = 5000 } = {}) {
+async function sheetsGet(params, { attempts = 3 } = {}) {
   if (!sheetsEnabled()) throw new Error('Sheets API not configured.');
 
   const qs = new URLSearchParams({ ...params, token: sheetsConfig.token }).toString();
@@ -188,7 +99,7 @@ async function sheetsGet(params, { attempts = 3, timeoutMs = 5000 } = {}) {
   let lastErr = null;
   for (let i = 0; i < attempts; i++) {
     try {
-      const res = await fetchWithTimeout(url, { method: 'GET' }, timeoutMs);
+      const res = await fetch(url, { method: 'GET' });
       const json = await parseJsonResponse(res);
       if (!res.ok || !json?.success) {
         throw new Error(json?.error || `Sheets error (HTTP ${res.status})`);
@@ -200,65 +111,6 @@ async function sheetsGet(params, { attempts = 3, timeoutMs = 5000 } = {}) {
     }
   }
   throw lastErr || new Error('Sheets request failed.');
-}
-
-// ============================================================
-//  Order status-change confirmation emails (server-side)
-//  Sends to the customer's email when the admin changes an
-//  order's status (Pending -> Confirmed -> Shipped -> Delivered).
-//  Config-gated by EMAILJS_* env vars. If not configured, this is
-//  a harmless no-op and NEVER blocks the status update in the DB.
-//  No secrets are exposed to the browser.
-// ============================================================
-const emailConfig = {
-  accessToken: (EMAILJS_ACCESS_TOKEN || '').trim(),        // EmailJS private key (server-only)
-  serviceId:   (EMAILJS_SERVICE_ID || '').trim(),
-  userId:      (EMAILJS_USER_ID || '').trim(),
-  templateId:  (EMAILJS_STATUS_TEMPLATE_ID || '').trim(),
-};
-
-function emailEnabled() {
-  return Boolean(emailConfig.accessToken && emailConfig.serviceId && emailConfig.templateId);
-}
-
-async function sendStatusEmail(order, newStatus) {
-  if (!emailEnabled()) return false;
-  const product = (order.purchasedProducts && order.purchasedProducts[0]) || {};
-  const params = {
-    to_email:         order.email,
-    customer_name:    order.customerName || '',
-    order_id:         order.orderId,
-    product_name:     product.name || '',
-    quantity:         order.quantity || product.qty || '',
-    total_amount:     '₹' + Number(order.finalPaidAmount || 0).toLocaleString('en-IN'),
-    shipping_address: order.address || '',
-    order_date:       new Date(order.timestamp).toLocaleString('en-IN'),
-    status:           newStatus,
-    email_subject:    `Your Gaumaatri order ${order.orderId} is now ${newStatus}`,
-  };
-  try {
-    const res = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        accessToken:   emailConfig.accessToken,
-        service_id:    emailConfig.serviceId,
-        template_id:   emailConfig.templateId,
-        user_id:       emailConfig.userId,
-        template_params: params,
-      }),
-    });
-    const text = await res.text();
-    if (res.ok) {
-      console.log(`✅ Status email sent to ${order.email} (order ${order.orderId} -> ${newStatus})`);
-      return true;
-    }
-    console.warn(`⚠️ Status email rejected (HTTP ${res.status}): ${text}`);
-    return false;
-  } catch (e) {
-    console.warn('⚠️ Status email failed:', e.message);
-    return false;
-  }
 }
 
 // ── Razorpay instance ────────────────────────────────────────
@@ -271,6 +123,8 @@ async function sendStatusEmail(order, newStatus) {
 	// Keep these in sync with the frontend options in index.html.
 	const PRICES_INR = { '200ml': 356, '500ml': 789, '1L': 1599 };
 	const VARIANT_LABELS = { '200ml': '200ml Starter Pack', '500ml': '500ml Family Pack', '1L': '1 Litre Bulk Pack' };
+	const COUPONS = { GAUMAATRI10: 10, GHEE10: 10, WELCOME10: 10 };
+
 	// razorpay_order_id -> pending checkout context (kept until verification).
 	const pendingPayments = new Map();
 
@@ -287,14 +141,7 @@ async function sendStatusEmail(order, newStatus) {
 	  return `GM-${dateStr}-${rand}`;
 	}
 
-function resolveCouponOwner(couponCode) {
-  const code = String(couponCode || "").trim().toUpperCase();
-
-  if (!code) return "";
-
-  return code;
-}
-async function computeTotalInr({ variantKey, qty, couponCode })  {
+	function computeTotalInr({ variantKey, qty, couponCode }) {
 	  if (!PRICES_INR[variantKey]) {
 	    const err = new Error('Invalid variant');
 	    err.statusCode = 400;
@@ -308,262 +155,13 @@ async function computeTotalInr({ variantKey, qty, couponCode })  {
 	  }
 
 	  const base = PRICES_INR[variantKey] * qtyNum;
+	  const code = String(couponCode || '').trim().toUpperCase();
+	  const pct = code && COUPONS[code] ? COUPONS[code] : 0;
+	  const discount = pct ? Math.round(base * pct / 100) : 0;
+	  const total = base - discount;
 
-const code = String(couponCode || "").trim().toUpperCase();
-
-let pct = 0;
-let influencer = "";
-let influencerId = null;
-let commissionPercent = 0;
-let valid = false;
-
-if (code) {
-  // Coupon validation happens SERVER-SIDE against the DB (source of truth).
-  // Discount %/amount, eligibility, expiry, usage limit and influencer are all
-  // resolved here — never trusted from the client.
-  const v = engine.validateCoupon({ couponCode: code, cartValue: base, productKey: variantKey });
-
-  if (v.valid) {
-    pct = v.coupon.discountType === 'fixed'
-      ? Math.round((v.discount / base) * 100)
-      : safePct(v.coupon.discountValue);
-    const r = engine.resolveInfluencerForCoupon(code);
-    influencer = r.influencer ? r.influencer.influencerName : (v.coupon.influencerName || "");
-    influencerId = r.influencer ? r.influencer.influencerId : null;
-    commissionPercent = r.influencer ? r.influencer.commissionPercent : 0;
-    influencer = influencer || "";
-    valid = true;
-  }
-}
-
-const discount = Math.round(base * pct / 100);
-const total = base - discount;
-
-	  return { base, discount, total, qty: qtyNum, couponCode: valid ? code : null, couponPct: pct, influencer, influencerId, commissionPercent };
+	  return { base, discount, total, qty: qtyNum, couponCode: code || null, couponPct: pct };
 	}
-
-function safePct(n) {
-  const v = Number(n);
-  return Number.isFinite(v) ? Math.max(0, Math.min(v, 100)) : 0;
-}
-
-// ============================================================
-//  Order persistence (DB = source of truth) + Google Sheets sync
-//  Sheets is only a MIRROR. If Sheets fails, the order still
-//  succeeds and the row is queued for retry (outbox pattern).
-// ============================================================
-function cityStateFromAddress(address) {
-  const parts = String(address || '').split(',').map(s => s.trim()).filter(Boolean);
-  const state = parts.length >= 2 ? parts[parts.length - 2] : '';
-  const city = parts.length >= 3 ? parts[parts.length - 3] : '';
-  return { city, state };
-}
-
-// ── Hydrate orders from the Google Sheets mirror ────────────
-// On serverless hosts the local JSON DB is ephemeral (/tmp), so after a cold
-// start or redeploy the admin dashboard would otherwise show zero orders.
-// Google Sheets is the durable mirror (written at order creation and on every
-// status update), so we map its rows back into order records and add any that
-// are missing locally. Existing local records are never overwritten, so local
-// status changes + history always win. Throttled to avoid hammering Sheets.
-let lastHydrateAt = 0;
-let hydrateBackoffUntil = 0;
-const HYDRATE_TTL_MS = 60000;
-const HYDRATE_FAIL_BACKOFF_MS = 20000;
-
-function safeNum(v, fallback = 0) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-function sheetRowToOrder(r = {}) {
-  const address = String(r.address || '').trim();
-  const { city, state } = cityStateFromAddress(address);
-  const product = String(r.product || '').trim();
-  const quantity = safeNum(r.quantity, 1);
-  const total = safeNum(r.total, 0);
-  const discount = safeNum(r.couponDiscount, 0);
-  const couponUsed = String(r.couponCode || '').trim();
-  const influencerName = String(r.influencerName || '').trim();
-  return {
-    orderId: String(r.orderId || '').trim(),
-    customerName: String(r.name || '').trim(),
-    phone: String(r.phone || '').trim(),
-    email: String(r.email || '').trim(),
-    address,
-    city,
-    state,
-    purchasedProducts: product ? [{ name: product, qty: quantity, price: total + discount }] : [],
-    quantity,
-    couponUsed,
-    discountGiven: discount,
-    originalPrice: total + discount,
-    finalPaidAmount: total,
-    paymentMethod: String(r.paymentMethod || '').trim(),
-    paymentStatus: String(r.paymentStatus || '').trim(),
-    orderStatus: String(r.orderStatus || '').trim(),
-    timestamp: r.timestamp || '',
-    influencerName: (influencerName && influencerName !== 'No Coupon') ? influencerName : null,
-  };
-}
-
-async function hydrateOrdersFromSheets({ force = false } = {}) {
-  if (!sheetsExplicitlyConfigured()) return 0;
-  const now = Date.now();
-  // After a failure, back off so a broken/slow Sheets endpoint can't add latency
-  // to every dashboard request. Successful loads use the short TTL above.
-  if (!force && now < hydrateBackoffUntil) return 0;
-  if (!force && now - lastHydrateAt < HYDRATE_TTL_MS) return 0;
-  lastHydrateAt = now;
-  try {
-    // Apps Script cold starts regularly take 5-15s; give hydration a real
-    // chance (2 attempts, 20s each) instead of failing on the first slow call.
-    // Successful results stay fresh for HYDRATE_TTL_MS so one slow load feeds
-    // subsequent dashboard refreshes without re-hitting Sheets.
-    const json = await sheetsGet({ action: 'getOrders' }, { attempts: 2, timeoutMs: 20000 });
-    const rows = Array.isArray(json && json.orders) ? json.orders : [];
-    hydrateBackoffUntil = 0;
-    if (!rows.length) return 0;
-    return engine.upsertOrdersBulk(rows.map(sheetRowToOrder));
-  } catch (e) {
-    hydrateBackoffUntil = Date.now() + HYDRATE_FAIL_BACKOFF_MS;
-    console.warn('⚠️ Sheets order hydration skipped:', e.message);
-    return 0;
-  }
-}
-
-// ============================================================
-//  Shared serverless-safe store (Vercel: read-only disk, no shared
-//  filesystem between invocations). When ORDER_STORE_URL is set, order
-//  records are mirrored to this HTTP JSON store so all instances share
-//  state. Local dev keeps using the JSON file via the engine.
-//  Endpoint contract (POST): { secret, op, record? } where op is
-//  'upsert' | 'list'. Keep it minimal on purpose.
-// ============================================================
-const ORDER_STORE_URL = (process.env.ORDER_STORE_URL || '').trim();
-const ORDER_STORE_SECRET = (process.env.ORDER_STORE_SECRET || '').trim();
-
-function orderStoreEnabled() {
-  return Boolean(ORDER_STORE_URL && ORDER_STORE_SECRET);
-}
-
-async function orderStoreUpsert(record) {
-  if (!orderStoreEnabled() || !record) return;
-  try {
-    await fetch(ORDER_STORE_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ secret: ORDER_STORE_SECRET, op: 'upsert', record }),
-    });
-  } catch (e) {
-    console.warn('⚠️ Order store mirror failed:', e.message);
-  }
-}
-
-async function orderStoreList() {
-  if (!orderStoreEnabled()) return null;
-  try {
-    const res = await fetch(ORDER_STORE_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ secret: ORDER_STORE_SECRET, op: 'list' }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (res.ok && Array.isArray(data.records)) return data.records;
-  } catch (e) {
-    console.warn('⚠️ Order store read failed:', e.message);
-  }
-  return null;
-}
-
-// Record order in the DB (influencer/coupon engine) — idempotent by orderId.
-function persistOrderToDb({ orderId, pricing, customer, paymentMethod, paymentStatus, orderStatus, productLabel }) {
-  const { city, state } = cityStateFromAddress(customer.address);
-  const rec = engine.recordInfluencerOrder({
-    orderId,
-    couponUsed: pricing.couponCode || '',
-    influencerId: pricing.influencerId,
-    influencerName: pricing.influencer,
-    commissionPercent: pricing.commissionPercent,
-    discountGiven: pricing.discount,
-    originalPrice: pricing.base,
-    finalPaidAmount: pricing.total,
-    paymentMethod,
-    paymentStatus,
-    orderStatus,
-    customerName: customer.name,
-    phone: customer.phone,
-    email: customer.email,
-    city,
-    state,
-    address: customer.address,
-    purchasedProducts: [{ name: productLabel, qty: pricing.qty, price: pricing.base }],
-    quantity: pricing.qty,
-  });
-  // Fire-and-forget shared-store mirror (serverless-safe persistence).
-  const stored = Array.isArray(rec) ? rec.find(o => o.orderId === orderId) : rec;
-  if (stored && typeof stored === 'object') orderStoreUpsert(stored).catch(() => {});
-  return rec;
-}
-
-// Build the payload that mirrors the order + coupon usage into Google Sheets.
-function sheetsOrderPayload({ orderId, pricing, customer, paymentMethod, paymentStatus, orderStatus, productLabel }) {
-  return {
-    orderId,
-    name: customer.name,
-    email: customer.email,
-    phone: customer.phone,
-    address: customer.address,
-    product: productLabel,
-    quantity: pricing.qty,
-    total: pricing.total,
-    couponCode: pricing.couponCode || '',
-    couponDiscount: pricing.discount,
-    influencerName: pricing.influencer || '',
-    paymentMethod,
-    paymentStatus,
-    orderStatus,
-  };
-}
-
-async function attemptSheetSync(entry) {
-  const payload = entry.payload || {};
-  try {
-    if (!sheetsEnabled()) throw new Error('Sheets API not configured');
-    // If not already the full submitOrder shape, wrap it.
-    const body = payload.action ? payload : { ...payload, action: 'submitOrder' };
-    // Apps Script cold starts + spreadsheet writes regularly exceed 5s; the old
-    // 5s cap aborted valid syncs with "This operation was aborted". Retry once
-    // with a generous timeout instead of hammering it three times quickly.
-    await sheetsPost(body, { attempts: 2, timeoutMs: 25000 });
-    engine.markSyncAttempt(entry.syncId, { success: true });
-    return true;
-  } catch (err) {
-    engine.markSyncAttempt(entry.syncId, { success: false, error: err.message });
-    return false;
-  }
-}
-
-async function processPendingSyncs() {
-  const due = engine.pendingSyncEntries();
-  const results = [];
-  for (const entry of due) {
-    results.push(await attemptSheetSync(entry));
-  }
-  return { attempted: due.length, results };
-}
-
-// Record order in DB + enqueue Sheets sync, then fire-and-forget an
-// immediate attempt. The order's success never depends on Sheets.
-async function recordOrderAndSync({ orderId, pricing, customer, paymentMethod, paymentStatus, orderStatus = 'Order Received', productLabel }) {
-  const dbOrder = persistOrderToDb({ orderId, pricing, customer, paymentMethod, paymentStatus, orderStatus, productLabel });
-  const sheetsPayload = sheetsOrderPayload({ orderId, pricing, customer, paymentMethod, paymentStatus, orderStatus, productLabel });
-  const entry = engine.enqueueSync(sheetsPayload);
-  if (entry) {
-    attemptSheetSync(entry).catch(() => { /* outbox will retry */ });
-  }
-  return dbOrder;
-}
 
 // ⚠️ IMPORTANT: Define API routes BEFORE static files middleware
 // This ensures /api/* requests are handled as JSON, not served as static files
@@ -578,7 +176,7 @@ async function recordOrderAndSync({ orderId, pricing, customer, paymentMethod, p
 async function createOrderHandler(req, res) {
   try {
     const { variantKey, qty, couponCode } = req.body;
-    const pricing = await computeTotalInr({ variantKey, qty, couponCode });
+    const pricing = computeTotalInr({ variantKey, qty, couponCode });
 
     const amountPaise = Math.round(pricing.total * 100);
     const orderOptions = {
@@ -604,9 +202,6 @@ async function createOrderHandler(req, res) {
       total: pricing.total,
       couponCode: pricing.couponCode,
       couponPct: pricing.couponPct,
-      influencer: pricing.influencer,
-      influencerId: pricing.influencerId,
-      commissionPercent: pricing.commissionPercent,
     });
 
     console.log(`✅ Razorpay order created: ${order.id}  ₹${pricing.total}`);
@@ -688,7 +283,7 @@ async function verifyPaymentHandler(req, res) {
         const variantKey = rpOrder?.notes?.variantKey;
         const qty = rpOrder?.notes?.qty;
         const couponCode = rpOrder?.notes?.couponCode || null;
-        const pricing = await computeTotalInr({ variantKey, qty, couponCode });
+        const pricing = computeTotalInr({ variantKey, qty, couponCode });
         const expectedPaise = Math.round(pricing.total * 100);
         if (Number(rpOrder?.amount) !== expectedPaise) {
           return res.status(400).json({ success: false, error: 'Amount mismatch' });
@@ -702,9 +297,6 @@ async function verifyPaymentHandler(req, res) {
           total: pricing.total,
           couponCode: pricing.couponCode,
           couponPct: pricing.couponPct,
-          influencer: pricing.influencer,
-          influencerId: pricing.influencerId,
-          commissionPercent: pricing.commissionPercent,
         };
       } catch (err) {
         return res.status(400).json({
@@ -715,42 +307,35 @@ async function verifyPaymentHandler(req, res) {
     }
     const variantLabel = VARIANT_LABELS[pending.variantKey] || pending.variantKey;
 
-    // ✅ Verified: only now create an internal order record
+    // ✅ Verified: only now create an internal order record (use Google Sheets for storage)
     const internalOrderId = genOrderId();
+    // Remove local file system write - use Google Sheets instead
     pendingPayments.delete(razorpay_order_id);
-
-    // DB is the source of truth; Sheets is synced as a mirror with retry (outbox).
-    const pricing = {
-      couponCode: pending.couponCode,
-      discount: pending.discount,
-      base: pending.base,
-      total: pending.total,
-      qty: pending.qty,
-      influencer: pending.influencer,
-      influencerId: pending.influencerId,
-      commissionPercent: pending.commissionPercent,
-    };
-    const customerInfo = { name: customer.name, email: customer.email, phone: customer.phone, address: customer.address };
 
     let sheetsSaved = false;
     let sheetsError = null;
-    try {
-      await recordOrderAndSync({
-        orderId: internalOrderId,
-        pricing,
-        customer: customerInfo,
-        paymentMethod: 'UPI',
-        paymentStatus: `Paid - ${razorpay_payment_id}`,
-        orderStatus: 'Order Received',
-        productLabel: variantLabel,
-      });
-      sheetsSaved = true;
-    } catch (err) {
-      sheetsError = err.message;
-      console.warn('⚠️ order save/sync issue (payment verified; DB is still authoritative):', err.message);
+    if (sheetsEnabled()) {
+      try {
+        await sheetsPost({
+          action: 'submitOrder',
+          orderId: internalOrderId,
+          name: customer?.name || '',
+          email: customer?.email || '',
+          phone: customer?.phone || '',
+          address: customer?.address || '',
+          product: variantLabel,
+          quantity: pending.qty,
+          total: pending.total,
+          paymentMethod: 'UPI',
+          paymentStatus: `Paid - ${razorpay_payment_id}`,
+          orderStatus: 'Order Received',
+        });
+        sheetsSaved = true;
+      } catch (err) {
+        sheetsError = err.message;
+        console.warn('⚠️ Sheets sync failed (payment verified, DB saved):', err.message);
+      }
     }
-    // Fire-and-forget retry of any overdue outbox rows.
-    processPendingSyncs().catch(() => {});
 
     console.log(`✅ Payment verified + order saved: ${razorpay_payment_id} -> ${internalOrderId}`);
     return res.status(200).json({ success: true, orderId: internalOrderId, sheetsSaved, sheetsError });
@@ -778,7 +363,7 @@ app.post('/api/cod-order', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Missing customer details' });
     }
 
-    const pricing = await computeTotalInr({ variantKey, qty, couponCode });
+    const pricing = computeTotalInr({ variantKey, qty, couponCode });
 
     const variantLabel = VARIANT_LABELS[variantKey] || variantKey;
 
@@ -787,22 +372,28 @@ app.post('/api/cod-order', async (req, res) => {
 
     let sheetsSaved = false;
     let sheetsError = null;
-    try {
-      await recordOrderAndSync({
-        orderId,
-        pricing,
-        customer,
-        paymentMethod: 'COD',
-        paymentStatus: 'COD – Pay on Delivery',
-        orderStatus: 'Order Received',
-        productLabel: variantLabel,
-      });
-      sheetsSaved = true;
-    } catch (err) {
-      sheetsError = err.message;
-      console.warn('⚠️ COD save/sync issue (DB is authoritative, outbox will retry):', err.message);
+    if (sheetsEnabled()) {
+      try {
+        await sheetsPost({
+          action: 'submitOrder',
+          orderId,
+          name: customer?.name || '',
+          email: customer?.email || '',
+          phone: customer?.phone || '',
+          address: customer?.address || '',
+          product: variantLabel,
+          quantity: pricing.qty,
+          total: pricing.total,
+          paymentMethod: 'COD',
+          paymentStatus: 'COD – Pay on Delivery',
+          orderStatus: 'Order Received',
+        });
+        sheetsSaved = true;
+      } catch (err) {
+        sheetsError = err.message;
+        console.warn('⚠️ Sheets sync failed (COD saved, DB saved):', err.message);
+      }
     }
-    processPendingSyncs().catch(() => {});
 
     return res.status(200).json({
       success: true,
@@ -839,24 +430,6 @@ app.get('/api/track-order', async (req, res) => {
     return res.status(sheetRes.status).json(json);
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message || 'Tracking failed' });
-  }
-});
-
-// ──────────────────────────────────────────────────────────
-//  Orders List for Dashboard (Proxy to Google Sheets)
-// ──────────────────────────────────────────────────────────
-app.get('/api/orders', async (req, res) => {
-  try {
-    if (!sheetsEnabled()) {
-      return res.status(500).json({ success: false, error: 'Sheets API not configured' });
-    }
-
-    const qs = new URLSearchParams({ action: 'getOrders', token: sheetsConfig.token }).toString();
-    const sheetRes = await fetch(`${sheetsConfig.url}?${qs}`, { method: 'GET' });
-    const json = await parseJsonResponse(sheetRes);
-    return res.status(sheetRes.status).json(json);
-  } catch (err) {
-    return res.status(500).json({ success: false, error: err.message || 'Failed to fetch orders' });
   }
 });
 
@@ -1188,348 +761,9 @@ app.get('/api/health', (req, res) => {
     status: 'ok',
     server: 'Gaumaatri Ghee Payment System',
     razorpay: 'connected',
-    // Non-secret presence flags only (never values): lets the owner verify
-    // production env wiring without exposing anything.
-    config: {
-      adminTokenSet: Boolean(ADMIN_TOKEN),
-      // Length only (never the value). A length alone does not help brute-force
-      // a long random secret, but it instantly reveals a wrong-token paste.
-      adminTokenLen: ADMIN_TOKEN_NORM.length,
-      // Lets the owner confirm the forgiving-auth build is actually deployed
-      // (whitespace-trimmed + case-insensitive compare). Not a secret.
-      authMode: 'normalized-v1',
-      dbPath: process.env.VERCEL ? '/tmp (ephemeral)' : 'local-file',
-      sheetsSet: Boolean(SHEETS_API_URL && SHEETS_API_TOKEN),
-      emailSet: Boolean(EMAILJS_ACCESS_TOKEN && EMAILJS_SERVICE_ID && EMAILJS_USER_ID && EMAILJS_STATUS_TEMPLATE_ID),
-      orderStoreSet: Boolean((process.env.ORDER_STORE_URL || '').trim() && (process.env.ORDER_STORE_SECRET || '').trim()),
-      // Non-secret diagnostics: confirms the coupon seed actually ran in the
-      // live serverless bundle (coupon codes are public marketing codes).
-      couponsTotal: (() => { try { return (engine.loadDb().coupons || []).length; } catch { return -1; } })(),
-      couponsEnabled: (() => { try { return (engine.loadDb().coupons || []).filter(c => c.enabled !== false).length; } catch { return -1; } })(),
-    },
     timestamp: new Date().toISOString()
   });
 });
-
-// ============================================================
-//  INFLUENCER COUPON SYSTEM — API
-//  DB (backend/influencer-engine) is the source of truth.
-// ============================================================
-// Built-in default coupons. Kept in CODE (not only in coupons-data.json)
-// because serverless bundlers (Vercel/@vercel/node) do not reliably include
-// plain data files read via fs.readFileSync — which silently left production
-// with ZERO valid coupons. The JSON file is still used as an optional overlay.
-const DEFAULT_COUPONS = [
-  { code: 'ANKIT25', discount: 25, expiryDate: null, usageLimit: null, minAmount: 0, active: true },
-  { code: 'FITNESS25', discount: 25, expiryDate: null, usageLimit: 50, minAmount: 0, active: true },
-  { code: 'MOM25', discount: 25, expiryDate: null, usageLimit: null, minAmount: 0, active: true },
-  { code: 'WELCOME25', discount: 25, expiryDate: null, usageLimit: null, minAmount: 0, active: true },
-];
-
-// Returns the set of seed coupons: built-ins, plus any extra codes found in
-// coupons-data.json when that file happens to be available.
-function seedCouponList() {
-  let fileSeed = [];
-  try {
-    const raw = fs.readFileSync(path.join(__dirname, 'coupons-data.json'), 'utf8');
-    const parsed = JSON.parse(raw);
-    fileSeed = Array.isArray(parsed?.coupons) ? parsed.coupons : [];
-  } catch { fileSeed = []; }
-
-  const byCode = new Map();
-  DEFAULT_COUPONS.forEach(c => byCode.set(String(c.code).toUpperCase(), c));
-  fileSeed.forEach(c => {
-    const code = String(c.code || c.couponCode || '').toUpperCase();
-    if (code) byCode.set(code, c);
-  });
-  return Array.from(byCode.values());
-}
-
-function seedDefaultCoupons() {
-  try {
-    const db = engine.loadDb();
-    for (const c of seedCouponList()) {
-      const code = c.code || c.couponCode;
-      if (!code) continue;
-      // Idempotent: skip codes that already exist (avoids wiping usage counts).
-      const exists = (db.coupons || []).some(
-        x => String(x.couponCode).toUpperCase() === String(code).toUpperCase()
-      );
-      if (exists) continue;
-      try {
-        engine.createCoupon({
-          couponCode: code,
-          discountValue: c.discount || c.discountValue || 10,
-          discountType: 'percentage',
-          expiryDate: c.expiryDate || null,
-          maximumUses: c.usageLimit == null ? null : c.usageLimit,
-          minimumCartValue: c.minAmount || 0,
-          enabled: c.active !== false,
-        });
-      } catch (e) { /* duplicate — skip */ }
-    }
-  } catch (e) { console.warn('⚠️ Coupon seed skipped:', e.message); }
-}
-seedDefaultCoupons();
-
-// Public: live coupon validation for checkout (server-side, authoritative).
-app.post('/api/validate-coupon', (req, res) => {
-  try {
-    const { couponCode, cartValue, productKey } = req.body || {};
-    const base = Math.max(0, Number(cartValue) || 0);
-    const v = engine.validateCoupon({ couponCode: couponCode || '', cartValue: base, productKey: productKey || '' });
-    if (v.valid) {
-      const discount = Math.min(v.discount, base);
-      return res.status(200).json({
-        success: true, valid: true, code: v.coupon.couponCode,
-        discountPercent: v.coupon.discountType === 'fixed' ? Math.round((discount / base) * 100) : v.coupon.discountValue,
-        discountAmount: discount, message: v.message || 'Coupon applied',
-      });
-    }
-    return res.status(200).json({ success: false, valid: false, code: String(couponCode || '').toUpperCase(), message: v.message || 'Invalid coupon' });
-  } catch (e) {
-    return res.status(200).json({ success: false, valid: false, message: 'Coupon validation error' });
-  }
-});
-
-// ── INFLUENCER (self-service, gated by influencer access token) ──
-app.get('/api/influencer/dashboard', requireInfluencer, (req, res) => {
-  try {
-    const data = engine.getInfluencerDashboard(req.influencer.influencerId);
-    return res.status(200).json({ success: true, ...data });
-  } catch (e) {
-    return res.status(400).json({ success: false, error: e.message });
-  }
-});
-
-app.get('/api/influencer/orders', requireInfluencer, (req, res) => {
-  try {
-    const data = engine.getInfluencerDashboard(req.influencer.influencerId);
-    return res.status(200).json({ success: true, orders: data.orderList, totals: {
-      couponUsed: data.couponUsed, orders: data.orders, sales: data.sales, commission: data.commission, earnings: data.earnings,
-    } });
-  } catch (e) {
-    return res.status(400).json({ success: false, error: e.message });
-  }
-});
-
-
-// ── ADMIN: lightweight auth probe (no DB/filesystem access) ──
-// Used by admin dashboards to verify the token; isolates auth failures
-// from order-DB failures (important on read-only serverless disks).
-app.get('/api/admin/ping', requireAdmin, (req, res) => {
-  return res.status(200).json({ success: true, message: 'Admin authenticated' });
-});
-
-// ── ADMIN: analytics + usage (filtered) ──
-app.get('/api/admin/analytics', requireAdmin, async (req, res) => {
-  try {
-    await hydrateOrdersFromSheets();
-    const a = engine.getAnalytics();
-    return res.status(200).json({ success: true, ...a });
-  } catch (e) {
-    return res.status(500).json({ success: false, error: e.message });
-  }
-});
-
-app.get('/api/admin/usage', requireAdmin, async (req, res) => {
-  try {
-    await hydrateOrdersFromSheets();
-    const filters = {
-      couponCode: req.query.coupon,
-      influencerId: req.query.influencer,
-      customer: req.query.customer,
-      orderId: req.query.order,
-      from: req.query.from,
-      to: req.query.to,
-      orderStatus: req.query.status,
-    };
-    const { records, totals } = engine.getUsageRecords(filters);
-    return res.status(200).json({ success: true, records, totals, filters });
-  } catch (e) {
-    return res.status(500).json({ success: false, error: e.message });
-  }
-});
-
-app.get('/api/admin/db', requireAdmin, async (req, res) => {
-  try {
-    // Serverless cold start: the /tmp JSON DB may be empty. Pull durable orders
-    // back from the Google Sheets mirror before rendering the dashboard.
-    await hydrateOrdersFromSheets();
-    const view = engine.getDbView();
-    if (orderStoreEnabled()) {
-      const shared = await orderStoreList();
-      if (Array.isArray(shared)) view.orders = shared;
-    }
-    return res.status(200).json({ success: true, ...view });
-  } catch (e) {
-    return res.status(500).json({ success: false, error: e.message });
-  }
-});
-
-// ── ADMIN: coupon CRUD ──
-app.post('/api/admin/coupons', requireAdmin, (req, res) => {
-  try {
-    const b = req.body || {};
-    const coupon = engine.createCoupon({
-      couponCode: b.couponCode || b.code,
-      discountType: b.discountType === 'fixed' ? 'fixed' : 'percentage',
-      discountValue: b.discountValue,
-      expiryDate: b.expiryDate || null,
-      minimumCartValue: b.minimumCartValue || 0,
-      maximumDiscount: b.maximumDiscount ?? null,
-      maximumUses: b.maximumUses ?? null,
-      influencerId: b.influencerId || null,
-      influencerName: b.influencerName || null,
-      applicableProducts: b.applicableProducts || [],
-      enabled: b.enabled !== false,
-    });
-    return res.status(201).json({ success: true, coupon });
-  } catch (e) {
-    return res.status(400).json({ success: false, error: e.message });
-  }
-});
-
-app.put('/api/admin/coupons/:code', requireAdmin, (req, res) => {
-  try {
-    const b = req.body || {};
-    const coupon = engine.updateCoupon(req.params.code, {
-      discountType: b.discountType,
-      discountValue: b.discountValue,
-      expiryDate: b.expiryDate,
-      minimumCartValue: b.minimumCartValue,
-      maximumDiscount: b.maximumDiscount,
-      maximumUses: b.maximumUses,
-      influencerId: b.influencerId,
-      influencerName: b.influencerName,
-      applicableProducts: b.applicableProducts,
-    });
-    return res.status(200).json({ success: true, coupon });
-  } catch (e) {
-    return res.status(400).json({ success: false, error: e.message });
-  }
-});
-
-app.patch('/api/admin/coupons/:code/toggle', requireAdmin, (req, res) => {
-  try {
-    const coupon = engine.toggleCoupon(req.params.code, req.body.enabled !== false);
-    return res.status(200).json({ success: true, coupon });
-  } catch (e) {
-    return res.status(400).json({ success: false, error: e.message });
-  }
-});
-
-// ── ADMIN: influencer CRUD ──
-app.post('/api/admin/influencers', requireAdmin, (req, res) => {
-  try {
-    const b = req.body || {};
-    const inf = engine.createInfluencer({
-      influencerName: b.influencerName,
-      instagramUsername: b.instagramUsername,
-      couponCode: b.couponCode,
-      couponDiscountPercent: b.couponDiscountPercent || 0,
-      commissionPercent: b.commissionPercent || 0,
-      phone: b.phone,
-      email: b.email,
-      notes: b.notes,
-      status: b.status,
-    });
-    return res.status(201).json({ success: true, influencer: inf });
-  } catch (e) {
-    return res.status(400).json({ success: false, error: e.message });
-  }
-});
-
-app.put('/api/admin/influencers/:id', requireAdmin, (req, res) => {
-  try {
-    const inf = engine.updateInfluencer(req.params.id, req.body || {});
-    return res.status(200).json({ success: true, influencer: inf });
-  } catch (e) {
-    return res.status(400).json({ success: false, error: e.message });
-  }
-});
-
-// ── ADMIN: commission payout ──
-app.post('/api/admin/commission/:orderId/pay', requireAdmin, (req, res) => {
-  try {
-    const order = engine.markCommissionPaid({
-      orderId: req.params.orderId,
-      transactionId: (req.body || {}).transactionId,
-      notes: (req.body || {}).notes,
-    });
-    return res.status(200).json({ success: true, order });
-  } catch (e) {
-    return res.status(400).json({ success: false, error: e.message });
-  }
-});
-
-// ── ADMIN: void (cancel/refund) an order — reverses coupon usage ──
-app.post('/api/admin/orders/:orderId/void', requireAdmin, (req, res) => {
-  try {
-    const status = (req.body || {}).status === 'Refunded' ? 'Refunded' : 'Cancelled';
-    const order = engine.voidInfluencerOrder(req.params.orderId, status);
-    return res.status(200).json({ success: true, order });
-  } catch (e) {
-    return res.status(400).json({ success: false, error: e.message });
-  }
-});
-
-// ── ADMIN: update order status ──
-// DB is authoritative. Google Sheets is mirrored best-effort and NEVER blocks the
-// response (fire-and-forget), so admin status changes stay instant even if the
-// Sheets endpoint is slow/unreachable.
-app.patch('/api/admin/orders/:orderId/status', requireAdmin, async (req, res) => {
-  try {
-    const { status } = req.body || {};
-    const note = (req.body || {}).note;
-    let order;
-    try {
-      order = engine.updateOrderStatus(req.params.orderId, status, { note });
-    } catch (err) {
-      // Cold start / ephemeral DB: the order may only exist in the Sheets mirror.
-      // Pull it in, then retry the update once.
-      if (/not found/i.test(err.message)) {
-        await hydrateOrdersFromSheets({ force: true });
-        order = engine.updateOrderStatus(req.params.orderId, status, { note });
-      } else {
-        throw err;
-      }
-    }
-    if (sheetsEnabled()) {
-      Promise.resolve()
-        .then(() => sheetsPost({ action: 'updateStatus', orderId: order.orderId, status: order.orderStatus }))
-        .catch(() => { /* DB is authoritative; mirror is optional */ });
-    }
-    // Notify the customer of the new status (fire-and-forget; no-op if EMAILJS not configured).
-    Promise.resolve()
-      .then(() => sendStatusEmail(order, order.orderStatus))
-      .catch(() => { /* email is best-effort */ });
-    // Mirror to the shared store too (serverless-safe).
-    if (orderStoreEnabled()) orderStoreUpsert(order).catch(() => {});
-    return res.status(200).json({ success: true, order });
-  } catch (e) {
-    return res.status(400).json({ success: false, error: e.message });
-  }
-});
-
-// ── ADMIN: Google Sheets outbox (retry) ──
-app.get('/api/admin/sync', requireAdmin, (req, res) => {
-  try {
-    return res.status(200).json({ success: true, stats: engine.syncQueueStats(), queue: engine.pendingSyncList(100) });
-  } catch (e) {
-    return res.status(500).json({ success: false, error: e.message });
-  }
-});
-
-app.post('/api/admin/sync/retry', requireAdmin, async (req, res) => {
-  try {
-    const result = await processPendingSyncs();
-    return res.status(200).json({ success: true, ...result, stats: engine.syncQueueStats() });
-  } catch (e) {
-    return res.status(500).json({ success: false, error: e.message });
-  }
-});
-
 
 // ──────────────────────────────────────────────────────────
 //  Error Handling Middleware
@@ -1572,27 +806,6 @@ app.use(express.static(staticDir, {
   index: 'index.html',
   dotfiles: 'allow'
 }));
-
-// Explicit dashboard routes (fix blank responses)
-app.get('/view-orders.html', (req, res) => {
-  return res.sendFile(path.join(__dirname, 'view-orders.html'));
-});
-
-app.get('/admin-coupons.html', (req, res) => {
-  return res.sendFile(path.join(__dirname, 'admin-coupons.html'));
-});
-
-app.get('/influencer-dashboard.html', (req, res) => {
-  return res.sendFile(path.join(__dirname, 'influencer-dashboard.html'));
-});
-
-app.get('/admin-orders.html', (req, res) => {
-  return res.sendFile(path.join(__dirname, 'admin-orders.html'));
-});
-
-app.get('/admin-dashboard.html', (req, res) => {
-  return res.sendFile(path.join(__dirname, 'admin-coupons.html'));
-});
 
 // ──────────────────────────────────────────────────────────
 //  Catch-all: Handle all other requests

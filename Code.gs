@@ -28,6 +28,37 @@ const HEADERS = [
   'Payment Method', 'Payment Status', 'Order Status', 'Notes'
 ];
 
+// ── CONFIG: durable coupon + influencer catalogs ────────────
+// The website backend runs on Vercel, which has a read-only/ephemeral disk.
+// Coupons and influencers are therefore persisted here so they survive
+// cold starts and redeploys.
+const COUPON_SHEET_NAME     = 'Coupons';
+const INFLUENCER_SHEET_NAME = 'Influencers';
+
+// Headers mirror the engine's record shape exactly, so a Sheet row IS a
+// coupon/influencer record (no field-name translation needed on hydration).
+const COUPON_HEADERS = [
+  'couponId', 'couponCode', 'influencerId', 'influencerName',
+  'discountType', 'discountValue', 'expiryDate', 'maximumUses',
+  'minimumCartValue', 'maximumDiscount', 'applicableProducts',
+  'usageCount', 'enabled', 'createdDate'
+];
+
+const INFLUENCER_HEADERS = [
+  'influencerId', 'influencerName', 'instagramUsername', 'couponCode',
+  'couponDiscountPercent', 'commissionPercent', 'phone', 'email',
+  'accessToken', 'status', 'totalOrders', 'totalRevenue', 'totalCommission',
+  'lastOrderDate', 'notes', 'profilePicture', 'createdDate'
+];
+
+// Fields that need JSON <-> array conversion, and true/false conversion.
+const CATALOG_ARRAY_FIELDS  = ['applicableProducts'];
+const CATALOG_BOOL_FIELDS   = ['enabled'];
+const CATALOG_NUMBER_FIELDS = [
+  'discountValue', 'maximumUses', 'minimumCartValue', 'maximumDiscount', 'usageCount',
+  'couponDiscountPercent', 'commissionPercent', 'totalOrders', 'totalRevenue', 'totalCommission',
+];
+
 // ============================================================
 //  CORS HELPER — required for browser fetch() calls
 // ============================================================
@@ -64,6 +95,12 @@ function doPost(e) {
     if (action === 'updatePayment')  return handleUpdatePayment(data);
     if (action === 'updateStatus')   return handleUpdateStatus(data);
 
+    // Durable coupon / influencer catalogs (Vercel has no writable disk).
+    if (action === 'getCoupons')      return handleGetCoupons();
+    if (action === 'upsertCoupon')    return handleUpsertCoupon(data);
+    if (action === 'getInfluencers')  return handleGetInfluencers();
+    if (action === 'upsertInfluencer')return handleUpsertInfluencer(data);
+
     return jsonResponse({ success: false, error: 'Unknown action' }, 400);
 
   } catch (err) {
@@ -89,6 +126,8 @@ function doGet(e) {
 
     if (action === 'trackOrder' && orderId) return handleTrackOrder(orderId);
     if (action === 'getOrders') return handleGetOrders();
+    if (action === 'getCoupons') return handleGetCoupons();
+    if (action === 'getInfluencers') return handleGetInfluencers();
 
     return jsonResponse({ success: false, error: 'Unknown action' }, 400);
 
@@ -102,6 +141,23 @@ function doGet(e) {
 //  ACTION: Submit new order
 // ============================================================
 function handleSubmitOrder(data) {
+  // Apps Script runs concurrent executions: without a lock, two simultaneous
+  // submits of the same Order ID both passed the duplicate check below and
+  // the row got appended twice. Serialize the whole check-then-append.
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+  } catch (e) {
+    return jsonResponse({ success: false, error: 'Server busy — please retry in a moment' }, 503);
+  }
+  try {
+    return handleSubmitOrderLocked(data);
+  } finally {
+    try { lock.releaseLock(); } catch (e) {}
+  }
+}
+
+function handleSubmitOrderLocked(data) {
   // ── Field Validation ──────────────────────────────────────
   const required = ['orderId','name','email','phone','address','product','quantity','total','paymentMethod'];
   for (const field of required) {
@@ -251,8 +307,14 @@ function handleGetOrders() {
   if (data.length <= 1) return jsonResponse({ success: true, orders: [] });
 
   const orders = [];
+  const seen = new Set();
   for (let i = data.length - 1; i >= 1; i--) {
     const r = data[i];
+    // Historic double-submits left duplicate rows with the same Order ID.
+    // Return only the newest row per Order ID so readers never see two orders.
+    const oid = String(r[0] || '').trim().toUpperCase();
+    if (oid && seen.has(oid)) continue;
+    if (oid) seen.add(oid);
     orders.push({
       orderId: r[0] || '',
       timestamp: r[1] || '',
@@ -273,6 +335,200 @@ function handleGetOrders() {
     });
   }
   return jsonResponse({ success: true, orders: orders });
+}
+
+// ============================================================
+//  ACTION: Durable coupon catalog (Coupons tab)
+//  The website backend runs on Vercel (read-only disk), so coupons
+//  are persisted here and re-loaded on every cold start.
+// ============================================================
+function handleGetCoupons() {
+  const sheet = getOrCreateCatalogSheet(COUPON_SHEET_NAME, COUPON_HEADERS);
+  const data  = sheet.getDataRange().getValues();
+
+  if (data.length <= 1) return jsonResponse({ success: true, coupons: [] });
+
+  const coupons = [];
+  for (let i = 1; i < data.length; i++) {
+    const obj = catalogRowToObject(COUPON_HEADERS, data[i]);
+    if (obj.couponCode) coupons.push(obj);
+  }
+  return jsonResponse({ success: true, coupons: coupons });
+}
+
+function handleUpsertCoupon(data) {
+  const coupon = data.coupon;
+  if (!coupon || !coupon.couponCode) {
+    return jsonResponse({ success: false, error: 'Missing coupon.couponCode' }, 400);
+  }
+
+  const sheet  = getOrCreateCatalogSheet(COUPON_SHEET_NAME, COUPON_HEADERS);
+  const values = sheet.getDataRange().getValues();
+  const code   = String(coupon.couponCode).trim().toUpperCase();
+  const cid    = String(coupon.couponId || '').trim();
+
+  // Match by couponId when present, else by couponCode (upsert semantics).
+  let targetRow = 0;
+  for (let i = 1; i < values.length; i++) {
+    const rowId   = String(values[i][0] || '').trim();
+    const rowCode = String(values[i][1] || '').trim().toUpperCase();
+    if ((cid && rowId === cid) || (!cid && rowCode === code)) { targetRow = i + 1; break; }
+  }
+
+  const rowValues = objectToCatalogRow(COUPON_HEADERS, coupon);
+  if (targetRow) {
+    sheet.getRange(targetRow, 1, 1, COUPON_HEADERS.length).setValues([rowValues]);
+  } else {
+    sheet.appendRow(rowValues);
+  }
+  return jsonResponse({ success: true, message: 'Coupon saved', couponCode: code });
+}
+
+// ============================================================
+//  ACTION: Durable influencer catalog (Influencers tab)
+// ============================================================
+function handleGetInfluencers() {
+  const sheet = getOrCreateCatalogSheet(INFLUENCER_SHEET_NAME, INFLUENCER_HEADERS);
+  const data  = sheet.getDataRange().getValues();
+
+  if (data.length <= 1) return jsonResponse({ success: true, influencers: [] });
+
+  const influencers = [];
+  for (let i = 1; i < data.length; i++) {
+    const obj = catalogRowToObject(INFLUENCER_HEADERS, data[i]);
+    if (obj.influencerId || obj.accessToken) influencers.push(obj);
+  }
+  return jsonResponse({ success: true, influencers: influencers });
+}
+
+function handleUpsertInfluencer(data) {
+  const inf = data.influencer;
+  if (!inf || !inf.influencerId) {
+    return jsonResponse({ success: false, error: 'Missing influencer.influencerId' }, 400);
+  }
+
+  const sheet  = getOrCreateCatalogSheet(INFLUENCER_SHEET_NAME, INFLUENCER_HEADERS);
+  const values = sheet.getDataRange().getValues();
+  const id     = String(inf.influencerId).trim();
+
+  let targetRow = 0;
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][0] || '').trim() === id) { targetRow = i + 1; break; }
+  }
+
+  const rowValues = objectToCatalogRow(INFLUENCER_HEADERS, inf);
+  if (targetRow) {
+    sheet.getRange(targetRow, 1, 1, INFLUENCER_HEADERS.length).setValues([rowValues]);
+  } else {
+    sheet.appendRow(rowValues);
+  }
+  return jsonResponse({ success: true, message: 'Influencer saved', influencerId: id });
+}
+
+// ============================================================
+//  CATALOG HELPERS (Coupons / Influencers tabs)
+//  A Sheet row IS a record: header names match the engine's object
+//  keys exactly, so hydration needs no field-name translation.
+// ============================================================
+// Number fields where an empty cell legitimately means `null`
+// (everything else defaults to 0).
+const CATALOG_NULLABLE_NUMBER_FIELDS = ['maximumUses', 'maximumDiscount'];
+
+function getOrCreateCatalogSheet(name, headers) {
+  const ss    = SpreadsheetApp.getActiveSpreadsheet();
+  let   sheet = ss.getSheetByName(name);
+
+  if (!sheet) {
+    sheet = ss.insertSheet(name);
+  }
+  if (sheet.getLastRow() === 0) {
+    const headerRange = sheet.getRange(1, 1, 1, headers.length);
+    headerRange.setValues([headers]);
+    headerRange.setBackground('#3D2B1F');
+    headerRange.setFontColor('#E8B84B');
+    headerRange.setFontWeight('bold');
+    headerRange.setFontSize(11);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+// Sheet row (array) -> record object, coercing JSON / bool / number cells.
+function catalogRowToObject(headers, row) {
+  const obj = {};
+  for (let i = 0; i < headers.length; i++) {
+    const key = headers[i];
+    const val = row[i];
+
+    if (CATALOG_ARRAY_FIELDS.indexOf(key) !== -1) {
+      obj[key] = parseCatalogArray(val);
+    } else if (CATALOG_BOOL_FIELDS.indexOf(key) !== -1) {
+      obj[key] = parseCatalogBool(val);
+    } else if (CATALOG_NUMBER_FIELDS.indexOf(key) !== -1) {
+      obj[key] = parseCatalogNumber(val, CATALOG_NULLABLE_NUMBER_FIELDS.indexOf(key) !== -1);
+    } else {
+      obj[key] = (val === null || val === undefined) ? '' : String(val);
+    }
+  }
+
+  // Empty cells that mean "not set" -> null, matching the engine's shape.
+  if (obj.expiryDate === '')     obj.expiryDate = null;
+  if (obj.lastOrderDate === '')  obj.lastOrderDate = null;
+  if (obj.influencerId === '')   obj.influencerId = null;
+  if (obj.influencerName === '') obj.influencerName = null;
+  return obj;
+}
+
+// Record object -> Sheet row (array), coercing arrays / bools / nulls.
+function objectToCatalogRow(headers, obj) {
+  const row = [];
+  for (let i = 0; i < headers.length; i++) {
+    const key = headers[i];
+    const val = obj ? obj[key] : undefined;
+
+    if (CATALOG_ARRAY_FIELDS.indexOf(key) !== -1) {
+      row.push(Array.isArray(val) && val.length ? JSON.stringify(val) : '');
+    } else if (CATALOG_BOOL_FIELDS.indexOf(key) !== -1) {
+      row.push(val === false ? false : true);
+    } else if (CATALOG_NUMBER_FIELDS.indexOf(key) !== -1) {
+      if (val === null || val === undefined || val === '') {
+        row.push('');
+      } else {
+        const n = Number(val);
+        row.push(Number.isFinite(n) ? n : '');
+      }
+    } else {
+      row.push((val === null || val === undefined) ? '' : val);
+    }
+  }
+  return row;
+}
+
+function parseCatalogArray(val) {
+  if (Array.isArray(val)) return val;
+  const s = String(val === null || val === undefined ? '' : val).trim();
+  if (!s) return [];
+  try {
+    const parsed = JSON.parse(s);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    // Tolerate hand-typed comma-separated values.
+    return s.split(',').map(x => x.trim()).filter(Boolean);
+  }
+}
+
+function parseCatalogBool(val) {
+  if (typeof val === 'boolean') return val;
+  const s = String(val === null || val === undefined ? '' : val).trim().toLowerCase();
+  if (s === 'false' || s === '0' || s === 'no' || s === 'off' || s === 'disabled') return false;
+  return true; // blank defaults to enabled
+}
+
+function parseCatalogNumber(val, nullable) {
+  if (val === null || val === undefined || val === '') return nullable ? null : 0;
+  const n = Number(String(val).replace(/[^0-9.\-]/g, ''));
+  if (!Number.isFinite(n)) return nullable ? null : 0;
+  return n;
 }
 
 // ============================================================

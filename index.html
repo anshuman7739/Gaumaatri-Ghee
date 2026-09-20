@@ -261,7 +261,7 @@
     .footer-bottom { max-width: 1200px; margin: 32px auto 0; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.1); text-align: center; color: rgba(255,255,255,0.4); font-size: 0.82rem; }
 
     /* MODAL */
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 200; display: none; align-items: center; justify-content: center; padding: 20px; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 5000; display: none; align-items: center; justify-content: center; padding: 20px; }
     .modal-overlay.open { display: flex; }
     .modal { background: var(--white); border-radius: 24px; max-width: 560px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 32px; position: relative; animation: modalIn 0.4s ease; }
     @keyframes modalIn { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
@@ -338,218 +338,6 @@
     /* FADE ANIMATION */
     .fade-in { opacity: 0; transform: translateY(30px); transition: opacity 0.6s ease, transform 0.6s ease; }
     .fade-in.visible { opacity: 1; transform: translateY(0); }
-    /* WHATSAPP & BACK TO TOP */
-
-
-/* ================= CUSTOMER SLIDER ================= */
-
-.customer-gallery{
-    background:#fff;
-    padding:70px 0;
-    overflow:hidden;
-}
-
-.customer-slider{
-    display:flex;
-    gap:20px;
-    width:max-content;
-    animation:slideCustomers 30s linear infinite;
-}
-
-.customer-slider:hover{
-    animation-play-state:paused;
-}
-
-.customer-slider img{
-    width:220px;
-    height:220px;
-    border-radius:18px;
-    object-fit:cover;
-    flex-shrink:0;
-    box-shadow:0 10px 25px rgba(0,0,0,.15);
-    transition:.3s;
-}
-
-.customer-slider img:hover{
-    transform:scale(1.05);
-}
-
-@keyframes slideCustomers{
-    from{
-        transform:translateX(0);
-    }
-    to{
-        transform:translateX(-50%);
-    }
-}
-
-/* ================= END CUSTOMER SLIDER ================= */
-
-.lab-section{
-
-margin:70px auto;
-
-}
-
-.lab-card{
-
-background:white;
-
-padding:45px;
-
-border-radius:25px;
-
-box-shadow:0 20px 50px rgba(0,0,0,.08);
-
-border:1px solid #eee;
-
-}
-
-.lab-top{
-
-display:grid;
-
-grid-template-columns:320px 1fr;
-
-gap:50px;
-
-align-items:center;
-
-}
-
-.lab-image img{
-
-width:100%;
-
-border-radius:18px;
-
-border:2px solid #C9922A;
-
-box-shadow:0 15px 35px rgba(0,0,0,.15);
-
-transition:.3s;
-
-}
-
-.lab-image img:hover{
-
-transform:scale(1.03);
-
-}
-
-.lab-badge{
-
-display:inline-block;
-
-background:#FFF4D6;
-
-padding:8px 18px;
-
-border-radius:30px;
-
-font-weight:bold;
-
-color:#8B6914;
-
-margin-bottom:15px;
-
-}
-
-.lab-checks{
-
-display:grid;
-
-grid-template-columns:repeat(2,1fr);
-
-gap:15px;
-
-margin:25px 0;
-
-}
-
-.lab-checks div{
-
-background:#faf8f3;
-
-padding:14px;
-
-border-radius:12px;
-
-font-weight:600;
-
-}
-
-.trust-rating{
-
-margin:20px 0;
-
-font-size:22px;
-
-color:#C9922A;
-
-}
-
-.trust-rating span{
-
-display:block;
-
-font-size:15px;
-
-color:#555;
-
-margin-top:6px;
-
-}
-
-.lab-btn{
-
-display:inline-block;
-
-padding:15px 30px;
-
-background:#C9922A;
-
-color:white;
-
-text-decoration:none;
-
-border-radius:40px;
-
-font-weight:bold;
-
-transition:.3s;
-
-}
-
-.lab-btn:hover{
-
-background:#8B6914;
-
-transform:translateY(-2px);
-
-}
-
-@media(max-width:900px){
-
-.lab-top{
-
-grid-template-columns:1fr;
-
-text-align:center;
-
-}
-
-.lab-checks{
-
-grid-template-columns:1fr;
-
-}
-
-}
-
-/* RESPONSIVE */
-
-@media(max-width:900px){
 
     /* RESPONSIVE */
     @media(max-width: 900px) {
@@ -631,7 +419,8 @@ grid-template-columns:1fr;
     <div class="hero-content">
       <div class="hero-left">
         <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px;">
-          <div class="hero-badge" style="background:rgba(76,175,80,0.2);border-color:rgba(76,175,80,0.4);color:#81C784;">🩺 Ayurvedic Tradition</div>
+          <div class="hero-badge">⭐ India's Most Trusted Ghee Brand</div>
+          <div class="hero-badge" style="background:rgba(76,175,80,0.2);border-color:rgba(76,175,80,0.4);color:#81C784;">🩺 Doctor's Choice & Recommended</div>
         </div>
         <h1 class="hero-title">Badri Cow A2<br><span>Bilona Ghee</span></h1>
         <p style="color:var(--gold-light);font-size:0.9rem;font-weight:700;letter-spacing:2px;margin-bottom:12px;text-transform:uppercase;">Ghar Ka Sudh Desi Danedar Ghee</p>
@@ -644,7 +433,7 @@ grid-template-columns:1fr;
           📖 Read our blog: A2 vs Regular Ghee
         </a>
         <div class="hero-stats">
-          <div class="stat"><div class="stat-num">200+</div><div class="stat-label">Happy Families</div></div>
+          <div class="stat"><div class="stat-num">5000+</div><div class="stat-label">Happy Families</div></div>
           <div class="stat"><div class="stat-num">100%</div><div class="stat-label">Pure & Natural</div></div>
           <div class="stat"><div class="stat-num">A2</div><div class="stat-label">Badri Cow Milk</div></div>
         </div>
@@ -686,79 +475,9 @@ grid-template-columns:1fr;
   </section>
 
   <!-- PRODUCTS -->
-<section id="products">
-<div class="container">
-<div class="text-center fade-in">
-<section class="lab-section">
-
-<div class="lab-card">
-
-<div class="lab-top">
-
-<div class="lab-image">
-
-<a href="/reports/Gaumaatri_lab_report.pdf" target="_blank">
-
-<img src="/reports/lab-report-preview.png"
-alt="Lab Report">
-
-</a>
-
-</div>
-
-<div class="lab-content">
-
-<div class="lab-badge">
-
-🧪 LAB VERIFIED
-
-</div>
-
-<h2>Independent Laboratory Certified</h2>
-
-<p>
-
-Every batch of Gaumaatri A2 Bilona Ghee is independently tested to verify purity and quality before dispatch.
-
-</p>
-
-<div class="lab-checks">
-
-<div>✅ 100% Pure</div>
-
-<div>✅ No Adulteration</div>
-
-<div>✅ Batch Tested</div>
-
-<div>✅ Quality Verified</div>
-
-</div>
-
-<div class="trust-rating">
-
-★★★★★
-
-<span>Trusted by 200+ Families</span>
-
-</div>
-
-<a href="/reports/Gaumaatri_lab_report.pdf"
-
-target="_blank"
-
-class="lab-btn">
-
-📄 View Complete Laboratory Report
-
-</a>
-
-</div>
-
-</div>
-
-</div>
-
-</section>
+  <section id="products">
+    <div class="container">
+      <div class="text-center fade-in">
         <div class="section-label">Our Products</div>
         <h2 class="section-title">Choose Your Pack</h2>
         <p class="section-sub">All packs come with FREE delivery pan-India. Minimum order 1, maximum 10 jars.</p>
@@ -902,40 +621,6 @@ class="lab-btn">
       </div>
     </div>
   </section>
-
-<!-- CUSTOMER PHOTO SLIDER START -->
-
-<section class="customer-gallery">
-
-<div class="container">
-
-<div class="text-center">
-<div class="section-label">Happy Customers</div>
-<h2 class="section-title">Real Customer Deliveries</h2>
-</div>
-
-<div class="customer-slider">
-
-<img src="/reviews/review1.webp">
-<img src="/reviews/review2.webp">
-<img src="/reviews/review3.webp">
-<img src="/reviews/review4.webp">
-<img src="/reviews/review5.webp">
-
-<img src="/reviews/review1.webp">
-<img src="/reviews/review2.webp">
-<img src="/reviews/review3.webp">
-<img src="/reviews/review4.webp">
-<img src="/reviews/review5.webp">
-
-</div>
-
-</div>
-
-</section>
-
-<!-- CUSTOMER PHOTO SLIDER END -->
-  
 
   <!-- SUBMIT YOUR REVIEW -->
   <section id="submit-review" style="background: linear-gradient(135deg, rgba(139, 69, 19, 0.05) 0%, rgba(218, 165, 32, 0.05) 100%); padding: 60px 20px;">
@@ -1196,7 +881,7 @@ class="lab-btn">
           </div>
         </div>
         <div class="coupon-row">
-          <input type="text" id="couponInput" placeholder="Coupon code (e.g. ANKIT25)">
+          <input type="text" id="couponInput" placeholder="Coupon code (e.g. GAUMAATRI10)">
           <button class="apply-coupon" onclick="applyCoupon()">Apply</button>
         </div>
         <div class="price-summary" id="priceSummary">
@@ -1292,26 +977,10 @@ class="lab-btn">
     emailjs.init("IGPLEG5r-rO43M5EG");
 
     // ── CONFIG ────────────────────────────────────────────────────
-    const _apiBaseMeta = (document.querySelector('meta[name="api-base"]')?.content || '').replace(/\/$/, '');
-    // Use same-origin (relative) on localhost so local testing hits the local
-    // server; otherwise honor the configured base (in production it equals this
-    // site's own origin, so relative would work there too).
-    const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '')
-      ? ''
-      : _apiBaseMeta;
+    const API_BASE = (document.querySelector('meta[name="api-base"]')?.content || '').replace(/\/$/, '');
     const PRICES   = { '200ml': 356, '500ml': 789, '1L': 1599 };
     const VARIANTS = { '200ml': '200ml Starter Pack', '500ml': '500ml Family Pack', '1L': '1 Litre Bulk Pack' };
-    // Offline fallback only — the server (/api/validate-coupon) is authoritative
-    // and uses the real seeded coupons. Keep these in sync with DEFAULT_COUPONS.
-    const COUPONS  = { 'ANKIT25': 25, 'FITNESS25': 25, 'MOM25': 25, 'WELCOME25': 25 };
-    function getCouponsMap(){
-      try{
-        const arr=JSON.parse(localStorage.getItem('gaumaatriCoupons')||'[]');
-        const map={...COUPONS};
-        arr.forEach(c=>{ if(c?.code && c?.off) map[String(c.code).toUpperCase()]=Number(c.off); });
-        return map;
-      }catch(e){ return COUPONS; }
-    }
+    const COUPONS  = { 'GAUMAATRI10': 10, 'GHEE10': 10, 'WELCOME10': 10 };
 
     // ── RAZORPAY KEY ─────────────────────────────────────────────
     // Not a secret, but prefer using the key returned by your backend.
@@ -1323,7 +992,6 @@ class="lab-btn">
     let paymentMethod    = 'COD';
     let discountPct      = 0;
     let couponApplied    = false;
-	let appliedCouponCode = "";
     let currentOrderId   = '';
     let _pendingOrderData = null;
     let _orderCache      = {};
@@ -1436,38 +1104,16 @@ class="lab-btn">
         document.getElementById('discountAmt').textContent    = '—';
       }
     }
-    async function applyCoupon() {
+    function applyCoupon() {
       const code = document.getElementById('couponInput').value.trim().toUpperCase();
-      if (!code) { showToast('Enter a coupon code first', 'error'); return; }
       if (couponApplied) { showToast('Coupon already applied!', 'error'); return; }
-      const base  = PRICES[currentVariant] * qty;
-      showToast('Validating coupon…', 'success');
-      try {
-        const res = await fetch(API_BASE + '/api/validate-coupon', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ couponCode: code, cartValue: base, productKey: currentVariant })
-        });
-        const data = await parseJsonResponse(res);
-        if (data && data.valid) {
-          discountPct   = Number(data.discountPercent) || 0;
-          couponApplied = true;
-          appliedCouponCode = data.code || code;
-          updatePrice();
-          showToast('🎉 Coupon ' + appliedCouponCode + ' applied! ' + discountPct + '% off!', 'success');
-        } else {
-          showToast('Invalid or expired coupon: ' + (data && data.message ? data.message : 'try again'), 'error');
-        }
-      } catch (e) {
-        // Offline / server error fallback: still allow the coupon in the UI so
-        // checkout is never blocked; the backend re-validates authoritatively.
-        const couponsMap = getCouponsMap();
-        if (couponsMap[code]) {
-          discountPct = couponsMap[code]; couponApplied = true; appliedCouponCode = code;
-          updatePrice(); showToast('🎉 Coupon ' + code + ' applied! ' + discountPct + '% off!', 'success');
-        } else {
-          showToast('Invalid or expired coupon code. Please check and try again.', 'error');
-        }
+      if (COUPONS[code]) {
+        discountPct   = COUPONS[code];
+        couponApplied = true;
+        updatePrice();
+        showToast('🎉 Coupon ' + code + ' applied! ' + discountPct + '% off!', 'success');
+      } else {
+        showToast('Invalid coupon code. Try GAUMAATRI10', 'error');
       }
     }
 
@@ -1641,7 +1287,7 @@ class="lab-btn">
             orderId,
             variantKey: data.variantKey,
             qty: data.qty,
-            couponCode: appliedCouponCode || null,
+            couponCode: couponApplied ? document.getElementById('couponInput').value.trim().toUpperCase() : null,
             customer: { name: data.name, email: data.email, phone: data.phone, address: data.address },
           })
         });
@@ -1706,7 +1352,7 @@ class="lab-btn">
           body:    JSON.stringify({
             variantKey:  _pendingOrderData.variantKey,
             qty:         _pendingOrderData.qty,
-            couponCode: appliedCouponCode || null,
+            couponCode:  couponApplied ? document.getElementById('couponInput').value.trim().toUpperCase() : null
           })
         });
         const serverOrder = await parseJsonResponse(createRes);

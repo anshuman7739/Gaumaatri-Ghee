@@ -263,11 +263,63 @@ try {
 } catch(e){}
 
 /* ── DATA ── */
+// Map a raw Google Sheet row (the shape /api/orders returns) into the same
+// order shape /api/admin/db produces, so the dashboard can render either.
+function sheetRowToDashOrder(r = {}) {
+  const total    = Number(r.total) || 0;
+  const discount = Number(r.couponDiscount) || 0;
+  const infl     = String(r.influencerName || '').trim();
+  return {
+    orderId:           String(r.orderId || ''),
+    customerName:      String(r.name || ''),
+    phone:             String(r.phone || ''),
+    email:             String(r.email || ''),
+    address:           String(r.address || ''),
+    city:              '', state: '',
+    purchasedProducts: r.product ? [{ name: String(r.product), qty: Number(r.quantity) || 1, price: total + discount }] : [],
+    quantity:          Number(r.quantity) || 1,
+    couponUsed:        String(r.couponCode || ''),
+    influencerName:    (infl && infl !== 'No Coupon') ? infl : null,
+    discountGiven:     discount,
+    originalPrice:     total + discount,
+    finalPaidAmount:   total,
+    paymentMethod:     String(r.paymentMethod || ''),
+    paymentStatus:     String(r.paymentStatus || ''),
+    orderStatus:       String(r.orderStatus || ''),
+    timestamp:         r.timestamp || '',
+  };
+}
+
+// Duplicate Sheet rows (from double-submits) must never show as two orders.
+function dedupeOrders(list) {
+  const byId = new Map();
+  const stamp = o => { const t = Date.parse(o && o.timestamp); return Number.isFinite(t) ? t : 0; };
+  for (const o of list) {
+    const prev = byId.get(o.orderId);
+    if (!prev || stamp(o) >= stamp(prev)) byId.set(o.orderId, o);
+  }
+  return Array.from(byId.values());
+}
+
 async function loadAll(){
-  let data;
-  try { data = await api('/api/admin/db'); }
-  catch(e){ document.getElementById('tbody').innerHTML = '<tr><td colspan="13" class="empty err">Failed to load orders: '+esc(e.message||'network error')+'. Retry.</td></tr>'; return; }
-  ORDERS = Array.isArray(data.orders) ? data.orders : [];
+  let data = null;
+  try { data = await api('/api/admin/db'); } catch(e){ data = null; }
+  let orders = (data && Array.isArray(data.orders)) ? data.orders : [];
+  if (!orders.length) {
+    // Cold-start / hydration-timeout fallback: read the durable Sheet mirror
+    // directly via the public proxy (same source view-orders.html uses), so
+    // orders can never "vanish" from the dashboard.
+    try {
+      const r = await fetch(API + '/api/orders');
+      const d = await r.json();
+      if (d && d.success && Array.isArray(d.orders) && d.orders.length) {
+        orders = dedupeOrders(d.orders.map(sheetRowToDashOrder));
+      }
+    } catch(e2){ /* ignore — the empty state below renders */ }
+  } else {
+    orders = dedupeOrders(orders);
+  }
+  ORDERS = orders;
   document.getElementById('app').style.display = '';
   renderCards(); renderTable();
 }
