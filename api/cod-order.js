@@ -2,9 +2,10 @@
 // No hardcoded default deployment — a baked-in URL silently pointed at a
 // different, private script. See server.js for the full note.
 
+import { validateCoupon } from "../backend/influencer-engine.js";
+
 const PRICES_INR = { "200ml": 356, "500ml": 789, "1L": 1599 };
 const VARIANT_LABELS = { "200ml": "200ml Starter Pack", "500ml": "500ml Family Pack", "1L": "1 Litre Bulk Pack" };
-const COUPONS = { GAUMAATRI10: 10, GHEE10: 10, WELCOME10: 10 };
 
 function computeTotalInr({ variantKey, qty, couponCode }) {
   if (!PRICES_INR[variantKey]) {
@@ -20,9 +21,12 @@ function computeTotalInr({ variantKey, qty, couponCode }) {
   }
   const base = PRICES_INR[variantKey] * qtyNum;
   const code = String(couponCode || "").trim().toUpperCase();
-  const pct = code && COUPONS[code] ? COUPONS[code] : 0;
-  const discount = pct ? Math.round((base * pct) / 100) : 0;
-  const total = base - discount;
+  const result = validateCoupon({ couponCode: code, cartValue: base, productKey: variantKey });
+  const discount = result.valid ? Number(result.discount || 0) : 0;
+  const total = result.valid ? Number(result.finalAmount || (base - discount)) : base;
+  const pct = result.valid && result.coupon && result.coupon.discountType === "percentage"
+    ? Number(result.coupon.discountValue || 0)
+    : 0;
   return { base, discount, total, qty: qtyNum, couponCode: code || null, couponPct: pct };
 }
 

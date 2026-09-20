@@ -980,7 +980,6 @@
     const API_BASE = (document.querySelector('meta[name="api-base"]')?.content || '').replace(/\/$/, '');
     const PRICES   = { '200ml': 356, '500ml': 789, '1L': 1599 };
     const VARIANTS = { '200ml': '200ml Starter Pack', '500ml': '500ml Family Pack', '1L': '1 Litre Bulk Pack' };
-    const COUPONS  = { 'GAUMAATRI10': 10, 'GHEE10': 10, 'WELCOME10': 10 };
 
     // ── RAZORPAY KEY ─────────────────────────────────────────────
     // Not a secret, but prefer using the key returned by your backend.
@@ -991,6 +990,7 @@
     let qty              = 1;
     let paymentMethod    = 'COD';
     let discountPct      = 0;
+    let actualDiscount   = 0;
     let couponApplied    = false;
     let currentOrderId   = '';
     let _pendingOrderData = null;
@@ -1038,6 +1038,7 @@
       currentVariant   = variant || '500ml';
       qty              = 1;
       discountPct      = 0;
+      actualDiscount   = 0;
       couponApplied    = false;
       _pendingOrderData = null;
 
@@ -1091,7 +1092,7 @@
     }
     function updatePrice() {
       const base  = PRICES[currentVariant] * qty;
-      const disc  = couponApplied ? Math.round(base * discountPct / 100) : 0;
+      const disc  = couponApplied ? Math.max(0, actualDiscount || Math.round(base * discountPct / 100)) : 0;
       const total = base - disc;
       document.getElementById('sumProduct').textContent = '₹' + PRICES[currentVariant].toLocaleString() + ' × ' + qty;
       document.getElementById('sumQty').textContent     = qty;
@@ -1104,16 +1105,31 @@
         document.getElementById('discountAmt').textContent    = '—';
       }
     }
-    function applyCoupon() {
+    async function applyCoupon() {
       const code = document.getElementById('couponInput').value.trim().toUpperCase();
+      if (!code) { showToast('Enter a coupon code', 'error'); return; }
       if (couponApplied) { showToast('Coupon already applied!', 'error'); return; }
-      if (COUPONS[code]) {
-        discountPct   = COUPONS[code];
+
+      try {
+        const baseValue = PRICES[currentVariant] * qty;
+        const response = await fetch((API_BASE || '') + '/api/validate-coupon', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ couponCode: code, cartValue: baseValue, productKey: currentVariant })
+        });
+        const data = await response.json().catch(() => ({ success: false, error: 'Invalid response' }));
+
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || 'Invalid coupon code');
+        }
+
+        discountPct = data.coupon && data.coupon.discountType === 'percentage' ? Number(data.coupon.discountValue || 0) : 0;
+        actualDiscount = Number(data.discount || 0);
         couponApplied = true;
         updatePrice();
-        showToast('🎉 Coupon ' + code + ' applied! ' + discountPct + '% off!', 'success');
-      } else {
-        showToast('Invalid coupon code. Try GAUMAATRI10', 'error');
+        showToast('🎉 Coupon ' + code + ' applied! ' + (discountPct ? discountPct + '% off!' : 'Discount applied!'), 'success');
+      } catch (error) {
+        showToast(error.message || 'Invalid coupon code or it has expired.', 'error');
       }
     }
 
