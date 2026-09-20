@@ -13,6 +13,24 @@
 	const path     = require('path');
 	const Razorpay = require('razorpay');
 	const { setTimeout: sleep } = require('timers/promises');
+	const {
+	  createCoupon,
+	  createInfluencer,
+	  getAnalytics,
+	  getDbView,
+	  getUsageRecords,
+	  listCoupons,
+	  listInfluencers,
+	  listOrders,
+	  normalizeCouponCode,
+	  recordInfluencerOrder,
+	  toggleCoupon,
+	  updateCoupon,
+	  updateInfluencer,
+	  updateOrderStatus,
+	  validateCoupon,
+	  voidInfluencerOrder,
+	} = require('./backend/influencer-engine.js');
 
 	const app = express();
 	app.disable('x-powered-by');
@@ -45,6 +63,7 @@ if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
 const DEFAULT_SHEETS_API_URL =
   'https://script.google.com/macros/s/AKfycbzu7MvB-cE1oJ517NYxMyIxp7RaLfybK1rfTPutB_YBdgnbKIfL90xqLxdIQLCqaumpVg/exec';
 const DEFAULT_SHEETS_API_TOKEN = 'GAUMAATRI_SECRET_2026';
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'local_dev_admin_9f47d2';
 
 const sheetsConfig = {
   url: SHEETS_API_URL || DEFAULT_SHEETS_API_URL,
@@ -53,6 +72,14 @@ const sheetsConfig = {
 
 function sheetsEnabled() {
   return Boolean(sheetsConfig.url && sheetsConfig.token);
+}
+
+function requireAdminToken(req, res, next) {
+  const token = String(req.headers['x-admin-token'] || '').trim();
+  if (token !== ADMIN_TOKEN) {
+    return res.status(401).json({ success: false, error: 'Unauthorized: invalid admin token' });
+  }
+  next();
 }
 
 async function parseJsonResponse(response) {
@@ -337,8 +364,30 @@ async function verifyPaymentHandler(req, res) {
       }
     }
 
+    const storedOrder = recordInfluencerOrder({
+      orderId: internalOrderId,
+      couponUsed: pending.couponCode || '',
+      influencerId: pending.influencerId || null,
+      influencerName: pending.influencerName || null,
+      originalPrice: pending.base,
+      discountGiven: pending.discount,
+      finalPaidAmount: pending.total,
+      paymentMethod: 'UPI',
+      paymentStatus: 'Paid',
+      orderStatus: 'Order Received',
+      customerName: customer?.name || '',
+      phone: customer?.phone || '',
+      email: customer?.email || '',
+      city: customer?.city || '',
+      state: customer?.state || '',
+      address: customer?.address || '',
+      purchasedProducts: [variantLabel],
+      quantity: pending.qty,
+      transactionId: razorpay_payment_id,
+    });
+
     console.log(`✅ Payment verified + order saved: ${razorpay_payment_id} -> ${internalOrderId}`);
-    return res.status(200).json({ success: true, orderId: internalOrderId, sheetsSaved, sheetsError });
+    return res.status(200).json({ success: true, orderId: internalOrderId, sheetsSaved, sheetsError, storedOrder });
 
   } catch (err) {
     console.error('❌ verify-payment error:', err);
@@ -395,6 +444,27 @@ app.post('/api/cod-order', async (req, res) => {
       }
     }
 
+    const storedOrder = recordInfluencerOrder({
+      orderId,
+      couponUsed: pricing.couponCode || '',
+      influencerId: null,
+      influencerName: null,
+      originalPrice: pricing.base,
+      discountGiven: pricing.discount,
+      finalPaidAmount: pricing.total,
+      paymentMethod: 'COD',
+      paymentStatus: 'COD – Pay on Delivery',
+      orderStatus: 'Order Received',
+      customerName: customer?.name || '',
+      phone: customer?.phone || '',
+      email: customer?.email || '',
+      city: customer?.city || '',
+      state: customer?.state || '',
+      address: customer?.address || '',
+      purchasedProducts: [VARIANT_LABELS[variantKey] || variantKey],
+      quantity: pricing.qty,
+    });
+
     return res.status(200).json({
       success: true,
       order_id: orderId,
@@ -403,7 +473,8 @@ app.post('/api/cod-order', async (req, res) => {
       status: 'confirmed',
       message: 'Order confirmed. Payment will be collected on delivery.',
       sheetsSaved,
-      sheetsError
+      sheetsError,
+      storedOrder
     });
 
   } catch (err) {
@@ -763,6 +834,117 @@ app.get('/api/health', (req, res) => {
     razorpay: 'connected',
     timestamp: new Date().toISOString()
   });
+});
+
+app.post('/api/validate-coupon', (req, res) => {
+  const { couponCode, cartValue, productKey } = req.body || {};
+  const result = validateCoupon({ couponCode, cartValue, productKey });
+  if (!result.valid) {
+    return res.status(400).json({ success: false, ...result });
+  }
+  return res.json({ success: true, ...result });
+});
+
+app.get('/api/admin/analytics', requireAdminToken, (req, res) => {
+  res.json({ success: true, ...getAnalytics() });
+});
+
+app.get('/api/admin/db', requireAdminToken, (req, res) => {
+  res.json({ success: true, ...getDbView() });
+});
+
+app.get('/api/admin/coupons', requireAdminToken, (req, res) => {
+  res.json({ success: true, coupons: listCoupons() });
+});
+
+app.post('/api/admin/coupons', requireAdminToken, (req, res) => {
+  try {
+    const payload = req.body || {};
+    const coupon = createCoupon(payload);
+    res.status(201).json({ success: true, coupon });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message || 'Failed to create coupon' });
+  }
+});
+
+app.put('/api/admin/coupons/:code', requireAdminToken, (req, res) => {
+  try {
+    const code = decodeURIComponent(req.params.code);
+    const coupon = updateCoupon(code, req.body || {});
+    res.json({ success: true, coupon });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message || 'Failed to update coupon' });
+  }
+});
+
+app.patch('/api/admin/coupons/:code/toggle', requireAdminToken, (req, res) => {
+  try {
+    const code = decodeURIComponent(req.params.code);
+    const enabled = req.body && req.body.enabled !== undefined ? Boolean(req.body.enabled) : true;
+    const coupon = toggleCoupon(code, enabled);
+    res.json({ success: true, coupon });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message || 'Failed to toggle coupon' });
+  }
+});
+
+app.get('/api/admin/influencers', requireAdminToken, (req, res) => {
+  res.json({ success: true, influencers: listInfluencers() });
+});
+
+app.post('/api/admin/influencers', requireAdminToken, (req, res) => {
+  try {
+    const influencer = createInfluencer(req.body || {});
+    res.status(201).json({ success: true, influencer });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message || 'Failed to create influencer' });
+  }
+});
+
+app.put('/api/admin/influencers/:id', requireAdminToken, (req, res) => {
+  try {
+    const influencer = updateInfluencer(req.params.id, req.body || {});
+    res.json({ success: true, influencer });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message || 'Failed to update influencer' });
+  }
+});
+
+app.get('/api/admin/usage', requireAdminToken, (req, res) => {
+  const filters = {};
+  if (req.query.couponCode) filters.couponCode = req.query.couponCode;
+  if (req.query.influencerId) filters.influencerId = req.query.influencerId;
+  if (req.query.customer) filters.customer = req.query.customer;
+  if (req.query.orderId) filters.orderId = req.query.orderId;
+  if (req.query.paymentMethod) filters.paymentMethod = req.query.paymentMethod;
+  if (req.query.orderStatus) filters.orderStatus = req.query.orderStatus;
+  if (req.query.from) filters.from = req.query.from;
+  if (req.query.to) filters.to = req.query.to;
+  const usage = getUsageRecords(filters);
+  res.json({ success: true, ...usage });
+});
+
+app.get('/api/admin/orders', requireAdminToken, (req, res) => {
+  const filters = { ...req.query };
+  res.json({ success: true, orders: listOrders(filters) });
+});
+
+app.post('/api/admin/orders/:orderId/void', requireAdminToken, (req, res) => {
+  try {
+    const order = voidInfluencerOrder(req.params.orderId, req.body?.status || 'Cancelled');
+    res.json({ success: true, order });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message || 'Failed to void order' });
+  }
+});
+
+app.post('/api/admin/orders/:orderId/status', requireAdminToken, (req, res) => {
+  try {
+    const order = updateOrderStatus(req.params.orderId, req.body?.status, { note: req.body?.note });
+    res.json({ success: true, order });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message || 'Failed to update order status' });
+  }
 });
 
 // ──────────────────────────────────────────────────────────

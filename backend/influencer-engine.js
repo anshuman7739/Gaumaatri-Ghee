@@ -6,23 +6,22 @@ const crypto = require('crypto');
 const { execFileSync } = require('child_process');
 
 // Storage location.
-//  • Local / Render-with-disk : repo-root JSON file (as before).
-//  • Vercel (serverless)      : the deployment filesystem is READ-ONLY, so a
-//    repo-root file cannot be written. /tmp is the one writable path, which
-//    keeps orders working for the life of the instance instead of silently
-//    vanishing. (Still ephemeral across cold starts — a real DB is the
-//    long-term answer.)
-//  • INFLUENCER_DB_PATH       : explicit override if a persistent volume exists.
-const DEFAULT_DB_PATH = path.resolve(__dirname, '..', 'data', 'influencers-data.json');
+// Prefer the repo-root database file when it already has data. The old
+// `data/influencers-data.json` file was being used as the default even after a
+// valid root JSON file existed, which caused the admin dashboard to appear empty
+// after a restart. Keep a fallback to the data/ folder for compatibility, and
+// allow explicit overrides via INFLUENCER_DB_PATH.
+const ROOT_DB_PATH = path.resolve(__dirname, '..', 'influencers-data.json');
+const LEGACY_DB_PATH = path.resolve(__dirname, '..', 'data', 'influencers-data.json');
 const DB_PATH = process.env.INFLUENCER_DB_PATH
   ? process.env.INFLUENCER_DB_PATH
   : (() => {
-      try {
-        const root = path.resolve(__dirname, '..');
-        if (!process.env.VERCEL && fs.existsSync(root)) {
-          return DEFAULT_DB_PATH;
-        }
-      } catch (e) {}
+      const rootExists = fs.existsSync(ROOT_DB_PATH) && fs.statSync(ROOT_DB_PATH).size > 0;
+      const legacyExists = fs.existsSync(LEGACY_DB_PATH) && fs.statSync(LEGACY_DB_PATH).size > 0;
+
+      if (rootExists) return ROOT_DB_PATH;
+      if (legacyExists) return LEGACY_DB_PATH;
+      if (!process.env.VERCEL && fs.existsSync(path.resolve(__dirname, '..'))) return ROOT_DB_PATH;
 
       if (process.env.VERCEL) {
         console.warn('⚠️ Vercel detected: using /tmp for influencer DB. Set INFLUENCER_DB_PATH or Upstash env vars to durable storage.');
