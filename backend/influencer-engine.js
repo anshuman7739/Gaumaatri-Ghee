@@ -37,6 +37,25 @@ function getUpstashConfig() {
   return { url: url.replace(/\/$/, ''), token, key: REDIS_KEY };
 }
 
+function unwrapUpstashValue(value) {
+  if (value == null) return null;
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return unwrapUpstashValue(parsed);
+    } catch (e) {
+      return value;
+    }
+  }
+  if (typeof value === 'object') {
+    if (Object.prototype.hasOwnProperty.call(value, 'value') && value.value !== undefined) {
+      return unwrapUpstashValue(value.value);
+    }
+    return value;
+  }
+  return value;
+}
+
 function readUpstashDbSync() {
   const cfg = getUpstashConfig();
   if (!cfg) return null;
@@ -60,16 +79,8 @@ function readUpstashDbSync() {
       env: { ...process.env, UPSTASH_REDIS_REST_URL: cfg.url, UPSTASH_REDIS_REST_TOKEN: cfg.token, INFLUENCER_DB_KEY: cfg.key },
     });
     const parsed = JSON.parse(out || 'null');
-    const raw = parsed && Object.prototype.hasOwnProperty.call(parsed, 'result') ? parsed.result : null;
-    if (raw == null) return null;
-    let value = raw;
-    if (typeof raw === 'string') {
-      try {
-        value = JSON.parse(raw);
-      } catch (e) {
-        value = raw;
-      }
-    }
+    const raw = parsed && Object.prototype.hasOwnProperty.call(parsed, 'result') ? parsed.result : parsed;
+    const value = unwrapUpstashValue(raw);
     if (!value || typeof value !== 'object') return null;
     return value;
   } catch (e) {
@@ -183,23 +194,23 @@ function loadDb() {
   if (dbCache) return dbCache;
 
   try {
-    ensureDbFile();
-    const raw = fs.readFileSync(DB_PATH, 'utf8');
-    const parsed = raw ? JSON.parse(raw) : {};
-    dbCache = normalizeDbShape(parsed);
-    return dbCache;
-  } catch (e) {
-    console.warn('⚠️ File-based DB read failed — checking Redis fallback:', e.message);
-  }
-
-  try {
     const redisDb = readUpstashDbSync();
     if (redisDb && typeof redisDb === 'object') {
       dbCache = normalizeDbShape(redisDb);
       return dbCache;
     }
   } catch (e) {
-    console.warn('⚠️ Redis DB read failed — keeping existing in-memory state if any:', e.message);
+    console.warn('⚠️ Redis DB read failed — falling back to file cache:', e.message);
+  }
+
+  try {
+    ensureDbFile();
+    const raw = fs.readFileSync(DB_PATH, 'utf8');
+    const parsed = raw ? JSON.parse(raw) : {};
+    dbCache = normalizeDbShape(parsed);
+    return dbCache;
+  } catch (e) {
+    console.warn('⚠️ File-based DB read failed — bootstrapping empty DB:', e.message);
   }
 
   // NEVER blank the database during a transient storage outage.
