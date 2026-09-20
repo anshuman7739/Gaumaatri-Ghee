@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Admin · Coupons &amp; Influencers — Gaumaatri</title>
+<style>
+:root{
+  --bg:#0f1115; --card:#1a1d24; --card2:#21252e; --line:#2c313c;
+  --txt:#eef1f6; --mut:#9aa3b2; --acc:#c9922a; --acc2:#e8b34b;
+  --ok:#34d399; --warn:#fbbf24; --bad:#f87171; --blue:#60a5fa;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--txt)}
+.wrap{max-width:1180px;margin:0 auto;padding:16px}
+header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:14px 0}
+header h1{font-size:1.25rem;margin:0}
+header .sub{color:var(--mut);font-size:.82rem}
+.btn{cursor:pointer;border:0;border-radius:8px;padding:9px 14px;font-size:.86rem;color:#0e0f12;background:var(--acc);font-weight:600}
+.btn.ghost{background:transparent;color:var(--txt);border:1px solid var(--line)}
+.btn.red{background:var(--bad);color:#fff}
+.btn.ok{background:var(--ok);color:#06281b}
+.btn.sm{padding:6px 10px;font-size:.78rem}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 14px;border-bottom:1px solid var(--line);padding-bottom:8px}
+.tab{background:transparent;border:0;color:var(--mut);padding:8px 12px;border-radius:8px;cursor:pointer;font-size:.9rem}
+.tab.on{background:var(--card2);color:var(--txt);font-weight:600}
+.grid{display:grid;gap:12px}
+.cards{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+.card .k{color:var(--mut);font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+.card .v{font-size:1.5rem;font-weight:700;margin-top:6px}
+.card .s{color:var(--ok);font-size:.85rem;margin-top:4px}
+.card2{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input,select,textarea{background:var(--card2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:.86rem;width:100%}
+.fld{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.fld label{font-size:.76rem;color:var(--mut)}
+table{width:100%;border-collapse:collapse;font-size:.84rem}
+th,td{text-align:left;padding:10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--mut);font-weight:600;font-size:.76rem;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
+.tag{display:inline-block;padding:2px 9px;border-radius:14px;font-size:.72rem;font-weight:600}
+.tag.g{background:#103;color:var(--ok)} .tag.r{background:#301;color:var(--bad)}
+.tag.y{background:#332;color:var(--warn)} .tag.b{background:#112;color:var(--blue)}
+.empty{padding:22px;text-align:center;color:var(--mut)}
+.mut{color:var(--mut);font-size:.8rem}
+code{background:var(--card2);padding:2px 6px;border-radius:5px;font-size:.78rem}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:flex-start;justify-content:center;overflow:auto;z-index:50;padding:20px}
+.modal.open{display:flex}
+.mbox{background:var(--card);border:1px solid var(--line);border-radius:14px;max-width:560px;width:100%;padding:20px}
+.mbox h3{margin:0 0 14px}
+.x{float:right;cursor:pointer;color:var(--mut);font-size:1.2rem}
+#login{min-height:100vh;display:flex;align-items:center;justify-content:center}
+.login-box{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:28px;width:360px;max-width:92vw}
+.msg{padding:9px 12px;border-radius:8px;font-size:.84rem;margin:8px 0}
+.msg.err{background:#301;color:var(--bad)} .msg.ok{background:#031;color:var(--ok)}
+.hide{display:none!important}
+.kbd-note{font-size:.76rem;color:var(--mut);margin-top:8px}
+@media(max-width:640px){ th,td{font-size:.75rem;padding:8px} header h1{font-size:1.05rem} }
+</style>
+</head>
+<body>
+
+<!-- LOGIN GATE -->
+<div id="login">
+  <div class="login-box">
+    <h2 style="margin-top:0;color:var(--acc)">Gaumaatri Admin</h2>
+    <p class="mut" style="margin-top:0">Enter the admin token to manage coupons, influencers &amp; usage.</p>
+    <div class="fld"><label>Admin Token</label><input type="password" id="loginToken" placeholder="••••••••" autocomplete="off"/></div>
+    <button class="btn" style="width:100%" onclick="doLogin()">Unlock Dashboard</button>
+    <div id="loginMsg"></div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="app" class="hide">
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>🐄 Gaumaatri · Admin Console</h1>
+        <div class="sub">Coupons · Influencers · Usage · Commissions · Sheets Sync</div>
+      </div>
+      <div class="row">
+        <button class="btn ghost sm" onclick="hardRefresh()">↻ Refresh</button>
+        <button class="btn red sm" onclick="logout()">Lock</button>
+      </div>
+    </header>
+
+    <div class="tabs">
+      <button class="tab on" data-tab="overview" onclick="showTab('overview')">Overview</button>
+      <button class="tab" data-tab="coupons" onclick="showTab('coupons')">Coupons</button>
+      <button class="tab" data-tab="influencers" onclick="showTab('influencers')">Influencers</button>
+      <button class="tab" data-tab="usage" onclick="showTab('usage')">Usage</button>
+      <button class="tab" data-tab="sync" onclick="showTab('sync')">Sheets Sync</button>
+    </div>
+
+    <section id="overview">
+      <div class="grid cards" id="ovCards"></div>
+      <div class="card2" style="margin-top:14px">
+        <h3 style="margin-top:0">Recent Notifications</h3>
+        <div id="ovNotifs" class="mut"></div>
+      </div>
+    </section>
+
+    <section id="coupons" class="hide">
+      <div class="card2">
+        <div class="row" style="justify-content:space-between">
+          <h3 style="margin:0">Coupons</h3>
+          <button class="btn sm" onclick="openCouponForm()">+ New Coupon</button>
+        </div>
+        <div style="overflow-x:auto"><table>
+          <thead><tr><th>Code</th><th>Discount</th><th>Min Order</th><th>Expiry</th><th>Uses</th><th>Influencer</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="couponRows"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <section id="influencers" class="hide">
+      <div class="card2">
+        <div class="row" style="justify-content:space-between">
+          <h3 style="margin:0">Influencers</h3>
+          <button class="btn sm" onclick="openInfluencerForm()">+ New Influencer</button>
+        </div>
+        <div style="overflow-x:auto"><table>
+          <thead><tr><th>Name</th><th>Coupon</th><th>Commission</th><th>Orders</th><th>Sales</th><th>Commission Earned</th><th>Status</th><th>Token</th><th>Actions</th></tr></thead>
+          <tbody id="infRows"></tbody>
+        </table></div>
+        <p class="kbd-note">Share the influencer's dashboard link with their token: <code>/influencer-dashboard.html?token=...</code></p>
+      </div>
+    </section>
+    <section id="usage" class="hide">
+      <div class="card2">
+        <h3 style="margin-top:0">Coupon Usage &amp; Orders</h3>
+        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
+          <div class="fld"><label>Coupon</label><input id="fCoupon" placeholder="Code"/></div>
+          <div class="fld"><label>Influencer ID</label><input id="fInf" placeholder="inf_..."/></div>
+          <div class="fld"><label>Customer / Order</label><input id="fCust" placeholder="Name, email, order"/></div>
+          <div class="fld"><label>From</label><input id="fFrom" type="date"/></div>
+          <div class="fld"><label>To</label><input id="fTo" type="date"/></div>
+          <div class="fld"><label>Status</label>
+            <select id="fStatus"><option value="">Any</option><option>Order Received</option><option>Cancelled</option><option>Refunded</option></select></div>
+        </div>
+        <div class="row">
+          <button class="btn sm" onclick="loadUsage()">Apply</button>
+          <button class="btn ghost sm" onclick="resetUsage()">Reset</button>
+          <button class="btn ghost sm" onclick="exportCsv()">⬇ CSV</button>
+        </div>
+        <div class="grid cards" style="margin:12px 0" id="usTotals"></div>
+        <div style="overflow-x:auto"><table>
+          <thead><tr><th>Order</th><th>Customer</th><th>Coupon</th><th>Influencer</th><th>Amount</th><th>Discount</th><th>Commission</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+          <tbody id="usageRows"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <section id="sync" class="hide">
+      <div class="card2">
+        <div class="row" style="justify-content:space-between">
+          <h3 style="margin:0">Google Sheets Sync Outbox</h3>
+          <button class="btn sm" onclick="retrySync()">Retry Now</button>
+        </div>
+        <div class="grid cards" style="margin:12px 0" id="syncStats"></div>
+        <div class="mut" style="margin-bottom:8px">DB is the source of truth. Rows that failed to mirror into Google Sheets are retried automatically with backoff.</div>
+        <div style="overflow-x:auto"><table>
+          <thead><tr><th>Order</th><th>Status</th><th>Attempts</th><th>Next Retry</th><th>Error</th></tr></thead>
+          <tbody id="syncRows"></tbody>
+        </table></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- COUPON MODAL -->
+<div class="modal" id="couponModal"><div class="mbox">
+  <span class="x" onclick="closeModal('couponModal')">✕</span>
+  <h3 id="couponModalTitle">New Coupon</h3>
+  <input type="hidden" id="cpOriginal" />
+  <div class="fld"><label>Coupon Code</label><input id="cpCode" placeholder="FEST20"/></div>
+  <div class="row">
+    <div class="fld" style="flex:1"><label>Discount Type</label>
+      <select id="cpType"><option value="percentage">Percentage (%)</option><option value="fixed">Fixed (₹)</option></select></div>
+    <div class="fld" style="flex:1"><label>Discount Value</label><input id="cpValue" type="number" min="0" placeholder="10"/></div>
+  </div>
+  <div class="row">
+    <div class="fld" style="flex:1"><label>Minimum Order (₹)</label><input id="cpMin" type="number" min="0" value="0"/></div>
+    <div class="fld" style="flex:1"><label>Maximum Discount (₹, optional)</label><input id="cpMax" type="number" min="0" placeholder="None"/></div>
+  </div>
+  <div class="row">
+    <div class="fld" style="flex:1"><label>Usage Limit (optional)</label><input id="cpLimit" type="number" min="0" placeholder="Unlimited"/></div>
+    <div class="fld" style="flex:1"><label>Expiry Date (optional)</label><input id="cpExpiry" type="date"/></div>
+  </div>
+  <div class="fld"><label>Assigned Influencer (optional)</label><select id="cpInf"></select></div>
+  <div class="row"><label style="display:flex;gap:6px;align-items:center"><input id="cpEnabled" type="checkbox" checked/> Active</label></div>
+  <div class="row" style="margin-top:14px">
+    <button class="btn" onclick="saveCoupon()">Save Coupon</button>
+    <button class="btn ghost" onclick="closeModal('couponModal')">Cancel</button>
+  </div>
+  <div id="couponMsg"></div>
+</div></div>
+
+<!-- INFLUENCER MODAL -->
+<div class="modal" id="infModal"><div class="mbox">
+  <span class="x" onclick="closeModal('infModal')">✕</span>
+  <h3 id="infModalTitle">New Influencer</h3>
+  <input type="hidden" id="infId" />
+  <div class="fld"><label>Full Name *</label><input id="infName" placeholder="Riya Sharma"/></div>
+  <div class="fld"><label>Instagram Handle</label><input id="infIg" placeholder="@riya.s"/></div>
+  <div class="row">
+    <div class="fld" style="flex:1"><label>Coupon Code *</label><input id="infCoupon" placeholder="RIYA10"/></div>
+    <div class="fld" style="flex:1"><label>Commission % (of order value)</label><input id="infCommission" type="number" min="0" max="100" value="10"/></div>
+  </div>
+  <div class="row">
+    <div class="fld" style="flex:1"><label>Phone</label><input id="infPhone"/></div>
+    <div class="fld" style="flex:1"><label>Email</label><input id="infEmail" type="email"/></div>
+  </div>
+  <div class="fld"><label>Notes</label><textarea id="infNotes" rows="2"></textarea></div>
+  <div class="row" style="margin-top:14px">
+    <button class="btn" onclick="saveInfluencer()">Save Influencer</button>
+    <button class="btn ghost" onclick="closeModal('infModal')">Cancel</button>
+  </div>
+  <div id="infMsg"></div>
+</div></div>
+
+<script>
+
+const API = '';
+const TOKEN_KEY = 'gaumaatri_admin_token';
+let DB = { influencers: [], coupons: [], orders: [], notifications: [] };
+let USAGE = { records: [], totals: {} };
+
+function esc(v){ return String(v ?? '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
+function money(n){ return '₹' + Number(n||0).toLocaleString('en-IN'); }
+function formatDate(d){ try { const x = new Date(d); return isNaN(x.getTime()) ? '' : x.toLocaleString(); } catch(e){ return ''; } }
+function savedToken(){ return sessionStorage.getItem(TOKEN_KEY) || ''; }
+
+async function api(path, opts={}){
+  const headers = { 'Content-Type':'application/json', ...(opts.headers||{}) };
+  if (savedToken()) headers['X-Admin-Token'] = savedToken();
+  const res = await fetch(API + path, { ...opts, headers, body: opts.body ? JSON.stringify(opts.body) : undefined });
+  const data = await res.json().catch(()=>({ success:false, error:'Invalid response' }));
+  if (!res.ok) throw new Error(data.error || ('HTTP '+res.status));
+  return data;
+}
+
+// ── AUTH ──
+function doLogin(){
+  const t = document.getElementById('loginToken').value.trim();
+  sessionStorage.setItem(TOKEN_KEY, t);
+  verifyLogin();
+}
+async function verifyLogin(){
+  const msg = document.getElementById('loginMsg');
+  if (!savedToken()){ document.getElementById('app').classList.add('hide'); document.getElementById('login').style.display='flex'; return; }
+  try {
+    await api('/api/admin/analytics');
+    document.getElementById('login').style.display='none';
+    document.getElementById('app').classList.remove('hide');
+    loadAll();
+  } catch(e){
+    sessionStorage.removeItem(TOKEN_KEY);
+    msg.innerHTML = '<div class="msg err">' + esc(e.message || 'Unauthorized') + '</div>';
+  }
+}
+function logout(){ sessionStorage.removeItem(TOKEN_KEY); location.reload(); }
+document.getElementById('loginToken').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+
+// ── TABS ──
+let currentTab = 'overview';
+function showTab(name){
+  currentTab = name;
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on', b.dataset.tab===name));
+  ['overview','coupons','influencers','usage','sync'].forEach(s=>document.getElementById(s).classList.toggle('hide', s!==name));
+  if (name==='overview') renderOverview();
+  if (name==='coupons') renderCoupons();
+  if (name==='influencers') renderInfluencers();
+  if (name==='usage') loadUsage();
+  if (name==='sync') loadSync();
+}
+function hardRefresh(){ loadAll(); }
+function loadAll(){ loadDb(); renderOverview(); renderCoupons(); renderInfluencers(); loadUsage(); loadSync(); }
+
+async function loadDb(){
+  try {
+    const d = await api('/api/admin/db');
+    DB = { influencers:d.influencers||[], coupons:d.coupons||[], orders:d.orders||[], notifications:d.notifications||[], sync:d.sync||{} };
+    renderOverview(); renderCoupons(); renderInfluencers();
+  } catch(e){ /* ignore */ }
+}
+
+// ── OVERVIEW ──
+async function renderOverview(){
+  let a = {};
+  try { a = await api('/api/admin/analytics'); } catch(e){}
+  const c = a.cards || {};
+  const cards = [
+    { k:'Influencers', v:Number(c.totalInfluencers||0) },
+    { k:'Active Coupons', v:Number(c.activeCoupons||0) },
+    { k:'Orders via Influencers', v:Number(c.ordersViaInfluencers||0) },
+    { k:'Total Revenue', v:money(c.totalRevenue) },
+    { k:'Discount Given', v:money(c.totalDiscountGiven) },
+    { k:'Pending Commission', v:money(c.totalCommissionPayable) },
+    { k:'Avg Order Value', v:money(c.averageOrderValue) },
+    { k:'Top Coupon', v:esc(c.topCoupon||'—') },
+    { k:'Top Influencer', v:esc(c.topInfluencer||'—') },
+  ];
+  const el = document.getElementById('ovCards');
+  if (el) el.innerHTML = cards.map(x=>`<div class="card"><div class="k">${x.k}</div><div class="v">${x.v}</div></div>`).join('');
+
+  const notifs = a.notifications || [];
+  const ne = document.getElementById('ovNotifs');
+  if (ne) ne.innerHTML = notifs.length
+    ? notifs.slice(0, 15).map(n=>`<div class="mut">${esc(n.message||String(n))} <span class="mut" style="opacity:.6">· ${esc(formatDate(n.createdAt))}</span></div>`).join('')
+    : 'No notifications yet — orders using a coupon will appear here.';
+}
+// ── COUPONS ──
+function renderCoupons(){
+  const rows = DB.coupons || [];
+  document.getElementById('couponRows').innerHTML = rows.length ? rows.map(c=>{
+    const used = Number(c.usageCount||0);
+    const limit = c.maximumUses==null ? '∞' : c.maximumUses;
+    const status = c.enabled ? '<span class="tag g">ACTIVE</span>' : '<span class="tag r">INACTIVE</span>';
+    const disc = c.discountType==='fixed' ? '₹'+c.discountValue : (c.discountValue+'%');
+    const expiry = c.expiryDate ? new Date(c.expiryDate).toLocaleDateString() : '—';
+    return `<tr>
+      <td><b>${esc(c.couponCode)}</b></td>
+      <td>${esc(disc)}</td>
+      <td>${money(c.minimumCartValue||0)}</td>
+      <td>${expiry}</td>
+      <td>${used} / ${limit}</td>
+      <td>${esc(c.influencerName || '—')}</td>
+      <td>${status}</td>
+      <td><button class="btn ghost sm" onclick='editCoupon(${JSON.stringify(c.couponCode)})'>Edit</button>
+          <button class="btn sm" onclick="toggleCoupon('${esc(c.couponCode)}', ${!c.enabled})">${c.enabled?'Deactivate':'Activate'}</button></td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="8" class="empty">No coupons yet</td></tr>';
+}
+
+function fillInfSelect(sel, currentValue){
+  const list = DB.influencers||[];
+  sel.innerHTML = '<option value="">— None —</option>' + list.map(i=>`<option value="${esc(i.influencerId)}" ${i.influencerId===currentValue?'selected':''}>${esc(i.influencerName)} (${esc(i.couponCode)})</option>`).join('');
+}
+
+function openCouponForm(coupon){
+  closeModalMsg();
+  document.getElementById('couponModalTitle').textContent = coupon ? 'Edit Coupon '+coupon.couponCode : 'New Coupon';
+  document.getElementById('cpOriginal').value = coupon ? coupon.couponCode : '';
+  document.getElementById('cpCode').value = coupon ? coupon.couponCode : '';
+  document.getElementById('cpCode').disabled = !!coupon;
+  document.getElementById('cpType').value = (coupon && coupon.discountType) || 'percentage';
+  document.getElementById('cpValue').value = coupon ? coupon.discountValue : '';
+  document.getElementById('cpMin').value = coupon ? (coupon.minimumCartValue||0) : 0;
+  document.getElementById('cpMax').value = coupon && coupon.maximumDiscount!=null ? coupon.maximumDiscount : '';
+  document.getElementById('cpLimit').value = coupon && coupon.maximumUses!=null ? coupon.maximumUses : '';
+  document.getElementById('cpExpiry').value = coupon && coupon.expiryDate ? new Date(coupon.expiryDate).toISOString().slice(0,10) : '';
+  document.getElementById('cpEnabled').checked = coupon ? !!coupon.enabled : true;
+  const infSelect = document.getElementById('cpInf');
+  fillInfSelect(infSelect, coupon ? coupon.influencerId : '');
+  openModal('couponModal');
+}
+window.editCoupon = async function(code){
+  try { const d = await api('/api/admin/db'); DB = { ...DB, coupons:d.coupons||[], influencers:d.influencers||[] }; } catch(e){}
+  const c = DB.coupons.find(x=>x.couponCode===code); openCouponForm(c||null);
+};
+window.toggleCoupon = async function(code, enable){
+  try { await api('/api/admin/coupons/'+encodeURIComponent(code)+'/toggle', { method:'PATCH', body:{ enabled:enable } }); await loadDb(); }
+  catch(e){ alert(e.message||'Failed'); }
+};
+async function saveCoupon(){
+  const m = document.getElementById('couponMsg'); m.innerHTML='';
+  const body = {
+    discountType: document.getElementById('cpType').value,
+    discountValue: Number(document.getElementById('cpValue').value)||0,
+    minimumCartValue: Number(document.getElementById('cpMin').value)||0,
+    maximumDiscount: document.getElementById('cpMax').value === '' ? null : Number(document.getElementById('cpMax').value)||0,
+    maximumUses: document.getElementById('cpLimit').value === '' ? null : Number(document.getElementById('cpLimit').value)||0,
+    expiryDate: document.getElementById('cpExpiry').value || null,
+    influencerId: document.getElementById('cpInf').value || null,
+    influencerName: (DB.influencers.find(i=>i.influencerId===document.getElementById('cpInf').value)||{}).influencerName || null,
+    enabled: document.getElementById('cpEnabled').checked,
+  };
+  const original = document.getElementById('cpOriginal').value;
+  try {
+    const r = original
+      ? await api('/api/admin/coupons/'+encodeURIComponent(original), { method:'PUT', body })
+      : await api('/api/admin/coupons', { method:'POST', body:{ ...body, couponCode:document.getElementById('cpCode').value.trim().toUpperCase() } });
+    m.innerHTML = '<div class="msg ok">Coupon saved</div>';
+    closeModal('couponModal'); await loadDb(); renderCoupons();
+  } catch(e){ m.innerHTML = '<div class="msg err">' + esc(e.message||'Error') + '</div>'; }
+}
+
+// ── INFLUENCERS ──
+function renderInfluencers(){
+  const rows = DB.influencers || [];
+  document.getElementById('infRows').innerHTML = rows.length ? rows.map(i=>{
+    const st = i.status==='Disabled' ? '<span class="tag r">DISABLED</span>' : '<span class="tag g">ACTIVE</span>';
+    return `<tr>
+      <td><b>${esc(i.influencerName)}</b><br><span class="mut">@${esc(i.instagramUsername||'—')}</span></td>
+      <td><code>${esc(i.couponCode)}</code></td>
+      <td>${Number(i.commissionPercent||0)}%</td>
+      <td>${Number(i.totalOrders||0)}</td>
+      <td>${money(i.totalRevenue||0)}</td>
+      <td>${money(i.totalCommission||0)}</td>
+      <td>${st}</td>
+      <td><code class="tok" style="cursor:pointer" title="Click to copy token" onclick="copyToken('${esc(i.accessToken)}', this)">••••</code></td>
+      <td><button class="btn ghost sm" onclick='editInfluencer("${esc(i.influencerId)}")'>Edit</button>
+          <button class="btn sm" onclick="copyLink('${esc(i.accessToken)}')">Link</button></td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="9" class="empty">No influencers yet</td></tr>';
+}
+function copyToken(t, el){ navigator.clipboard.writeText(t).then(()=>{ el.textContent='✔ copied'; setTimeout(()=>el.textContent='••••',1200); }); }
+function copyLink(t){ navigator.clipboard.writeText(location.origin + '/influencer-dashboard.html?token=' + t); alert('Dashboard link copied!'); }
+window.editInfluencer = async function(id){
+  try { const d = await api('/api/admin/db'); DB = { ...DB, influencers:d.influencers||[] }; } catch(e){}
+  const i = DB.influencers.find(x=>x.influencerId===id); openInfluencerForm(i||null);
+};
+function openInfluencerForm(inf){
+  closeModalMsg();
+  document.getElementById('infModalTitle').textContent = inf ? 'Edit Influencer' : 'New Influencer';
+  document.getElementById('infId').value = inf ? inf.influencerId : '';
+  document.getElementById('infName').value = inf ? inf.influencerName : '';
+  document.getElementById('infIg').value = inf ? (inf.instagramUsername||'') : '';
+  document.getElementById('infCoupon').value = inf ? inf.couponCode : '';
+  document.getElementById('infCoupon').disabled = !!inf;
+  document.getElementById('infCommission').value = inf ? (inf.commissionPercent||0) : 10;
+  document.getElementById('infPhone').value = inf ? (inf.phone||'') : '';
+  document.getElementById('infEmail').value = inf ? (inf.email||'') : '';
+  document.getElementById('infNotes').value = inf ? (inf.notes||'') : '';
+  openModal('infModal');
+}
+async function saveInfluencer(){
+  const m = document.getElementById('infMsg'); m.innerHTML='';
+  const id = document.getElementById('infId').value;
+  const body = {
+    influencerName: document.getElementById('infName').value.trim(),
+    instagramUsername: document.getElementById('infIg').value.trim(),
+    couponCode: document.getElementById('infCoupon').value.trim().toUpperCase(),
+    commissionPercent: Number(document.getElementById('infCommission').value)||0,
+    phone: document.getElementById('infPhone').value.trim(),
+    email: document.getElementById('infEmail').value.trim(),
+    notes: document.getElementById('infNotes').value.trim(),
+  };
+  try {
+    if (id){ await api('/api/admin/influencers/'+id, { method:'PUT', body }); }
+    else { await api('/api/admin/influencers', { method:'POST', body }); }
+    closeModal('infModal'); await loadDb(); renderInfluencers();
+  } catch(e){ m.innerHTML = '<div class="msg err">'+esc(e.message||'Error')+'</div>'; }
+}
+
+// ── USAGE ──
+async function loadUsage(){
+  const q = new URLSearchParams();
+  if (document.getElementById('fCoupon').value) q.set('coupon', document.getElementById('fCoupon').value);
+  if (document.getElementById('fInf').value) q.set('influencer', document.getElementById('fInf').value);
+  if (document.getElementById('fCust').value) q.set('customer', document.getElementById('fCust').value);
+  if (document.getElementById('fFrom').value) q.set('from', document.getElementById('fFrom').value);
+  if (document.getElementById('fTo').value) q.set('to', document.getElementById('fTo').value);
+  if (document.getElementById('fStatus').value) q.set('status', document.getElementById('fStatus').value);
+  try {
+    const d = await api('/api/admin/usage?' + q.toString());
+    USAGE = { records:d.records||[], totals:d.totals||{} };
+    const t = USAGE.totals;
+    document.getElementById('usTotals').innerHTML = [
+      {k:'Orders', v:t.totalOrders||0},{k:'Coupon Uses', v:t.totalUsage||0},
+      {k:'Sales', v:money(t.sales)},{k:'Discount Given', v:money(t.discount)},{k:'Commission', v:money(t.commission)},
+    ].map(x=>`<div class="card"><div class="k">${x.k}</div><div class="v">${x.v}</div></div>`).join('');
+    const rows = USAGE.records;
+    document.getElementById('usageRows').innerHTML = rows.length ? rows.map(o=>{
+      const stClass = o.orderStatus==='Refunded'||o.orderStatus==='Cancelled' ? 'r' : 'g';
+      const gotPaid = o.commissionPaid;
+      const act = `<button class="btn ok sm" onclick="payCommission('${esc(o.orderId)}')">Mark Paid</button>
+        <button class="btn red sm" onclick="voidOrder('${esc(o.orderId)}','Cancelled')">Cancel</button>
+        <button class="btn red sm" onclick="voidOrder('${esc(o.orderId)}','Refunded')">Refund</button>`;
+      return `<tr>
+        <td>${esc(o.orderId)}</td>
+        <td>${esc(o.customerName||'—')}</td>
+        <td><code>${esc(o.couponUsed||'—')}</code></td>
+        <td>${esc(o.influencerName||'—')}</td>
+        <td>${money(o.finalPaidAmount)}</td>
+        <td>${money(o.discountGiven)}</td>
+        <td>${money(o.commissionAmount)} ${gotPaid?'<span class="tag g">PAID</span>':'<span class="tag y">PENDING</span>'}</td>
+        <td><span class="tag ${stClass}">${esc(o.orderStatus||'—')}</span></td>
+        <td>${esc(new Date(o.timestamp).toLocaleDateString())}</td>
+        <td>${o.orderStatus==='Cancelled'||o.orderStatus==='Refunded' ? '—' : act}</td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="10" class="empty">No usage records for this filter</td></tr>';
+  } catch(e){ document.getElementById('usageRows').innerHTML = '<tr><td colspan="10" class="empty">'+esc(e.message||'Error')+'</td></tr>'; }
+}
+function resetUsage(){
+  ['fCoupon','fInf','fCust','fFrom','fTo','fStatus'].forEach(id=>{ const el=document.getElementById(id); if (el) el.value=''; });
+  loadUsage();
+}
+
+// ── SYNC ──
+async function loadSync(){
+  try {
+    const d = await api('/api/admin/sync');
+    const s = d.stats || {};
+    document.getElementById('syncStats').innerHTML = ['Total','Pending','Success','Failed'].map((k,i)=>{
+      const keys=['total','pending','success','failed']; return `<div class="card"><div class="k">${k}</div><div class="v">${s[keys[i]]||0}</div></div>`;
+    }).join('');
+    const rows = d.queue || [];
+    document.getElementById('syncRows').innerHTML = rows.length ? rows.map(e=>{
+      const sc = e.status==='success'?'g':(e.status==='failed'?'r':'y');
+      return `<tr><td>${esc(e.orderId||'—')}</td><td><span class="tag ${sc}">${esc(e.status)}</span></td>
+        <td>${e.attempts}</td><td>${e.nextRetry?esc(new Date(e.nextRetry).toLocaleString()):'—'}</td><td class="mut">${esc(e.error||'')}</td></tr>`;
+    }).join('') : '<tr><td colspan="5" class="empty">No sync rows yet</td></tr>';
+  } catch(e){ document.getElementById('syncRows').innerHTML='<tr><td colspan="5" class="empty">'+esc(e.message||'Error')+'</td></tr>'; }
+}
+async function retrySync(){
+  try { const d = await api('/api/admin/sync/retry', { method:'POST' }); alert('Retried '+d.attempted+' row(s).'); loadSync(); }
+  catch(e){ alert(e.message||'Failed'); }
+}
+
+// ── MODAL HELPERS ──
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+function closeModalMsg(){ document.getElementById('couponMsg').innerHTML=''; document.getElementById('infMsg').innerHTML=''; }
+
+window.payCommission = async function(orderId){
+  const txn = prompt('Transaction / payout ID (optional)'); if (txn===null) return;
+  try { await api('/api/admin/commission/'+orderId+'/pay', { method:'POST', body:{ transactionId:txn } }); loadUsage(); }
+  catch(e){ alert(e.message||'Failed'); }
+};
+window.voidOrder = async function(orderId, status){
+  if (!confirm('Mark order '+orderId+' as '+status.toLowerCase()+'? This reverses coupon usage & commission.')) return;
+  try { await api('/api/admin/orders/'+orderId+'/void', { method:'POST', body:{ status } }); loadUsage(); loadDb(); }
+  catch(e){ alert(e.message||'Failed'); }
+};
+function exportCsv(){
+  if (!USAGE.records.length){ alert('Nothing to export'); return; }
+  const head = ['Order ID','Customer','Coupon','Influencer','Amount','Discount','Commission','Status','Date'];
+  const lines = [head.join(',')];
+  USAGE.records.forEach(o=>{
+    const row=[o.orderId, o.customerName, o.couponUsed, o.influencerName, o.finalPaidAmount, o.discountGiven, o.commissionAmount, o.orderStatus, new Date(o.timestamp).toISOString()];
+    lines.push(row.map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(','));
+  });
+  const a=document.createElement('a'); a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(lines.join('\n'));
+  a.download='coupon-usage.csv'; a.click();
+}
+
+verifyLogin();
+</script>
+</body>
+</html>
+
