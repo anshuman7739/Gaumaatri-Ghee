@@ -494,8 +494,31 @@ app.get('/api/track-order', async (req, res) => {
     const orderId = String(req.query.orderId || '').trim().toUpperCase();
     if (!orderId) return res.status(400).json({ success: false, error: 'Missing orderId' });
 
+    const order = listOrders({ orderId }).find(o => String(o.orderId || '').toUpperCase() === orderId);
+    if (order) {
+      const firstProduct = Array.isArray(order.purchasedProducts) ? order.purchasedProducts[0] : null;
+      return res.json({
+        success: true,
+        orderId: order.orderId,
+        orderStatus: order.orderStatus || 'Pending',
+        paymentStatus: order.paymentStatus || 'Pending',
+        paymentMethod: order.paymentMethod || 'COD',
+        product: firstProduct?.name || 'Gaumaatri Ghee',
+        quantity: Number(order.quantity || firstProduct?.qty || 1),
+        timestamp: order.timestamp || new Date().toISOString(),
+        customerName: order.customerName || '',
+        phone: order.phone || '',
+        email: order.email || '',
+        address: order.address || '',
+        city: order.city || '',
+        state: order.state || '',
+        discountGiven: order.discountGiven || 0,
+        finalPaidAmount: order.finalPaidAmount || 0,
+      });
+    }
+
     if (!sheetsEnabled()) {
-      return res.status(500).json({ success: false, error: 'Sheets API not configured' });
+      return res.status(404).json({ success: false, error: 'Order not found' });
     }
 
     const qs = new URLSearchParams({ action: 'trackOrder', orderId, token: sheetsConfig.token }).toString();
@@ -513,18 +536,23 @@ app.get('/api/track-order', async (req, res) => {
 app.get('/api/order-status/:orderId', (req, res) => {
   try {
     const { orderId } = req.params;
+    const order = listOrders({ orderId }).find(o => String(o.orderId || '').toUpperCase() === String(orderId || '').toUpperCase());
 
-    // In production, fetch from database
-    // For now, return mock status based on orderId
-    const statuses = ['pending', 'confirmed', 'shipped', 'delivered'];
-    const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+
+    const firstProduct = Array.isArray(order.purchasedProducts) ? order.purchasedProducts[0] : null;
 
     return res.json({
       success: true,
-      order_id: orderId,
-      status: randomStatus,
-      estimated_delivery: 'Today',
-      tracking_url: 'https://your-tracking-system.com/' + orderId
+      order_id: order.orderId,
+      status: order.orderStatus || 'Pending',
+      payment_status: order.paymentStatus || 'Pending',
+      product: firstProduct?.name || 'Gaumaatri Ghee',
+      quantity: Number(order.quantity || firstProduct?.qty || 1),
+      estimated_delivery: 'TBD',
+      tracking_url: '/track-order?orderId=' + encodeURIComponent(order.orderId)
     });
 
   } catch (err) {
