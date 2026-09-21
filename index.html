@@ -102,6 +102,75 @@
     .mobile-menu a { font-family: 'Playfair Display', serif; font-size: 1.8rem; color: var(--brown); text-decoration: none; }
     .mobile-close { position: absolute; top: 24px; right: 24px; font-size: 1.5rem; background: none; border: none; cursor: pointer; color: var(--brown); }
 
+    /* PROMO BANNER */
+    .promo-strip {
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(90deg, #220d0d 0%, #3d2b1f 35%, #4f2d1a 100%);
+      color: var(--white);
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      box-shadow: 0 4px 18px rgba(39,20,12,0.18);
+    }
+    .promo-track {
+      display: flex;
+      align-items: center;
+      gap: 2.5rem;
+      width: max-content;
+      white-space: nowrap;
+      padding: 0.7rem 0;
+      animation: promoScroll 18s linear infinite;
+    }
+    .promo-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.8rem;
+      font-size: 0.88rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.96);
+    }
+    .promo-off {
+      font-size: 1.04rem;
+      font-weight: 900;
+      color: #fff4d6;
+      text-shadow: 0 2px 12px rgba(255,184,0,0.4);
+    }
+    .promo-separator {
+      opacity: 0.78;
+    }
+    .promo-code {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #ffdd8a, #ffd169);
+      color: #2b160e;
+      border-radius: 999px;
+      padding: 0.42rem 0.9rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      box-shadow: 0 8px 18px rgba(255,209,105,0.35);
+    }
+    @keyframes promoScroll {
+      from { transform: translateX(0); }
+      to { transform: translateX(-50%); }
+    }
+    @media (max-width: 640px) {
+      .promo-item {
+        font-size: 0.72rem;
+        letter-spacing: 0.1em;
+      }
+      .promo-off {
+        font-size: 0.9rem;
+      }
+      .promo-code {
+        padding: 0.34rem 0.7rem;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .promo-track { animation: none; }
+    }
+
     /* HERO */
     #hero { min-height: 100vh; display: flex; align-items: center; position: relative; overflow: hidden; background: linear-gradient(135deg, #2C1810 0%, #3D2B1F 40%, #5C3A28 100%); }
     .hero-bg { position: absolute; inset: 0; background-image: url('/hero.png'); background-size: cover; background-position: center; opacity: 0.25; }
@@ -416,7 +485,18 @@
   <section id="hero">
     <div class="hero-bg"></div>
     <div class="hero-overlay"></div>
-    <div class="hero-content">
+    <div class="promo-strip" aria-label="Welcome discount banner" style="position:absolute; left:0; right:0; top:78px; z-index:2;">
+      <div class="promo-track">
+        <span class="promo-item"><span class="promo-off">15% OFF</span><span class="promo-separator">—</span>USE CODE<span class="promo-code">WELCOME25</span></span>
+        <span class="promo-item"><span class="promo-off">15% OFF</span><span class="promo-separator">—</span>USE CODE<span class="promo-code">WELCOME25</span></span>
+        <span class="promo-item"><span class="promo-off">15% OFF</span><span class="promo-separator">—</span>USE CODE<span class="promo-code">WELCOME25</span></span>
+        <span class="promo-item"><span class="promo-off">15% OFF</span><span class="promo-separator">—</span>USE CODE<span class="promo-code">WELCOME25</span></span>
+        <span class="promo-item"><span class="promo-off">15% OFF</span><span class="promo-separator">—</span>USE CODE<span class="promo-code">WELCOME25</span></span>
+        <span class="promo-item"><span class="promo-off">15% OFF</span><span class="promo-separator">—</span>USE CODE<span class="promo-code">WELCOME25</span></span>
+      </div>
+    </div>
+
+    <div class="hero-content" style="padding-top: 150px;">
       <div class="hero-left">
         <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px;">
           <div class="hero-badge">⭐ India's Most Trusted Ghee Brand</div>
