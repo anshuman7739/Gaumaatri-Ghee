@@ -93,7 +93,7 @@
     .nav-links { display: flex; align-items: center; gap: 32px; list-style: none; }
     .nav-links a { text-decoration: none; color: var(--brown-light); font-size: 0.9rem; font-weight: 500; transition: color 0.3s; }
     .nav-links a:hover { color: var(--gold); }
-    .nav-cta { background: linear-gradient(135deg, var(--gold), var(--gold-dark)); color: var(--white) !important; padding: 10px 24px; border-radius: 50px; font-weight: 600 !important; transition: transform 0.3s, box-shadow 0.3s !important; }
+    .nav-cta { background: linear-gradient(135deg, var(--gold), var(--gold-dark)); color: var(--white) !important; padding: 10px 24px; border-radius: 50px; font-weight: 600 !important; transition: transform 0.3s, box-shadow 0.3s !important; text-decoration: none !important; }
     .nav-cta:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(201,146,42,0.4) !important; }
     .hamburger { display: none; flex-direction: column; gap: 5px; cursor: pointer; background: none; border: none; padding: 4px; }
     .hamburger span { width: 24px; height: 2px; background: var(--brown); border-radius: 2px; transition: all 0.3s; }
@@ -184,6 +184,7 @@
     .btn-primary { background: linear-gradient(135deg, var(--gold), var(--gold-dark)); color: var(--white); padding: 14px 32px; border-radius: 50px; text-decoration: none; font-weight: 600; font-size: 1rem; transition: all 0.3s; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
     .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(201,146,42,0.5); }
     .btn-outline { background: transparent; color: var(--white); padding: 14px 32px; border-radius: 50px; text-decoration: none; font-weight: 600; font-size: 1rem; border: 2px solid rgba(255,255,255,0.4); transition: all 0.3s; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+    .btn-outline, .btn-primary, .nav-cta { text-decoration: none !important; }
     .btn-outline:hover { background: rgba(255,255,255,0.1); border-color: var(--white); }
     .hero-img { position: relative; }
     .hero-img img { width: 100%; max-width: 480px; border-radius: 24px; box-shadow: 0 32px 80px rgba(0,0,0,0.4); background: white; padding: 20px; }
@@ -509,9 +510,6 @@
           <button class="btn-primary" onclick="openModal('1L')">🛒 Order Now — Free Delivery</button>
           <a href="#about" class="btn-outline">Learn More ↓</a>
         </div>
-        <a href="/a2-vs-regular-ghee.html" style="color:blue; font-weight:bold; display:block; margin-top:10px; margin-bottom:10px;">
-          📖 Read our blog: A2 vs Regular Ghee
-        </a>
         <div class="hero-stats">
           <div class="stat"><div class="stat-num">5000+</div><div class="stat-label">Happy Families</div></div>
           <div class="stat"><div class="stat-num">100%</div><div class="stat-label">Pure & Natural</div></div>
