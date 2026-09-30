@@ -619,7 +619,6 @@ ${data.paymentMethod === 'UPI'
   ? '📱 Please complete your UPI payment to: 9654270726@upi\n   Amount: ₹' + data.total + '\n   Your order will be confirmed after payment verification.'
   : '💵 Cash on Delivery — Please keep ₹' + data.total + ' ready at the time of delivery.'}
 
-To track your order, visit: https://anshuman7739.github.io/Gaumaatri-Ghee/
 Enter your Order ID: ${data.orderId}
 
 Questions? WhatsApp us: +91 9654270726
