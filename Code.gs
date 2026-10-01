@@ -586,54 +586,7 @@ function getOrderDataFromRow(sheet, row) {
   };
 }
 
-// ============================================================
-//  EMAIL: Customer confirmation
-// ============================================================
-function sendCustomerEmail(data, status) {
-  const subject = status === 'Order Received'
-    ? `✅ Order Confirmed – ${data.orderId} | Gaumaatri Ghee`
-    : `📦 Order Update – ${data.orderId} | Gaumaatri Ghee`;
 
-  const body = `
-Dear ${data.name},
-
-Thank you for ordering from Gaumaatri Ghee! 🐄
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ORDER DETAILS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Order ID     : ${data.orderId}
-Product      : ${data.product}
-Quantity     : ${data.quantity}
-Total Amount : ₹${data.total}
-Payment      : ${data.paymentMethod}
-Status       : ${status}
-
-DELIVERY ADDRESS
-${data.address}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${data.paymentMethod === 'UPI'
-  ? '📱 Please complete your UPI payment to: 9654270726@upi\n   Amount: ₹' + data.total + '\n   Your order will be confirmed after payment verification.'
-  : '💵 Cash on Delivery — Please keep ₹' + data.total + ' ready at the time of delivery.'}
-
-Enter your Order ID: ${data.orderId}
-
-Questions? WhatsApp us: +91 9654270726
-
-With love,
-Team Gaumaatri 🙏
-gaumaatri@gmail.com
-  `.trim();
-
-  MailApp.sendEmail({
-    to: data.email,
-    subject: subject,
-    body: body,
-    name: 'Gaumaatri'
-  });
-  Logger.log('Customer email sent to: ' + data.email);
-}
 
 // ============================================================
 //  EMAIL: Admin new order alert
