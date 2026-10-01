@@ -219,13 +219,10 @@ function handleSubmitOrderLocked(data) {
   sheet.getRange(lastRow, 1, 1, HEADERS.length)
        .setBorder(true, true, true, true, true, true);
 
-  // ── Send Emails ── DISABLED (2026-09-30) ─────────────────
-  // Emails are now sent from the frontend via EmailJS (index.html).
-  // Disabling here prevents customers/admins from receiving DUPLICATE emails
-  // (one from MailApp + one from EmailJS) for the same order.
-  // Keep sheet-saving intact. To restore, uncomment the two lines below.
-  // try { sendCustomerEmail(data, orderStatus); }  catch(e) { Logger.log('Customer email failed: ' + e); }
-  // try { sendAdminEmail(data, orderStatus); }     catch(e) { Logger.log('Admin email failed: ' + e); }
+  // ── Send Emails ── DISABLED (EmailJS is the only active sender) ─────
+  // Frontend EmailJS handles all customer/admin confirmation emails.
+  // Keep sheet-saving intact and do not trigger MailApp here.
+  // This prevents duplicate sends and ensures one order = one confirmation email.
 
   Logger.log('Order saved: ' + data.orderId);
   return jsonResponse({
@@ -250,13 +247,8 @@ function handleUpdatePayment(data) {
   // Column 16 = Notes
   sheet.getRange(row, 16).setValue('Payment proof uploaded by customer at ' + new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }));
 
-  // Notify admin of payment submission — DISABLED (see note in handleSubmitOrderLocked).
-  // Order emails are handled by EmailJS on the frontend.
-  // Uncomment to restore.
-  // try {
-  //   const orderData = getOrderDataFromRow(sheet, row);
-  //   sendAdminPaymentAlert(orderData);
-  // } catch(e) { Logger.log('Payment alert email failed: ' + e); }
+  // Notify admin of payment submission — DISABLED.
+  // EmailJS on the frontend is the only active email channel.
 
   return jsonResponse({ success: true, message: 'Payment status updated' });
 }
