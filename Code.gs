@@ -219,10 +219,10 @@ function handleSubmitOrderLocked(data) {
   sheet.getRange(lastRow, 1, 1, HEADERS.length)
        .setBorder(true, true, true, true, true, true);
 
-  // ── Send Emails ── DISABLED (EmailJS is the only active sender) ─────
-  // Frontend EmailJS handles all customer/admin confirmation emails.
+  // ── Send Emails ── PERMANENTLY DISABLED (EmailJS is the only sender) ─
+  // The frontend (EmailJS) handles all customer/admin confirmation emails.
   // Keep sheet-saving intact and do not trigger MailApp here.
-  // This prevents duplicate sends and ensures one order = one confirmation email.
+  // This prevents duplicate sends and ensures one order = one email.
 
   Logger.log('Order saved: ' + data.orderId);
   return jsonResponse({
@@ -587,10 +587,12 @@ function getOrderDataFromRow(sheet, row) {
 }
 
 // ============================================================
-//  EMAILS: HARD DISABLED
-//  No backend email is allowed to send from this project.
-//  This prevents duplicate emails and stale deployments from
-//  sending confirmation or admin mail.
+//  EMAILS: PERMANENTLY DISABLED
+//  The backend (Google Apps Script) MUST NEVER send email.
+//  EmailJS (on the frontend) is the ONLY email source in this
+//  project. These functions exist only as no-op guards so that
+//  no stale call in this script can ever trigger MailApp.
+//  DO NOT add MailApp.sendEmail() anywhere in this file.
 // ============================================================
 function sendAdminEmail(data, status) {
   Logger.log('Email disabled: admin mail blocked for order ' + (data && data.orderId ? data.orderId : 'unknown'));
@@ -599,7 +601,7 @@ function sendAdminEmail(data, status) {
 
 // ============================================================
 //  EMAIL: Admin payment alert
-//  HARD DISABLED
+//  PERMANENTLY DISABLED (see note above)
 // ============================================================
 function sendAdminPaymentAlert(order) {
   Logger.log('Email disabled: admin payment alert blocked for order ' + (order && order.orderId ? order.orderId : 'unknown'));
