@@ -1691,6 +1691,20 @@
 
     // ── EMAILS ───────────────────────────────────────────────────
     function sendOrderEmails(orderId, type) {
+      const emailLockKey = 'gaumaatriEmailSent';
+
+      try {
+        const sentMap = JSON.parse(localStorage.getItem(emailLockKey) || '{}');
+        if (sentMap[orderId]) {
+          console.log('ℹ️ Email already sent for order', orderId);
+          return;
+        }
+        sentMap[orderId] = { type, timestamp: new Date().toISOString() };
+        localStorage.setItem(emailLockKey, JSON.stringify(sentMap));
+      } catch (e) {
+        console.warn('Email lock failed:', e);
+      }
+
       const orders = JSON.parse(localStorage.getItem('gaumaatriOrders') || '{}');
       const order  = orders[orderId];
       if (!order) return;
