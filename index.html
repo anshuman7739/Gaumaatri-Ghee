@@ -1113,9 +1113,10 @@
        JAVASCRIPT — clean, deduplicated, bug-free
   ════════════════════════════════════════════ -->
   <script>
-    // ── INIT THIRD-PARTY SDKS ────────────────────────────────────
-    // EmailJS Public Key (safe to keep client-side)
-    emailjs.init("IGPLEG5r-rO43M5EG");
+    // ── EMAILS: HARD DISABLED ─────────────────────────────────────
+    // Customer confirmation emails are intentionally disabled.
+    // This app must not send any confirmation mail through EmailJS.
+    const EMAIL_SENDING_ENABLED = false;
 
     // ── VERIFIED PRODUCT CONFIG ───────────────────────────────────
     // Keep product messaging in one place so the website does not contradict itself.
@@ -1676,7 +1677,9 @@
         <b>Address:</b> ${order.address}<br>
         <b>Date:</b> ${order.date}
       `;
-      document.getElementById('confirmEmailNote').textContent = '📧 Confirmation email sent to ' + order.email;
+      document.getElementById('confirmEmailNote').textContent = EMAIL_SENDING_ENABLED
+        ? '📧 Confirmation email sent to ' + order.email
+        : '📧 Email sending is disabled in this build.';
       document.getElementById('orderFormSection').style.display = 'none';
       document.getElementById('paymentSection').style.display   = 'none';
       document.getElementById('confirmScreen').classList.add('show');
@@ -1691,69 +1694,8 @@
 
     // ── EMAILS ───────────────────────────────────────────────────
     function sendOrderEmails(orderId, type) {
-      const emailLockKey = 'gaumaatriEmailSent';
-
-      try {
-        const sentMap = JSON.parse(localStorage.getItem(emailLockKey) || '{}');
-        if (sentMap[orderId]) {
-          console.log('ℹ️ Email already sent for order', orderId);
-          return;
-        }
-        sentMap[orderId] = { type, timestamp: new Date().toISOString() };
-        localStorage.setItem(emailLockKey, JSON.stringify(sentMap));
-      } catch (e) {
-        console.warn('Email lock failed:', e);
-      }
-
-      const orders = JSON.parse(localStorage.getItem('gaumaatriOrders') || '{}');
-      const order  = orders[orderId];
-      if (!order) return;
-
-      const EMAILJS_CONFIG = {
-        SERVICE_ID:        'service_7zrxz4h',
-        PUBLIC_KEY:        'IGPLEG5r-rO43M5EG',
-        CUSTOMER_TEMPLATE: 'template_fb7y4z6',
-        ADMIN_TEMPLATE:    'template_7lb2ejo'
-      };
-
-      const customerParams = {
-        to_email:         order.email,
-        customer_name:    order.name,
-        order_id:         order.id,
-        product_name:     order.variant,
-        quantity:         order.qty,
-        total_amount:     '₹' + order.total.toLocaleString(),
-        payment_method:   order.paymentMethod,
-        shipping_address: order.address,
-        order_date:       order.date,
-        status:           type === 'UPI' ? 'Paid & Confirmed' : 'Confirmed (COD)',
-        email_subject:    type === 'UPI' ? 'Payment Successful – Order Confirmed (Gaumaatri)' : 'Order Confirmed – Gaumaatri Ghee'
-      };
-
-      const adminParams = {
-        to_email:         'gaumaatri@gmail.com',
-        customer_name:    order.name,
-        customer_phone:   order.phone,
-        customer_email:   order.email,
-        order_id:         order.id,
-        product_name:     order.variant,
-        quantity:         order.qty,
-        total_amount:     '₹' + order.total.toLocaleString(),
-        payment_method:   order.paymentMethod,
-        shipping_address: order.address,
-        order_date:       order.date,
-        status:           type === 'UPI' ? 'Paid & Confirmed' : 'New COD Order',
-        proof_uploaded:   type === 'UPI' ? 'Paid (Verified)' : 'N/A',
-        email_subject:    type === 'UPI' ? '✅ New Paid Order – ' + order.id : '🛒 New COD Order – ' + order.id
-      };
-
-      emailjs.send(EMAILJS_CONFIG.SERVICE_ID, EMAILJS_CONFIG.CUSTOMER_TEMPLATE, customerParams, EMAILJS_CONFIG.PUBLIC_KEY)
-        .then(() => console.log('✅ Customer email sent to', order.email))
-        .catch(err => { console.warn('Customer email failed:', err); showToast('Note: Confirmation email failed to send.', 'error'); });
-
-      emailjs.send(EMAILJS_CONFIG.SERVICE_ID, EMAILJS_CONFIG.ADMIN_TEMPLATE, adminParams, EMAILJS_CONFIG.PUBLIC_KEY)
-        .then(() => console.log('✅ Admin email sent'))
-        .catch(err => console.warn('Admin email failed:', err));
+      console.log('ℹ️ Email sending is disabled for order', orderId, 'in this build.');
+      return;
     }
 
     // ── ORDER TRACKING ───────────────────────────────────────────

@@ -586,71 +586,24 @@ function getOrderDataFromRow(sheet, row) {
   };
 }
 
-
-
 // ============================================================
-//  EMAIL: Admin new order alert
+//  EMAILS: HARD DISABLED
+//  No backend email is allowed to send from this project.
+//  This prevents duplicate emails and stale deployments from
+//  sending confirmation or admin mail.
 // ============================================================
 function sendAdminEmail(data, status) {
-  const adminEmail = PropertiesService.getScriptProperties().getProperty('ADMIN_EMAIL') || 'gaumaatri@gmail.com';
-  const subject    = `🛒 New Order Received – ${data.orderId} (${data.paymentMethod})`;
-
-  const body = `
-NEW ORDER RECEIVED — GAUMAATRI GHEE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Order ID      : ${data.orderId}
-Timestamp     : ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
-
-CUSTOMER DETAILS
-Name          : ${data.name}
-Email         : ${data.email}
-Phone         : ${data.phone}
-Address       : ${data.address}
-
-ORDER DETAILS
-Product       : ${data.product}
-Quantity      : ${data.quantity}
-Total         : ₹${data.total}
-Payment       : ${data.paymentMethod}
-Status        : ${status}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-👉 View all orders in Google Sheets:
-${SpreadsheetApp.getActiveSpreadsheet().getUrl()}
-  `.trim();
-
-  MailApp.sendEmail({
-    to: adminEmail,
-    subject: subject,
-    body: body,
-    name: 'Gaumaatri'
-  });
-  Logger.log('Admin email sent for order: ' + data.orderId);
+  Logger.log('Email disabled: admin mail blocked for order ' + (data && data.orderId ? data.orderId : 'unknown'));
+  return;
 }
 
 // ============================================================
 //  EMAIL: Admin payment alert
+//  HARD DISABLED
 // ============================================================
 function sendAdminPaymentAlert(order) {
-  const adminEmail = PropertiesService.getScriptProperties().getProperty('ADMIN_EMAIL') || 'gaumaatri@gmail.com';
-  MailApp.sendEmail({
-    to: adminEmail,
-    subject: `💰 Payment Submitted – ${order.orderId} – Please Verify`,
-    body: `
-Customer has submitted payment for order ${order.orderId}.
-
-Name    : ${order.name}
-Email   : ${order.email}
-Phone   : ${order.phone}
-Product : ${order.product} × ${order.quantity}
-Amount  : ₹${order.total}
-
-Please verify the payment in your UPI app and update the status in Google Sheets.
-
-View Sheet: ${SpreadsheetApp.getActiveSpreadsheet().getUrl()}
-    `.trim(),
-    name: 'Gaumaatri'
-  });
+  Logger.log('Email disabled: admin payment alert blocked for order ' + (order && order.orderId ? order.orderId : 'unknown'));
+  return;
 }
 
 // ============================================================
