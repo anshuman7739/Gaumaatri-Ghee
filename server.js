@@ -61,7 +61,7 @@ if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
 }
 
 const DEFAULT_SHEETS_API_URL =
-  'https://script.google.com/macros/s/AKfycbzu7MvB-cE1oJ517NYxMyIxp7RaLfybK1rfTPutB_YBdgnbKIfL90xqLxdIQLCqaumpVg/exec';
+  'https://script.google.com/macros/s/AKfycbw7cgIJd_zwbMvpSPFqxzejAdtzj4dEKyvXp31b_oIvgxl7YIFLyISJQ-YWmKasUL2onw/exec';
 const DEFAULT_SHEETS_API_TOKEN = 'GAUMAATRI_SECRET_2026';
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'local_dev_admin_9f47d2';
 
