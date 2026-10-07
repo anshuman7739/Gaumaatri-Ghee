@@ -32,9 +32,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="api-base" content="https://www.gaumaatri.co.in">
-  <title>Badri Cow A2 Bilona Ghee | Premium Desi Ghee | Gaumaatri</title>
-  <meta name="description" content="Buy Badri cow A2 Bilona ghee online from Gaumaatri. Traditional desi ghee made using the Vedic Bilona method with rich taste and purity. Order now for fast delivery.">
-  <meta name="keywords" content="Badri cow ghee, A2 bilona ghee, desi ghee, pure cow ghee, buy ghee online, gaumaatri ghee">
+  <title>A2 Cow Bilona Ghee | Premium Desi Ghee | Gaumaatri</title>
+  <meta name="description" content="Buy A2 cow Bilona ghee online from Gaumaatri. Traditional desi ghee made using the Vedic Bilona method with rich taste and purity. Order now for fast delivery.">
+  <meta name="keywords" content="A2 cow ghee, A2 bilona ghee, desi ghee, pure cow ghee, buy ghee online, gaumaatri ghee">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://www.gaumaatri.co.in/">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -97,7 +97,7 @@
     .nav-cta:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(201,146,42,0.4) !important; }
     .hamburger { display: none; flex-direction: column; gap: 5px; cursor: pointer; background: none; border: none; padding: 4px; }
     .hamburger span { width: 24px; height: 2px; background: var(--brown); border-radius: 2px; transition: all 0.3s; }
-    .mobile-menu { display: none; position: fixed; inset: 0; background: var(--cream); z-index: 999; flex-direction: column; align-items: center; justify-content: center; gap: 32px; }
+    .mobile-menu { display: none; position: fixed; inset: 0; background: var(--cream); z-index: 1001; flex-direction: column; align-items: center; justify-content: center; gap: 32px; }
     .mobile-menu.open { display: flex; }
     .mobile-menu a { font-family: 'Playfair Display', serif; font-size: 1.8rem; color: var(--brown); text-decoration: none; }
     .mobile-close { position: absolute; top: 24px; right: 24px; font-size: 1.5rem; background: none; border: none; cursor: pointer; color: var(--brown); }
@@ -175,7 +175,7 @@
     #hero { min-height: 100vh; display: flex; align-items: center; position: relative; overflow: hidden; background: linear-gradient(135deg, #2C1810 0%, #3D2B1F 40%, #5C3A28 100%); }
     .hero-bg { position: absolute; inset: 0; background-image: url('/hero.png'); background-size: cover; background-position: center; opacity: 0.25; }
     .hero-overlay { position: absolute; inset: 0; background: linear-gradient(135deg, rgba(44,24,16,0.92) 0%, rgba(61,43,31,0.78) 40%, rgba(92,58,40,0.6) 100%); }
-    .hero-content { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 100px 24px 60px; display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 60px; align-items: center; }
+    .hero-content { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 150px 24px 60px; display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 60px; align-items: center; }
     .hero-left { padding: 18px 0; }
     .hero-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(201,146,42,0.18); border: 1px solid rgba(201,146,42,0.4); padding: 8px 16px; border-radius: 50px; font-size: 0.8rem; letter-spacing: 3px; color: var(--gold-light); font-weight: 600; margin-bottom: 24px; text-transform: uppercase; box-shadow: inset 0 1px 0 rgba(255,255,255,0.08); }
     .hero-title { font-size: clamp(2.5rem, 5vw, 4rem); font-weight: 700; color: var(--white); line-height: 1.15; margin-bottom: 16px; letter-spacing: -0.04em; }
@@ -288,6 +288,7 @@
     #reviews .section-title { color: var(--white); }
     #reviews .section-label { color: var(--gold-light); }
     .reviews-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 48px; }
+    #recentReviewsGrid { grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 20px; }
     .review-card { background: rgba(255,255,255,0.07); padding: 28px; border-radius: 20px; border: 1px solid rgba(201,146,42,0.2); }
     .stars { color: var(--gold-light); font-size: 1.1rem; margin-bottom: 12px; }
     .review-text { color: rgba(255,255,255,0.8); font-size: 0.92rem; line-height: 1.7; margin-bottom: 16px; }
@@ -465,13 +466,20 @@
       .form-row { grid-template-columns: 1fr; }
       .modal { padding: 20px; }
       .payment-options { flex-direction: column; gap: 8px; }
+      .mobile-close { min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; }
+      .variant-pill, .apply-coupon { min-height: 44px; }
     }
     @media(max-width: 600px) {
-      .trust-inner { gap: 20px; }
+      #hero { padding-top: 0; padding-bottom: 0; }
+      .hero-content { padding-top: 138px; }
+      #trust { padding: 16px 0; }
+      .trust-inner { gap: 12px; }
+      .products-grid, .benefits-grid { margin-top: 36px; }
       .steps-grid { grid-template-columns: 1fr; }
       .footer-inner { grid-template-columns: 1fr; }
       .coupon-row { flex-direction: column; gap: 8px; }
       .coupon-row input { width: 100%; }
+      .recent-reviews-grid { margin-top: 24px; }
     }
   </style>
 </head>
@@ -496,7 +504,7 @@
         <div class="logo-icon"><img src="/logo.png" alt="Gaumaatri Logo" class="logo-img"></div>
         <div>
           <div class="logo-text">Gaumaatri</div>
-          <div class="logo-sub">Ghar Ka Sudh Desi Danedar Ghee</div>
+          <div class="logo-sub">घी सिर्फ खाना नहीं, यादों में?</div>
         </div>
       </a>
       <ul class="nav-links">
@@ -539,17 +547,17 @@
       </div>
     </div>
 
-    <div class="hero-content" style="padding-top: 150px;">
+    <div class="hero-content">
       <div class="hero-left">
         <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px;">
           <div class="hero-badge">⭐ Trusted by Home Kitchens</div>
           <div class="hero-badge" style="background:rgba(76,175,80,0.2);border-color:rgba(76,175,80,0.4);color:#81C784;">🩺 Traditional Dairy Favorite</div>
         </div>
-        <h1 class="hero-title">Badri Cow A2<br><span>Bilona Ghee</span></h1>
-        <p style="color:var(--gold-light);font-size:0.9rem;font-weight:700;letter-spacing:2px;margin-bottom:12px;text-transform:uppercase;">Ghar Ka Sudh Desi Danedar Ghee</p>
-        <p class="hero-subtitle">Made using the ancient Vedic Bilona method from the milk of indigenous Badri cows. Traditional, A2, and crafted in small batches for rich taste and purity.</p>
+        <h1 class="hero-title">A2 Cow<br><span>Bilona Ghee</span></h1>
+        <p style="color:var(--gold-light);font-size:0.9rem;font-weight:700;letter-spacing:2px;margin-bottom:12px;text-transform:uppercase;">घी सिर्फ खाना नहीं, यादों में?</p>
+        <p class="hero-subtitle">Made using the ancient Vedic Bilona method from the milk of indigenous cows. Traditional, A2, and crafted in small batches for rich taste and purity.</p>
         <div class="hero-btns">
-          <button class="btn-primary" onclick="openModal('200ml')" aria-label="Try Gaumaatri starter pack, 200 millilitres">🛒 TRY GAUMAATRI</button>
+          <button class="btn-primary" onclick="openModal('200ml')" aria-label="Shop Gaumaatri A2 cow ghee">Shop Gaumaatri Ghee →</button>
           <a href="#about" class="btn-outline" aria-label="Learn more about Gaumaatri">Learn More ↓</a>
         </div>
         <div style="margin-top:14px;display:flex;flex-direction:column;gap:4px;color:var(--gold-light);font-weight:600;font-size:0.82rem;letter-spacing:0.08em;text-transform:uppercase;">
@@ -559,7 +567,7 @@
         <div class="hero-stats">
           <div class="stat"><div class="stat-num">5000+</div><div class="stat-label">Happy Families</div></div>
           <div class="stat"><div class="stat-num">100%</div><div class="stat-label">Pure & Natural</div></div>
-          <div class="stat"><div class="stat-num">A2</div><div class="stat-label">Badri Cow Milk</div></div>
+          <div class="stat"><div class="stat-num">A2</div><div class="stat-label">A2 Cow Milk</div></div>
         </div>
       </div>
       <div class="hero-img"><img src="/hero.png" alt="Gaumaatri Pure Desi Cow Ghee" loading="eager"></div>
@@ -569,12 +577,10 @@
   <!-- TRUST BADGES -->
   <div id="trust">
     <div class="trust-inner">
-      <div class="badge"><span class="badge-icon">🌿</span><span class="badge-text">100% Pure</span></div>
-      <div class="badge"><span class="badge-icon">🚫</span><span class="badge-text">No Additives</span></div>
-      <div class="badge"><span class="badge-icon">🚚</span><span class="badge-text">Free Delivery</span></div>
+      <div class="badge"><span class="badge-icon">🐄</span><span class="badge-text">A2 Cow Milk</span></div>
+      <div class="badge"><span class="badge-icon">🪔</span><span class="badge-text">Bilona Made</span></div>
       <div class="badge"><span class="badge-icon">🧪</span><span class="badge-text">Lab Tested</span></div>
-      <div class="badge"><span class="badge-icon">🐄</span><span class="badge-text">A2 Badri Cow Milk</span></div>
-      <div class="badge"><span class="badge-icon">🕉️</span><span class="badge-text">Vedic Bilona Method</span></div>
+      <div class="badge"><span class="badge-icon">📦</span><span class="badge-text">Freshly Packed</span></div>
       <div class="fssai-cert" aria-label="FSSAI licensed business and license number">
         <img class="fssai-mark" src="https://www.fssai.gov.in/images/fssai-logo-color.png" alt="FSSAI logo" loading="lazy">
         <div class="fssai-copy">
@@ -592,10 +598,10 @@
         <div class="about-img fade-in"><img src="/products.png" alt="Gaumaatri Ghee Products"></div>
         <div class="about-text fade-in">
           <div class="section-label">Our Story</div>
-          <p>At Gaumaatri, we believe food is medicine. Founded on the principles of Ayurveda, we bring you ghee made exactly how our ancestors made it — slowly, with care, using the traditional Bilona method from Himalayan Badri cows.</p>
-          <p>Our Badri cows roam freely on natural pastures in the high-altitude Himalayan ranges. Their A2 milk is boiled, cultured into yogurt, churned into butter, and then slow-cooked into liquid gold.</p>
+          <p>At Gaumaatri, we believe food is medicine. Founded on the principles of Ayurveda, we bring you ghee made exactly how our ancestors made it — slowly, with care, using the traditional Bilona method from indigenous cows.</p>
+          <p>Our cows roam freely on natural pastures in the high-altitude Himalayan ranges. Their A2 milk is boiled, cultured into yogurt, churned into butter, and then slow-cooked into liquid gold.</p>
           <div class="about-features">
-            <div class="feature-card"><h4>🐄 Badri Cow Sourced</h4><p>A2 beta-casein milk from indigenous Himalayan cows</p></div>
+            <div class="feature-card"><h4>🐄 A2 Cow Sourced</h4><p>A2 beta-casein milk from indigenous cows</p></div>
             <div class="feature-card"><h4>🔥 Bilona Method</h4><p>Traditional hand-churned for a richer taste and texture</p></div>
             <div class="feature-card"><h4>🧪 Lab Certified</h4><p>Third-party tested for purity and quality</p></div>
             <div class="feature-card"><h4>📦 Glass Jar</h4><p>Packed in premium glass to retain freshness</p></div>
@@ -630,9 +636,10 @@
         <div class="product-card fade-in">
           <div class="product-img"><img src="/products.png" alt="200ml Ghee"></div>
           <div class="product-body">
-            <div class="product-size">200 ML</div>
-            <div class="product-name">Starter Pack</div>
+            <div class="product-name">A2 Cow Bilona Ghee</div>
+            <div class="product-size">200 ML · Starter Pack</div>
             <div class="product-price">₹356 <span>/ jar</span></div>
+            <button class="order-btn" onclick="openModal('200ml')" aria-label="Buy now: 200 millilitre A2 cow ghee">Buy Now →</button>
             <ul class="product-features">
               <li>Perfect for trying first time</li>
               <li>200ml premium glass jar</li>
@@ -640,16 +647,16 @@
               <li>Lab tested & certified</li>
             </ul>
             <div class="stock-urgency" role="status" aria-live="polite">Only <span class="stock-count">19</span> jars left</div>
-            <button class="order-btn" onclick="openModal('200ml')" aria-label="Try the 200 millilitre starter pack">TRY 200ML →</button>
           </div>
         </div>
         <div class="product-card featured fade-in">
           <div class="popular-badge">⭐ Most Popular</div>
           <div class="product-img"><img src="/products.png" alt="500ml Ghee"></div>
           <div class="product-body">
-            <div class="product-size">500 ML</div>
-            <div class="product-name">Family Pack</div>
+            <div class="product-name">A2 Cow Bilona Ghee</div>
+            <div class="product-size">500 ML · Family Pack</div>
             <div class="product-price">₹789 <span>/ jar</span></div>
+            <button class="order-btn" onclick="openModal('500ml')" aria-label="Buy now: 500 millilitre A2 cow ghee">Buy Now →</button>
             <ul class="product-features">
               <li>Best value for families</li>
               <li>500ml premium glass jar</li>
@@ -657,15 +664,15 @@
               <li>Lab tested & certified</li>
             </ul>
             <div class="stock-urgency" role="status" aria-live="polite">Only <span class="stock-count">23</span> jars left</div>
-            <button class="order-btn" onclick="openModal('500ml')" aria-label="Choose the 500 millilitre family pack">CHOOSE 500ML →</button>
           </div>
         </div>
         <div class="product-card fade-in">
           <div class="product-img"><img src="/products.png" alt="1 Litre Ghee"></div>
           <div class="product-body">
-            <div class="product-size">1 LITRE</div>
-            <div class="product-name">Bulk Pack</div>
+            <div class="product-name">A2 Cow Bilona Ghee</div>
+            <div class="product-size">1 LITRE · Bulk Pack</div>
             <div class="product-price">₹1,599 <span>/ jar</span></div>
+            <button class="order-btn" onclick="openModal('1L')" aria-label="Buy now: one litre A2 cow ghee">Buy Now →</button>
             <ul class="product-features">
               <li>Ideal for large families</li>
               <li>1 Litre premium glass jar</li>
@@ -673,7 +680,6 @@
               <li>Lab tested & certified</li>
             </ul>
             <div class="stock-urgency" role="status" aria-live="polite">Only <span class="stock-count">28</span> jars left</div>
-            <button class="order-btn" onclick="openModal('1L')" aria-label="Choose the one litre bulk pack">CHOOSE 1L →</button>
           </div>
         </div>
       </div>
@@ -685,8 +691,8 @@
     <div class="container">
       <div class="text-center fade-in">
         <div class="section-label">Why Gaumaatri</div>
-        <h2 class="section-title">Ancient Benefits, Modern Science</h2>
-        <p class="section-sub">Desi cow ghee has been used in Ayurveda for thousands of years. Here's why it's a superfood.</p>
+        <h2 class="section-title">Why Gaumaatri?</h2>
+        <p class="section-sub">Traditional Bilona • Small Batch • Lab Tested • Chemical-Free</p>
       </div>
       <div class="benefits-grid">
         <div class="benefit-card fade-in"><div class="benefit-icon">🧠</div><h3>Traditionally Valued</h3><p>Rich, comforting, and a trusted part of traditional Indian kitchens for everyday cooking.</p></div>
@@ -695,8 +701,8 @@
         <div class="benefit-card fade-in"><div class="benefit-icon">✨</div><h3>Kitchen Essential</h3><p>Perfect for tempering, cooking, drizzling, and adding richness to classic recipes.</p></div>
         <div class="benefit-card fade-in"><div class="benefit-icon">🏃</div><h3>Daily Energy</h3><p>A satisfying staple that pairs well with wholesome meals and everyday family routines.</p></div>
         <div class="benefit-card fade-in"><div class="benefit-icon">🩺</div><h3>Transparency First</h3><p>Prepared with care, tested for purity, and shared with complete sourcing clarity.</p></div>
-        <div class="benefit-card fade-in" style="grid-column: span 3; background:var(--gold-dark); color:var(--white);">
-          <p style="font-size:1.1rem; font-style:italic;">"Made using the traditional Bilona method from indigenous Badri cows, our ghee is crafted for taste, purity, and trust in every spoonful."</p>
+        <div class="benefit-card fade-in" style="grid-column: 1 / -1; background:var(--gold-dark); color:var(--white);">
+          <p style="font-size:1.1rem; font-style:italic;">"Made using the traditional Bilona method from indigenous cows, our ghee is crafted for taste, purity, and trust in every spoonful."</p>
         </div>
       </div>
     </div>
@@ -827,7 +833,7 @@
         <div class="text-center fade-in" style="margin-bottom:30px;">
           <h3 style="font-family:'Playfair Display',serif;color:var(--brown);font-size:24px;">Recently Submitted Reviews</h3>
         </div>
-        <div id="recentReviewsGrid" class="reviews-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;">
+        <div id="recentReviewsGrid" class="reviews-grid recent-reviews-grid">
           <!-- Reviews will be loaded here via JavaScript -->
           <div style="text-align:center;grid-column:1/-1;padding:40px 20px;color:#999;">
             <p>Loading reviews...</p>
@@ -875,7 +881,7 @@
       <div class="faq-list">
         <div class="faq-item">
           <button class="faq-q">Is the ghee really 100% pure? <span class="faq-icon">+</span></button>
-          <div class="faq-a"><p>Absolutely. Gaumaatri ghee is made purely from the milk of indigenous Badri cows using the traditional Vedic Bilona method. Every batch is lab tested for purity and is free from any additives or preservatives.</p></div>
+          <div class="faq-a"><p>Absolutely. Gaumaatri ghee is made purely from A2 cow milk using the traditional Vedic Bilona method. Every batch is lab tested for purity and is free from any additives or preservatives.</p></div>
         </div>
         <div class="faq-item">
           <button class="faq-q">What is the Bilona method? <span class="faq-icon">+</span></button>
@@ -909,7 +915,7 @@
           <div class="logo-icon"><img src="/logo.png" alt="Gaumaatri Logo" class="logo-img"></div>
           <div>
             <div class="logo-text" style="color:var(--white);">Gaumaatri</div>
-            <div class="logo-sub" style="color:var(--gold-light);">Ghar Ka Sudh Desi Danedar Ghee</div>
+            <div class="logo-sub" style="color:var(--gold-light);">घी सिर्फ खाना नहीं, यादों में?</div>
           </div>
         </div>
         <p style="margin-top:16px;">Bringing ancient Ayurvedic wisdom to modern kitchens. Pure, natural, and made with love from our farm to your family.</p>
@@ -935,7 +941,7 @@
           <li><a href="#">No Preservatives</a></li>
           <li><a href="#">Lab Tested Quality</a></li>
           <li><a href="#">Free Pan-India Delivery</a></li>
-          <li><a href="#">A2 Badri Cow Milk</a></li>
+          <li><a href="#">A2 Cow Milk</a></li>
           <li><a href="#">Traditional Bilona Method</a></li>
         </ul>
       </div>
@@ -1124,10 +1130,10 @@
     // Keep product messaging in one place so the website does not contradict itself.
     const PRODUCT_CONFIG = {
       brand: 'Gaumaatri',
-      source: 'Badri cows from the Himalayan ranges',
+      source: 'Indigenous cows from the Himalayan ranges',
       milkType: 'A2 milk',
       process: 'Traditional Vedic Bilona method',
-      title: 'Badri Cow A2 Bilona Ghee',
+      title: 'A2 Cow Bilona Ghee',
       variants: {
         '200ml': { label: '200ml Starter Pack', price: 356 },
         '500ml': { label: '500ml Family Pack', price: 789 },
@@ -1565,7 +1571,7 @@
           amount:      serverOrder.amount,
           currency:    serverOrder.currency || 'INR',
           name:        'Gaumaatri',
-          description: 'Ghar Ka Sudh Desi Danedar Ghee',
+          description: 'घी सिर्फ खाना नहीं, यादों में?',
           image:       '/logo.png',
           order_id:    serverOrder.order_id,
           handler: async function (response) {
